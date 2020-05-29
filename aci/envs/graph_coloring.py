@@ -43,31 +43,33 @@ class GraphColoring():
             raise NotImplementedError(f'Graph type {graph_type} is not implemented.')
 
         self.adjacency_matrix = nx.to_numpy_matrix(self.graph)
-        import ipdb; ipdb.set_trace()
-        # neighbors + self
+
         self.neighbors = torch.tensor([
-            [random.sample(neighbor, len(neighbor)) for neighbor in node] 
-            for node in self.graph
-        ], dtype=torch.int, device=device) # n_agents, n_neighbors + 1
+            random.sample(self.graph[n].keys(), len(self.graph[n])) 
+            for n in self.graph
+        ], dtype=torch.int64, device=device) # n_agents, n_neighbors
 
         # self.action_space = spaces.Discrete(2)
         # self.observation_space = spaces.MultiDiscrete([n_colors] * (n_neighbors + 1))
-        self.step = 0
-        self.max_steps = max_step
+        self.steps = 0
+        self.max_steps = max_steps
         self.n_colors = n_colors
         self.n_neighbors = n_neighbors
+        self.n_agents = n_agents
         self.global_reward_fraction = global_reward_fraction
+        self.reset()
 
     def observations(self):
-        neighbor_colors = torch.gather(self.state, 1, self.neighbors)
-        observations = torch.cat((actions, neighbor_colors), dim=1)
+        state_ = self.state.reshape(1,-1).repeat(self.n_agents,1)
+        neighbor_colors = torch.gather(state_, 1, self.neighbors)
+        observations = torch.cat((self.state.reshape(-1,1), neighbor_colors), dim=1)
         return observations
 
     def step(self, actions):
         self.state = actions
         observations = self.observations()
 
-        conflicts = (observations[:,0] == observations[:,1:])
+        conflicts = (observations[:,[0]] == observations[:,1:])
 
         local_conflicts = conflicts.any(dim=1)
         global_conflicts = conflicts.any()
@@ -78,9 +80,9 @@ class GraphColoring():
         reward = self.global_reward_fraction * global_reward + \
             (1-self.global_reward_fraction) * local_reward
 
-        if global_conflicts or (self.step == self.max_steps):
+        if not global_conflicts or (self.step == self.max_steps):
             done = True
-        elif self.step > self.max_steps:
+        elif self.steps > self.max_steps:
             raise ValueError('Environment is done already.')
         else:
             done = False
@@ -88,8 +90,8 @@ class GraphColoring():
         return observations, reward, done, {}
 
     def reset(self):
-        self.step = 0
-        self.state = torch.tensor(np.random.randint(0, self.n_colors, self.n_agents))
+        self.steps = 0
+        self.state = torch.tensor(np.random.randint(0, self.n_colors, self.n_agents), dtype=torch.int64)
         return self.observations()
 
     def render(self):
@@ -102,3 +104,9 @@ class GraphColoring():
 
     def close(self):
         pass
+
+def test():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    env = GraphColoring(6, 'cycle', 5, 0.5, device)
+    return env
