@@ -46,6 +46,7 @@ class ActionSelector():
 
     def select_action(self, proposed_action):
         eps = ActionSelector.calc_eps(steps_done=self.steps_done, **self.args)
+        self.steps_done += 1
         self.last_eps = eps
         if random.random() > eps:
             return proposed_action

@@ -68,21 +68,39 @@ def write_metrics(metrics_dict, writer, i_episode):
 
 def train(env, controller, action_selector, writer, num_episodes, target_update, eval_period):
     total_steps = 0
+    episode_durations = []
     for i_episode in range(num_episodes):
         episode_reward = 0
 
         # Initialize the environment and state
         env.reset()
-        last_state, current_state, _ = next(divobservation(env))
+
+        last_screen = env.observe()
+        current_screen = env.observe()
+        state = current_screen - last_screen
+
+        # last_state, current_state, _ = next(divobservation(env))
         for t in count():
             # Select and perform an action
-            proposed_action = controller.get_action(current_state)
+            proposed_action = controller.get_action(state)
             selected_action = action_selector.select_action(proposed_action)
             reward, done = env.step(selected_action)
 
-            last_state, current_state, _ = next(divobservation(env))
+            # Observe new state
+            last_screen = current_screen
+            current_screen = env.observe()
+            if not done:
+                next_state = current_screen - last_screen
+            else:
+                next_state = None
 
-            controller.push_transition(last_state, selected_action, current_state, reward)
+
+            # last_state, current_state, _ = next(divobservation(env))
+
+            controller.push_transition(state, selected_action, next_state, reward)
+
+            # Move to the next state
+            state = next_state
 
             # Perform one step of the optimization (on the target network)
             controller.optimize()
@@ -91,26 +109,28 @@ def train(env, controller, action_selector, writer, num_episodes, target_update,
             episode_reward += reward[0]
 
             if done:
+                episode_durations.append(t + 1)
+                plot_durations(episode_durations)
                 break
         
-        metrics_dict = add_metrics(
-            {}, 'train', episode_reward=episode_reward, episode_steps=t+1)
+        # metrics_dict = add_metrics(
+        #     {}, 'train', episode_reward=episode_reward, episode_steps=t+1)
 
         # Update the target network, copying all weights and biases in DQN
         if i_episode % target_update == 0:
             controller.update()
 
-        # eval and logging
-        if i_episode % eval_period == 0:
-            eval_metrics_dict, video  = evaluation(env, controller)
-            writer.add_video('eval_play', video, i_episode)
+        # # eval and logging
+        # if i_episode % eval_period == 0:
+        #     eval_metrics_dict, video  = evaluation(env, controller)
+        #     writer.add_video('eval_play', video, i_episode)
         
-        metrics_dict = add_metrics(
-            metrics_dict, 'train', **eval_metrics_dict)
+        # metrics_dict = add_metrics(
+        #     metrics_dict, 'train', **eval_metrics_dict)
         
-        write_metrics(metrics_dict, writer, i_episode)
-        controller.log(writer, i_episode, i_episode % eval_period == 0)
-        action_selector.log(writer, i_episode, i_episode % eval_period == 0)
+        # write_metrics(metrics_dict, writer, i_episode)
+        # controller.log(writer, i_episode, i_episode % eval_period == 0)
+        # action_selector.log(writer, i_episode, i_episode % eval_period == 0)
 
 
 def main(opt_args, selector_args, train_args, replay_memory):
