@@ -1,0 +1,8 @@
+gym
+torch
+torchvision
+Pillow
+docopt
+PyYAML
+tensorboard
+moviepy

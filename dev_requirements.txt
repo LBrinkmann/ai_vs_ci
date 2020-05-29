@@ -1,0 +1,6 @@
+ipdb
+ipython
+matplotlib
+seaborn
+jupyter
+pylint
