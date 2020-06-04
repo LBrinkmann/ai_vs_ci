@@ -36,7 +36,7 @@ class GraphColoring():
     def __init__(self, n_agents, graph_type, max_steps, global_reward_fraction, device):
 
         if graph_type == 'cycle':
-            self.graph = nx.cycle_graph(6)
+            self.graph = nx.cycle_graph(n_agents)
             n_colors = 2
             n_neighbors = 2
         else:
@@ -53,8 +53,9 @@ class GraphColoring():
         # self.observation_space = spaces.MultiDiscrete([n_colors] * (n_neighbors + 1))
         self.steps = 0
         self.max_steps = max_steps
-        self.n_colors = n_colors
+        self.n_actions = n_colors
         self.n_neighbors = n_neighbors
+        self.observation_shape = (self.n_neighbors + 1)
         self.n_agents = n_agents
         self.global_reward_fraction = global_reward_fraction
         self.reset()
@@ -80,18 +81,18 @@ class GraphColoring():
         reward = self.global_reward_fraction * global_reward + \
             (1-self.global_reward_fraction) * local_reward
 
-        if not global_conflicts or (self.step == self.max_steps):
+        if not global_conflicts or (self.steps == self.max_steps):
             done = True
         elif self.steps > self.max_steps:
             raise ValueError('Environment is done already.')
         else:
             done = False
-
+        self.steps += 1
         return observations, reward, done, {}
 
     def reset(self):
         self.steps = 0
-        self.state = torch.tensor(np.random.randint(0, self.n_colors, self.n_agents), dtype=torch.int64)
+        self.state = torch.tensor(np.random.randint(0, self.n_actions, self.n_agents), dtype=torch.int64)
         return self.observations()
 
     def render(self):

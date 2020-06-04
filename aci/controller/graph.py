@@ -5,16 +5,16 @@ import random
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
-from aci.neural_modules.medium_conv import MediumConv
+from aci.neural_modules.logistic_regression import SharedLogisticRegression
 
 
-class DQN:
+class MADQN:
     def __init__(
-            self, observation_shape, n_actions, replay_memory, opt_args, device):
+            self, observation_shape, n_agents, n_actions, replay_memory, opt_args, device):
         self.n_actions = n_actions
         self.device = device
-        self.policy_net = MediumConv(observation_shape[0], observation_shape[1], n_actions).to(device)
-        self.target_net = MediumConv(observation_shape[0], observation_shape[1], n_actions).to(device)
+        self.policy_net = SharedLogisticRegression(observation_shape, n_agents, n_actions).to(device)
+        self.target_net = SharedLogisticRegression(observation_shape, n_agents, n_actions).to(device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
 
@@ -47,16 +47,7 @@ class DQN:
         action_batch = torch.cat(batch.action)
         reward_batch = torch.cat(batch.reward)
 
-        # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
-        # columns of actions taken. These are the actions which would've been taken
-        # for each batch state according to policy_net
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
-
-        # Compute V(s_{t+1}) for all next states.
-        # Expected values of actions for non_final_next_states are computed based
-        # on the "older" target_net; selecting their best reward with max(1)[0].
-        # This is merged based on the mask, such that we'll have either the expected
-        # state value or 0 in case the state was final.
         next_state_values = torch.zeros(batch_size, device=self.device)
         next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
         # Compute the expected Q values

@@ -6,3 +6,4 @@ docopt
 PyYAML
 tensorboard
 moviepy
+structlog

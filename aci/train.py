@@ -14,7 +14,8 @@ Outputs:
 from itertools import count
 from docopt import docopt
 from aci.envs.cart import CartWrapper
-from aci.controller.dqn import DQN, ActionSelector
+from aci.controller.dqn import DQN
+from aci.controller.utils import ActionSelector
 from aci.ploting.training import plot_durations
 from aci.ploting.screen import plot_screen
 from aci.utils.io import load_yaml

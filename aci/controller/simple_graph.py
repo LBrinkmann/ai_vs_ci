@@ -3,6 +3,7 @@ import math
 import random
 import torch
 import numpy as np
+import pandas as pd
 
 
 class SimpleGraphAgent:
@@ -11,15 +12,12 @@ class SimpleGraphAgent:
         self.device = device
         
     def get_action(self, observation):
-        observation = observation.cpu().numpy()
-        own_state = observation[0]
-        other_state = observation[1:]
-        unique_elements, counts_elements = np.unique(other_state, return_counts=True)
-        default_dict = {i: 0 for i in range(self.n_actions)}
-        count_dict = {i: c for i, c in zip(unique_elements, counts_elements)}
-        count_dict = {**default_dict, **count_dict}
-        is_min = count_dict.values() == count_dict.values().min()
-        return torch.tensor(np.random.choice(count_dict.keys(), size=1, p=is_min/is_min.sum()))
+        diff = (observation[:, 1:] - observation[:, [0]]).abs().sum(1)
+        p_change = 0.5 * diff
+
+        s_change = torch.bernoulli(p_change)
+        action = s_change * (1 - observation[:, 0]) + (1-s_change) * observation[:, 0]
+        return action.type(torch.int64)
 
     def optimize(self):
         pass
