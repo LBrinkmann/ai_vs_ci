@@ -5,7 +5,7 @@ selector_args:
 replay_memory: 10000
 controller_args:
     policy_args: 
-        net_type: medium_conv
+        net_type: logistic
         multi_type: shared_weights
     gamma: 0.999
 train_args:
@@ -13,9 +13,11 @@ train_args:
     target_update: 10
     eval_period: 20
     num_episodes: 1000
-env_class: cart
+env_class: graph_coloring
 env_args:
-    n_agents: 1
-    # graph_type: cycle
-    # max_steps: 100
-    # global_reward_fraction: 0.5
+    graph_args: 
+        graph_type: cycle
+        degree: 2
+    n_agents: 10
+    max_steps: 100
+    global_reward_fraction: 0.5

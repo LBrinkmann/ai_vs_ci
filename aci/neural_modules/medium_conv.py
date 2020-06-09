@@ -80,7 +80,7 @@ import torch.nn.functional as F
 
 class MediumConv(nn.Module):
 
-    def __init__(self, h, w, outputs):
+    def __init__(self, c, h, w, outputs):
         super(MediumConv, self).__init__()
         self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
         self.bn1 = nn.BatchNorm2d(16)

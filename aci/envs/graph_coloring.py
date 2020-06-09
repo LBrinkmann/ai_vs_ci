@@ -10,38 +10,34 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
+
+def create_cycle_graph(n_nodes, degree):
+    graph = nx.watts_strogatz_graph(n_nodes, degree, 0)
+    n_actions = max(nx.algorithms.coloring.greedy_color(graph).values()) + 1
+    n_neighbors = degree
+    return graph, n_actions, n_neighbors
+
+def random_regular_graph(n_nodes, degree, chromatic_number=None):
+    for i in range(100):
+        graph = nx.random_regular_graph(degree, n_nodes)
+        n_actions = max(nx.algorithms.coloring.greedy_color(graph).values()) + 1
+        n_neighbors = degree
+        if (chromatic_number is None) or (n_actions == chromatic_number):
+            return graph, n_actions, n_neighbors
+    raise Exception('Could not create graph with requested chromatic number.')
+
+def create_graph(graph_type, n_nodes, **kwargs):
+    if graph_type == 'cycle':
+        return create_cycle_graph(n_nodes, **kwargs)
+    elif graph_type == 'random_regular':
+        return random_regular_graph(n_nodes, **kwargs)
+    else:
+        raise NotImplementedError(f'Graph type {graph_type} is not implemented.')
+
 class GraphColoring():
-    """
-    Description:
-        To be filled
-    Source:
-        To be filled
-    Observation:
-        Type: Box(4)
-        Num	Observation               Min             Max
-        0	Cart Position             -4.8            4.8
-        1	Cart Velocity             -Inf            Inf
-        2	Pole Angle                -24 deg         24 deg
-        3	Pole Velocity At Tip      -Inf            Inf
-    Actions:
-        Type: Discrete(n_colors)
-    Reward:
-        Reward is -1 for every step taken and 0 for the termination step.
-    Starting State:
-        Each Agent has a random starting color.
-    Episode Termination:
-        If the coloring is correct, or more then 200 steps have been passed.
-    """
+    def __init__(self, n_agents, graph_args, max_steps, global_reward_fraction, device):
 
-    def __init__(self, n_agents, graph_type, max_steps, global_reward_fraction, device):
-
-        if graph_type == 'cycle':
-            self.graph = nx.cycle_graph(n_agents)
-            n_colors = 2
-            n_neighbors = 2
-        else:
-            raise NotImplementedError(f'Graph type {graph_type} is not implemented.')
-
+        self.graph, self.n_actions, self.n_neighbors = create_graph(n_nodes=n_agents, **graph_args)
         self.adjacency_matrix = nx.to_numpy_matrix(self.graph)
 
         self.neighbors = torch.tensor([
@@ -53,9 +49,7 @@ class GraphColoring():
         # self.observation_space = spaces.MultiDiscrete([n_colors] * (n_neighbors + 1))
         self.steps = 0
         self.max_steps = max_steps
-        self.n_actions = n_colors
-        self.n_neighbors = n_neighbors
-        self.observation_shape = (self.n_neighbors + 1)
+        self.observation_shape = (self.n_neighbors + 1,)
         self.n_agents = n_agents
         self.global_reward_fraction = global_reward_fraction
         self.reset()
@@ -101,7 +95,9 @@ class GraphColoring():
         fig.canvas.draw()
         data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-        return data
+        np.moveaxis(data, 2, 0)
+        plt.close()
+        return torch.tensor(data[np.newaxis, np.newaxis])
 
     def close(self):
         pass

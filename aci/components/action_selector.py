@@ -34,7 +34,7 @@ class MultiActionSelector():
         if avail_actions is None:
             avail_actions = th.ones_like(proposed_action)
 
-        masked_q_values = proposed_action.clone()
+        masked_q_values = proposed_action
         masked_q_values[avail_actions == 0.0] = -float("inf")  # should never be selected!
 
         random_numbers = th.rand_like(proposed_action[:, :, 0])

@@ -1,5 +1,5 @@
 import gym
-import torch as th
+import torch
 import numpy as np
 import torchvision.transforms as T
 from PIL import Image
@@ -36,47 +36,32 @@ def get_screen(env, device):
     # Convert to float, rescale, convert to torch tensor
     # (this doesn't require a copy)
     screen = np.ascontiguousarray(screen, dtype=np.float32) / 255
-    screen = th.from_numpy(screen)
+    screen = torch.from_numpy(screen)
     # Resize, and add a batch dimension (BCHW)
     return resize(screen).unsqueeze(0).to(device)
 
 
 class CartWrapper():
-    def __init__(self, device, n_agents):
-        self.envs = [gym.make('CartPole-v0').unwrapped for i in range(n_agents)]
+    def __init__(self, device):
+        self.env = gym.make('CartPole-v0').unwrapped
         self.device = device
-        self.n_agents = n_agents
 
-    def step(self, actions):
-        rewards = th.zeros(self.n_agents)
-        dones = th.zeros(self.n_agents, dtype=th.bool)
-        for i, env in enumerate(self.envs):
-            _, reward, done, _ = env.step(actions[i].item())
-            rewards[i] = reward
-            dones[i] = done
-        new_screen = th.cat([get_screen(env, self.device) for env in self.envs])
-        observation = self.last_screen - new_screen
-        self.last_screen = new_screen
-        return observation, rewards, dones.any(), {}
+    def step(self, action):
+        _, reward, done, _ = self.env.step(action.item())
+        reward = torch.tensor([reward], device=self.device)
+        return reward, done
     
-    def render(self):
-        frame = th.stack([get_screen(env, self.device) for env in self.envs])
-        return frame
+    def observe(self):
+        return get_screen(self.env, self.device)
 
     def reset(self):
-        for env in self.envs:
-            env.reset()
-        self.last_screen = th.cat([get_screen(env, self.device) for env in self.envs])
-        return th.zeros_like(self.last_screen)
+        self.env.reset()
 
     @property
     def n_actions(self):
-        return self.envs[0].action_space.n
+        return self.env.action_space.n
 
     @property
     def observation_shape(self):
-        return self.last_screen.shape[1:]
-
-    def __del__(self):
-        for env in self.envs:
-            env.close()  
+        _, _, screen_height, screen_width = self.observe().shape
+        return screen_height, screen_width
