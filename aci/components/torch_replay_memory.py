@@ -4,20 +4,30 @@ import torch as th
 import torch.optim as optim
 
 class ReplayMemory(object):
-    def __init__(self, capacity, observation_shape, n_actions, n_agents):
-        self.memory = {
-            'observations': th.zeros((capacity, n_agents, *observation_shape), dtype=th.float32),
-            'done': th.zeros(capacity, dtype=th.bool),
-            'actions': th.zeros((capacity, n_agents), dtype=th.long),
-            'rewards': th.zeros((capacity, n_agents), dtype=th.float32)
-        }
+    def __init__(self, capacity):
+        self.memory = None
         self.valid = th.zeros(capacity, dtype=th.long)
         self.previous_map = th.tensor(
             [capacity - 1] + list(range(capacity - 1)), dtype=th.long)
         self.added = 0
         self.capacity = capacity
 
+    def _init_cache(self, observations, actions, rewards, done):
+        # only observations type are automatically derived
+        n_agents = observations.shape[0]
+        observation_shape = observations.shape[1:]
+        capacity = self.capacity
+
+        self.memory = {
+            'observations': th.zeros((capacity, n_agents, *observation_shape), dtype=observations.dtype),
+            'done': th.zeros(capacity, dtype=th.bool),
+            'actions': th.zeros((capacity, n_agents), dtype=th.long),
+            'rewards': th.zeros((capacity, n_agents), dtype=th.float32)
+        }
+
     def push(self, observations, actions=None,  rewards=None, done=False):
+        if self.memory is None:
+            self._init_cache(observations, actions,  rewards, done)
         if rewards is None:
             assert actions is None
             rewards = th.zeros_like(self.memory['rewards'][0])

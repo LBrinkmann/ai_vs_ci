@@ -29,7 +29,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import logging
 import datetime
-from structlog import wrap_logger
+import structlog
 from structlog.stdlib import filter_by_level
 from structlog.processors import JSONRenderer
 from structlog.contextvars import (
@@ -39,7 +39,7 @@ from structlog.contextvars import (
 )
 
 ## logging
-
+log = structlog.get_logger()
 
 def add_timestamp(_, __, event_dict):
     event_dict["timestamp"] = datetime.datetime.utcnow()
@@ -60,18 +60,6 @@ def parse_value(value):
 
 def parse_dict(_, __, event_dict):
     return {k: parse_value(v) for k,v in event_dict.items()}
-
-
-log = wrap_logger(
-    logging.getLogger(__name__),
-    processors=[
-        filter_by_level,
-        merge_contextvars,
-        add_timestamp,
-        parse_dict,
-        JSONRenderer(sort_keys=True)
-    ]
-)
 
 def evaluation(env, controller, writer):
     bind_contextvars(mode='eval', episode_step=0)
@@ -175,6 +163,17 @@ def main(controller_args, env_class, selector_args, train_args, env_args, replay
         format="%(message)s",
         level='INFO'
     )
+    structlog.configure(
+        processors=[
+            filter_by_level,
+            merge_contextvars,
+            add_timestamp,
+            parse_dict,
+            JSONRenderer(sort_keys=True)
+        ],
+        # context_class=structlog.threadlocal.wrap_dict(dict),
+        logger_factory=structlog.stdlib.LoggerFactory(),
+    )
 
     # if gpu is to be used
     device = th.device("cuda" if th.cuda.is_available() else "cpu")
@@ -185,9 +184,7 @@ def main(controller_args, env_class, selector_args, train_args, env_args, replay
     env.reset()
     n_actions = env.n_actions
     observation_shape = env.observation_shape
-    memory = ReplayMemory(
-        replay_memory, observation_shape=observation_shape, n_actions=n_actions,
-        n_agents=env.n_agents)
+    memory = ReplayMemory(replay_memory)
 
     controller = MADQN(
         observation_shape=observation_shape,

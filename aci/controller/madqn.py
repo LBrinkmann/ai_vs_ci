@@ -7,6 +7,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from aci.neural_modules.logistic_regression import LogisticRegression
 from aci.neural_modules.medium_conv import MediumConv
+from aci.neural_modules.learning_heuristic import LearningHeuristic
 import torch.nn as nn
 
 
@@ -42,21 +43,29 @@ class SharedWeightModel(nn.Module):
         self.model.log(*args, **kwargs)
 
 
+net_types = {
+    'shared_medium_conv': [FloatTransformer, SharedWeightModel, MediumConv],
+    'shared_logistic': [FloatTransformer, SharedWeightModel, LogisticRegression],
+    'shared_learningheuristic': [SharedWeightModel, LearningHeuristic],
+}
+
 
 def create_net(observation_shape, n_agents, n_actions, net_type, multi_type, **kwargs):
     if net_type == 'medium_conv':
         model = MediumConv(*observation_shape, n_actions, **kwargs)
+        model = FloatTransformer(model)
     elif net_type == 'logistic':
         model = LogisticRegression(*observation_shape, n_actions, **kwargs)
+        model = FloatTransformer(model)
+    elif net_type == 'learningheuristic':
+        model = LearningHeuristic(*observation_shape, n_actions, **kwargs)
     else:
-        NotImplementedError(f"Net type not found: {net_type}")
+        raise NotImplementedError(f"Net type not found: {net_type}")
     
     if multi_type == 'shared_weights':
         model = SharedWeightModel(model)
     else:
-        NotImplementedError(f"Multi type not found: {multi_type}")
-
-    model = FloatTransformer(model)
+        raise NotImplementedError(f"Multi type not found: {multi_type}")
 
     return model
 

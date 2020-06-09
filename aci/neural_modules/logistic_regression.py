@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from .utils import write_module
 
 class LogisticRegression(nn.Module):
     def __init__(self, observation_shape, n_actions):
@@ -13,7 +14,4 @@ class LogisticRegression(nn.Module):
 
     def log(self, writer, step, prefix='LogisticRegression'):
         write_module(self.linear, f'{prefix}.01.Linear', writer, step)
-
-def write_module(module, m_name, writer, step):
-    for p_name, values in module.named_parameters():
-        writer.add_histogram(f'{m_name}.{p_name}', values, step)
+        writer.add_image('linear.weights', self.linear.weight.unsqueeze(0), step)

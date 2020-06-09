@@ -5,13 +5,13 @@ selector_args:
 replay_memory: 10000
 controller_args:
     policy_args: 
-        net_type: logistic
+        net_type: learningheuristic
         multi_type: shared_weights
     gamma: 0.999
 train_args:
     batch_size: 128
     target_update: 10
-    eval_period: 20
+    eval_period: 10
     num_episodes: 1000
 env_class: graph_coloring
 env_args:
