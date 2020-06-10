@@ -8,6 +8,8 @@ controller_args:
         net_type: learningheuristic
         multi_type: shared_weights
     gamma: 0.999
+    opt_args:
+        lr: 0.001
 train_args:
     batch_size: 128
     target_update: 10
@@ -19,5 +21,5 @@ env_args:
         graph_type: cycle
         degree: 2
     n_agents: 10
-    max_steps: 100
+    max_steps: 10
     global_reward_fraction: 0.5

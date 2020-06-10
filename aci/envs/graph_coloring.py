@@ -38,6 +38,7 @@ class GraphColoring():
     def __init__(self, n_agents, graph_args, max_steps, global_reward_fraction, device):
 
         self.graph, self.n_actions, self.n_neighbors = create_graph(n_nodes=n_agents, **graph_args)
+        self.graph_pos = nx.spring_layout(self.graph)
         self.adjacency_matrix = nx.to_numpy_matrix(self.graph)
 
         self.neighbors = torch.tensor([
@@ -91,11 +92,12 @@ class GraphColoring():
 
     def render(self):
         fig = plt.figure()
-        nx.draw(self.graph)
+        nx.draw(self.graph, self.graph_pos, node_color=self.state.cpu().numpy())
+        plt.text(0, 0, str(self.steps), fontsize=30)
         fig.canvas.draw()
         data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-        np.moveaxis(data, 2, 0)
+        data = np.moveaxis(data, 2, 0)
         plt.close()
         return torch.tensor(data[np.newaxis, np.newaxis])
 

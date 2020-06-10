@@ -72,7 +72,7 @@ def create_net(observation_shape, n_agents, n_actions, net_type, multi_type, **k
 
 class MADQN:
     def __init__(
-            self, observation_shape, n_agents, n_actions, policy_args, gamma, device):
+            self, observation_shape, n_agents, n_actions, policy_args, opt_args, gamma, device):
         self.n_actions = n_actions
         self.device = device
         self.policy_net = create_net(observation_shape, n_agents, n_actions, **policy_args).to(device)
@@ -80,7 +80,7 @@ class MADQN:
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
 
-        self.optimizer = optim.RMSprop(self.policy_net.parameters())
+        self.optimizer = optim.RMSprop(self.policy_net.parameters(), **opt_args)
         self.gamma = gamma
 
     def get_action(self, observations):

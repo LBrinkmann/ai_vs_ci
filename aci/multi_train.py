@@ -61,7 +61,7 @@ def parse_value(value):
 def parse_dict(_, __, event_dict):
     return {k: parse_value(v) for k,v in event_dict.items()}
 
-def evaluation(env, controller, writer):
+def evaluation(env, controller, writer, episode):
     bind_contextvars(mode='eval', episode_step=0)
     observations = env.reset()
     screens = [env.render()]
@@ -86,18 +86,27 @@ def evaluation(env, controller, writer):
             done=done
         )
         if done:
-            writer.add_scalar('avg_reward', episode_rewards.mean())
-            writer.add_scalar('episode_steps', t)
-            video = th.cat(screens, dim=1)
-            writer.add_video('eval_play', video, fps=1)
+            log.info(
+                'finished episode',
+                rewards=reward, 
+                avg_reward=reward.mean(), 
+                episode_rewards=episode_rewards,
+                avg_episode_rewards=episode_rewards.mean(),
+                done=done
+            )
+            writer.add_scalar('avg_reward', episode_rewards.mean(), episode)
+            writer.add_scalar('episode_steps', t, episode)
+            video = th.cat(screens, dim=1).type(th.float64) / 255
+            writer.add_video('eval_play', video, episode, fps=1)
             break
 
-def train_episode(env, controller, action_selector, memory, writer, batch_size):
+def train_episode(env, controller, action_selector, memory, writer, batch_size, episode, log_details):
     bind_contextvars(mode='train', episode_step=0)
     observations = env.reset()
     episode_rewards = th.zeros(env.n_agents)
 
     memory.push(observations)
+    screens = []
     for t in count():
         bind_contextvars(episode_step=t, **action_selector.info())
 
@@ -109,20 +118,33 @@ def train_episode(env, controller, action_selector, memory, writer, batch_size):
 
         episode_rewards += rewards
         memory.push(observations, selected_action[0], rewards, done)
-        log.info(
-            'finished step',
-            rewards=rewards,
-            avg_reward=rewards.mean(), 
-            episode_rewards=episode_rewards,
-            avg_episode_rewards=episode_rewards.mean(),
-            done=done
-        )        
+        if log_details:
+            log.info(
+                'finished step',
+                rewards=rewards,
+                avg_reward=rewards.mean(), 
+                episode_rewards=episode_rewards,
+                avg_episode_rewards=episode_rewards.mean(),
+                done=done
+            )
+            screens.append(env.render())
         if len(memory) > batch_size:
             controller.optimize(*memory.sample(batch_size))
 
         if done:
-            writer.add_scalar('avg_reward', episode_rewards.mean())
-            writer.add_scalar('episode_steps', t)
+            if log_details:
+                video = th.cat(screens, dim=1).type(th.float64) / 255
+                writer.add_video('train_play', video, episode, fps=1)             
+            log.info(
+                'finished episode',
+                rewards=rewards,
+                avg_reward=rewards.mean(), 
+                episode_rewards=episode_rewards,
+                avg_episode_rewards=episode_rewards.mean(),
+                done=done
+            )
+            writer.add_scalar('avg_reward', episode_rewards.mean(), episode)
+            writer.add_scalar('episode_steps', t, episode)
             break
 
 
@@ -131,20 +153,21 @@ def train(
         num_episodes, target_update, eval_period, batch_size):
     for i_episode in range(num_episodes):
         bind_contextvars(episode=i_episode)
+        is_eval = i_episode % eval_period == 0
 
         log.debug('run training')
-        train_episode(env, controller, action_selector, memory, writer, batch_size)
+        train_episode(env, controller, action_selector, memory, writer, batch_size, i_episode, is_eval)
 
         if i_episode % target_update == 0:
             log.debug('update controller')
             controller.update()
 
-        if i_episode % eval_period == 0:
+        if is_eval:
             log.debug('run evalutation')
-            evaluation(env, controller, writer)
+            evaluation(env, controller, writer, i_episode)
 
-        controller.log(writer, i_episode, i_episode % eval_period == 0)
-        action_selector.log(writer, i_episode, i_episode % eval_period == 0)
+        controller.log(writer, i_episode, is_eval)
+        action_selector.log(writer, i_episode, is_eval)
 
 envs = {
     'cart': CartWrapper,
