@@ -1,0 +1,4 @@
+[submodule "djx"]
+	path = djx
+	url = git@github.com:dkollective/djx.git
+	branch = cluster
