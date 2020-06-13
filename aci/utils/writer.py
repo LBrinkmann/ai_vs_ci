@@ -48,7 +48,7 @@ class Writer():
     def __init__(self, output_folder, **meta):
         self.meta = meta
         ensure_dir(output_folder)
-        self.json_writer = jsonlines.open(f"{output_folder}/metrics.jsonl", mode='w')
+        self.json_writer = jsonlines.open(f"{output_folder}/metrics.jsonl", mode='w', flush=True)
         self.tensorboard_writer = SummaryWriter(log_dir=f'{output_folder}/tensorboard')
         self.image_folder = f"{output_folder}/images"
         self.video_folder = f"{output_folder}/videos"

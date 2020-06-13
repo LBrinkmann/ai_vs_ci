@@ -9,5 +9,6 @@ moviepy
 structlog
 networkx
 scipy
-dvc
-boto3
+jsonlines
+# dvc
+# boto3
