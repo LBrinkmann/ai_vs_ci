@@ -3,6 +3,7 @@
 */**/__pycache__
 *.egg-info
 *.log
+.env
 
 tensorboard
 logs
