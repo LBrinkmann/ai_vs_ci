@@ -18,10 +18,11 @@ setup(
     author_email='',
     license='',
     packages=[package for package in find_packages()
-            if package.startswith('mc')],
+            if (package.startswith('aci'))],
     zip_safe=False,
     install_requires=load_requirements(),
     extras_require={'dev': load_requirements('dev_requirements.txt')},
     scripts=[
+        'djx/scripts/djx'
     ]
 )

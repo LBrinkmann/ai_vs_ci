@@ -117,6 +117,5 @@ class MADQN:
     def update(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
-    def log(self, writer, step, details):
-        if details:
-            self.policy_net.log(writer, step, prefix='policyNet')
+    def log(self, writer):
+        self.policy_net.log(writer, prefix='policyNet')

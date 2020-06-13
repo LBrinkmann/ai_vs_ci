@@ -68,6 +68,3 @@ class ActionSelector():
             return proposed_action
         else:
             return th.tensor([[random.randrange(len(proposed_action))]], device=self.device, dtype=th.long)
-
-    def log(self, writer, step, details):
-        writer.add_scalar('actionSelector.eps', self.last_eps, step)

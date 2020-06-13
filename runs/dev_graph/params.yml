@@ -1,3 +1,6 @@
+_meta:
+    project: ai_vs_ci
+    batch: dev_graph
 selector_args:
     eps_start: 0.9
     eps_end: 0.05

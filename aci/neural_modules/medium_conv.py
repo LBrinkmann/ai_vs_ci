@@ -4,8 +4,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .utils import write_module
-
 
 class MediumConv(nn.Module):
 
@@ -35,8 +33,8 @@ class MediumConv(nn.Module):
         x = F.relu(self.bn3(self.conv3(x)))
         return self.head(x.view(x.size(0), -1))
 
-    def log(self, writer, step, prefix='mediumConv'):
-        write_module(self.conv1, f'{prefix}.01.Conv2d', writer, step)
-        write_module(self.conv2, f'{prefix}.02.Conv2d', writer, step)
-        write_module(self.conv3, f'{prefix}.03.Conv2d', writer, step)
-        write_module(self.head, f'{prefix}.04.Linear', writer, step)
+    def log(self, writer, prefix='mediumConv'):
+        writer.write_module(self.conv1, f'{prefix}.01.Conv2d')
+        writer.write_module(self.conv2, f'{prefix}.02.Conv2d')
+        writer.write_module(self.conv3, f'{prefix}.03.Conv2d')
+        writer.write_module(self.head, f'{prefix}.04.Linear')

@@ -1,7 +1,7 @@
-"""Usage: train.py PARAMETER_YAML
+"""Usage: train.py PARAMETER_FILE OUTPUT_PATH
 
 Arguments:
-    PARAMETER_YAML        A yaml parameter file.
+    RUN_PATH
 
 Outputs:
     ....
@@ -22,93 +22,57 @@ from aci.controller.madqn import MADQN
 from aci.ploting.training import plot_durations
 from aci.ploting.screen import plot_screen
 from aci.utils.io import load_yaml
+from aci.utils.writer import Writer
 import matplotlib
 import matplotlib.pyplot as plt
 import torch as th
-from torch.utils.tensorboard import SummaryWriter
 
-import logging
-import datetime
-import structlog
-from structlog.stdlib import filter_by_level
-from structlog.processors import JSONRenderer
-from structlog.contextvars import (
-    bind_contextvars,
-    clear_contextvars,
-    merge_contextvars
-)
 
-## logging
-log = structlog.get_logger()
+def calc_metrics(rewards, episode_rewards):
+    return {
+        'rewards': rewards,
+        'avg_reward': rewards.mean(), 
+        'episode_rewards': episode_rewards,
+        'avg_episode_rewards': episode_rewards.mean()
+    }
 
-def add_timestamp(_, __, event_dict):
-    event_dict["timestamp"] = datetime.datetime.utcnow()
-    return event_dict
 
-def parse_value(value):
-    if type(value) is th.Tensor:
-        if value.dim() == 0:
-            return value.item()
-        elif len(value) == 1:
-            return value.item()
-        else:
-            return [i.item() for i in value]
-    elif type(value) is datetime.datetime:
-        return value.isoformat()
-    else:
-        return value
-
-def parse_dict(_, __, event_dict):
-    return {k: parse_value(v) for k,v in event_dict.items()}
-
-def evaluation(env, controller, writer, episode):
-    bind_contextvars(mode='eval', episode_step=0)
+def evaluation(env, controller, writer):
+    writer.add_meta(mode='eval', episode_step=0)
     observations = env.reset()
     screens = [env.render()]
     episode_rewards = th.zeros(env.n_agents)
 
     for t in count():
-        bind_contextvars(episode_step=t)
+        writer.add_meta(episode_step=t)
 
         # Select and perform an action
         actions = controller.get_action(observations)
-        observations, reward, done, _ = env.step(actions)
+        observations, rewards, done, _ = env.step(actions)
 
         screens.append(env.render())
-        episode_rewards += reward
+        episode_rewards += rewards
 
-        log.info(
-            'finished step',
-            rewards=reward, 
-            avg_reward=reward.mean(), 
-            episode_rewards=episode_rewards,
-            avg_episode_rewards=episode_rewards.mean(),
-            done=done
+        writer.add_metrics(
+            calc_metrics(rewards, episode_rewards),
+            {'done': done},
+            tf=['avg_reward', 'avg_episode_rewards'] if done else [],
+            details_only=~done
         )
+        writer.add_frame('eval.observations', lambda: env.render(), details_only=True)
         if done:
-            log.info(
-                'finished episode',
-                rewards=reward, 
-                avg_reward=reward.mean(), 
-                episode_rewards=episode_rewards,
-                avg_episode_rewards=episode_rewards.mean(),
-                done=done
-            )
-            writer.add_scalar('avg_reward', episode_rewards.mean(), episode)
-            writer.add_scalar('episode_steps', t, episode)
-            video = th.cat(screens, dim=1).type(th.float64) / 255
-            writer.add_video('eval_play', video, episode, fps=1)
+            writer.frames_flush()
             break
 
-def train_episode(env, controller, action_selector, memory, writer, batch_size, episode, log_details):
-    bind_contextvars(mode='train', episode_step=0)
+
+def train_episode(env, controller, action_selector, memory, writer, batch_size):
+    writer.add_meta(mode='train', episode_step=0)
     observations = env.reset()
     episode_rewards = th.zeros(env.n_agents)
 
     memory.push(observations)
-    screens = []
     for t in count():
-        bind_contextvars(episode_step=t, **action_selector.info())
+        writer.add_meta(episode_step=t)
 
         # Select and perform an action
         proposed_actions = controller.get_q(observations.unsqueeze(0))
@@ -118,33 +82,20 @@ def train_episode(env, controller, action_selector, memory, writer, batch_size, 
 
         episode_rewards += rewards
         memory.push(observations, selected_action[0], rewards, done)
-        if log_details:
-            log.info(
-                'finished step',
-                rewards=rewards,
-                avg_reward=rewards.mean(), 
-                episode_rewards=episode_rewards,
-                avg_episode_rewards=episode_rewards.mean(),
-                done=done
-            )
-            screens.append(env.render())
+
+        writer.add_metrics(
+            {**calc_metrics(rewards, episode_rewards), **action_selector.info()},
+            {'done': done},
+            tf=['avg_reward', 'avg_episode_rewards', 'eps'] if done else [],
+            details_only=~done
+        )
+        writer.add_frame('train.observations', lambda: env.render(), details_only=True)
+
         if len(memory) > batch_size:
             controller.optimize(*memory.sample(batch_size))
 
-        if done:
-            if log_details:
-                video = th.cat(screens, dim=1).type(th.float64) / 255
-                writer.add_video('train_play', video, episode, fps=1)             
-            log.info(
-                'finished episode',
-                rewards=rewards,
-                avg_reward=rewards.mean(), 
-                episode_rewards=episode_rewards,
-                avg_episode_rewards=episode_rewards.mean(),
-                done=done
-            )
-            writer.add_scalar('avg_reward', episode_rewards.mean(), episode)
-            writer.add_scalar('episode_steps', t, episode)
+        if done: 
+            writer.frames_flush()
             break
 
 
@@ -152,22 +103,19 @@ def train(
         env, controller, action_selector, memory, writer, 
         num_episodes, target_update, eval_period, batch_size):
     for i_episode in range(num_episodes):
-        bind_contextvars(episode=i_episode)
+        writer.add_meta(_step=i_episode, episode=i_episode)
         is_eval = i_episode % eval_period == 0
+        writer.set_details(is_eval)
 
-        log.debug('run training')
-        train_episode(env, controller, action_selector, memory, writer, batch_size, i_episode, is_eval)
+        train_episode(env, controller, action_selector, memory, writer, batch_size)
 
         if i_episode % target_update == 0:
-            log.debug('update controller')
             controller.update()
 
         if is_eval:
-            log.debug('run evalutation')
-            evaluation(env, controller, writer, i_episode)
+            evaluation(env, controller, writer)
 
-        controller.log(writer, i_episode, is_eval)
-        action_selector.log(writer, i_episode, is_eval)
+        controller.log(writer)
 
 envs = {
     'cart': CartWrapper,
@@ -175,33 +123,14 @@ envs = {
 }
 
 
-def main(controller_args, env_class, selector_args, train_args, env_args, replay_memory):
-
-    datetime_now = datetime.datetime.utcnow().isoformat()
-    logfile = f"logs/{datetime_now}.log"
-    tb_dir = f"tensorboard/{datetime_now}"
-
-    logging.basicConfig(
-        handlers=[logging.FileHandler(logfile)], # logging.StreamHandler()], 
-        format="%(message)s",
-        level='INFO'
-    )
-    structlog.configure(
-        processors=[
-            filter_by_level,
-            merge_contextvars,
-            add_timestamp,
-            parse_dict,
-            JSONRenderer(sort_keys=True)
-        ],
-        # context_class=structlog.threadlocal.wrap_dict(dict),
-        logger_factory=structlog.stdlib.LoggerFactory(),
-    )
+def main(
+        controller_args, env_class, selector_args, train_args, env_args, 
+        replay_memory, _output_path, _meta):
 
     # if gpu is to be used
     device = th.device("cuda" if th.cuda.is_available() else "cpu")
 
-    writer = SummaryWriter(log_dir=tb_dir)
+    writer = Writer(_output_path, **_meta)
 
     env = envs[env_class](**env_args, device=device)
     env.reset()
@@ -218,10 +147,11 @@ def main(controller_args, env_class, selector_args, train_args, env_args, replay
 
     action_selector = MultiActionSelector(device=device, **selector_args)
     train(env, controller, action_selector, memory, writer, **train_args)
-    log.info('complete')
 
 
 if __name__ == "__main__":
     arguments = docopt(__doc__)
-    parameter = load_yaml(arguments['PARAMETER_YAML'])
-    main(**parameter)
+    parameter_file = arguments['PARAMETER_FILE']
+    output_path = arguments['OUTPUT_PATH']
+    parameter = load_yaml(parameter_file)
+    main(_output_path=output_path, **parameter)

@@ -7,3 +7,5 @@ PyYAML
 tensorboard
 moviepy
 structlog
+networkx
+scipy
