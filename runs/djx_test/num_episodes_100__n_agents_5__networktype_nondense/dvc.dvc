@@ -1,0 +1,15 @@
+md5: 08dc011b6f2a44bf8d0501a518f384cb
+cmd: python aci/multi_train.py runs/djx_test/num_episodes_100__n_agents_5__networktype_nondense/params.yml
+  runs/djx_test/num_episodes_100__n_agents_5__networktype_nondense/data
+wdir: ../../..
+deps:
+- md5: 234135f347625eea3d59789f8bc8d852
+  path: aci/multi_train.py
+- md5: a45f480c71257ad5c0e798fdb6e867bb
+  path: runs/djx_test/num_episodes_100__n_agents_5__networktype_nondense/params.yml
+outs:
+- md5: 2b47503168ae7043908a528cdbeb28aa.dir
+  path: runs/djx_test/num_episodes_100__n_agents_5__networktype_nondense/data
+  cache: true
+  metric: false
+  persist: false

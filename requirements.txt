@@ -9,3 +9,4 @@ moviepy
 structlog
 networkx
 scipy
+dvc

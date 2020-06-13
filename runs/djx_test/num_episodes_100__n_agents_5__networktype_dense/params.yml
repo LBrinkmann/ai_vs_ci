@@ -1,0 +1,36 @@
+exec:
+  python_file: aci/multi_train.py
+  script_name: local_dvc
+exp_id: 139c4e14-6413-49c0-8ea9-4bc5c4655bcd
+job_id: num_episodes_100__n_agents_5__networktype_dense
+labels:
+  n_agents: 5
+  networktype: dense
+  num_episodes: 100
+parameter: {}
+params:
+  controller_args:
+    gamma: 0.999
+    opt_args:
+      lr: 0.001
+    policy_args:
+      multi_type: shared_weights
+      net_type: learningheuristic
+  env_args:
+    global_reward_fraction: 0.5
+    graph_args:
+      degree: 4
+      graph_type: cycle
+    max_steps: 10
+    n_agents: 5
+  env_class: graph_coloring
+  replay_memory: 10000
+  selector_args:
+    eps_decay: 200
+    eps_end: 0.05
+    eps_start: 0.9
+  train_args:
+    batch_size: 128
+    eval_period: 50
+    num_episodes: 100
+    target_update: 10

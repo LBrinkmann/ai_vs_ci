@@ -22,5 +22,5 @@ class LearningHeuristic(nn.Module):
         return q
 
     def log(self, writer, prefix='LogisticRegression'):
-        writer.write_module(f'{prefix}.01.Linear', self.linear)
-        writer.add_image('linear.weights', self.linear.weight.unsqueeze(0))
+        writer.write_module(f'{prefix}.01.Linear', self.linear, details_only=True)
+        writer.add_image('linear.weights', self.linear.weight.unsqueeze(0), details_only=True)

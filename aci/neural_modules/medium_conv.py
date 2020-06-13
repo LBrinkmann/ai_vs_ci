@@ -34,7 +34,7 @@ class MediumConv(nn.Module):
         return self.head(x.view(x.size(0), -1))
 
     def log(self, writer, prefix='mediumConv'):
-        writer.write_module(self.conv1, f'{prefix}.01.Conv2d')
-        writer.write_module(self.conv2, f'{prefix}.02.Conv2d')
-        writer.write_module(self.conv3, f'{prefix}.03.Conv2d')
-        writer.write_module(self.head, f'{prefix}.04.Linear')
+        writer.write_module(self.conv1, f'{prefix}.01.Conv2d', details_only=True)
+        writer.write_module(self.conv2, f'{prefix}.02.Conv2d', details_only=True)
+        writer.write_module(self.conv3, f'{prefix}.03.Conv2d', details_only=True)
+        writer.write_module(self.head, f'{prefix}.04.Linear', details_only=True)

@@ -13,5 +13,5 @@ class LogisticRegression(nn.Module):
         return q
 
     def log(self, writer, prefix='LogisticRegression'):
-        writer.write_module(self.linear, f'{prefix}.01.Linear')
-        writer.add_image('linear.weights', self.linear.weight.unsqueeze(0))
+        writer.write_module(self.linear, f'{prefix}.01.Linear', details_only=True)
+        writer.add_image('linear.weights', self.linear.weight.unsqueeze(0), details_only=True)

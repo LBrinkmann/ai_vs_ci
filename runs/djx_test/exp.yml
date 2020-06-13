@@ -1,6 +1,6 @@
 exec:
-  command: python aci/multi_train.py
-  script_name: local
+  python_file: aci/multi_train.py
+  script_name: local_dvc
 labels:
   num_episodes: 100
 grid:
