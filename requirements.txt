@@ -10,3 +10,4 @@ structlog
 networkx
 scipy
 dvc
+boto3
