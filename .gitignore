@@ -5,5 +5,4 @@
 *.log
 .env
 
-tensorboard
 logs
