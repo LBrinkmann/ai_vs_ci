@@ -57,7 +57,7 @@ def evaluation(env, controller, writer):
             calc_metrics(rewards, episode_rewards),
             {'done': done},
             tf=['avg_reward', 'avg_episode_rewards'] if done else [],
-            details_only=~done
+            details_only=not done
         )
         writer.add_frame('eval.observations', lambda: env.render(), details_only=True)
         if done:
@@ -87,7 +87,7 @@ def train_episode(env, controller, action_selector, memory, writer, batch_size):
             {**calc_metrics(rewards, episode_rewards), **action_selector.info()},
             {'done': done},
             tf=['avg_reward', 'avg_episode_rewards', 'eps'] if done else [],
-            details_only=~done
+            details_only=not done
         )
         writer.add_frame('train.observations', lambda: env.render(), details_only=True)
 
@@ -125,12 +125,10 @@ envs = {
 
 def main(
         controller_args, env_class, selector_args, train_args, env_args, 
-        replay_memory, _output_path, _meta):
+        replay_memory, writer):
 
     # if gpu is to be used
     device = th.device("cuda" if th.cuda.is_available() else "cpu")
-
-    writer = Writer(_output_path, **_meta)
 
     env = envs[env_class](**env_args, device=device)
     env.reset()
@@ -154,4 +152,10 @@ if __name__ == "__main__":
     parameter_file = arguments['PARAMETER_FILE']
     output_path = arguments['OUTPUT_PATH']
     parameter = load_yaml(parameter_file)
-    main(_output_path=output_path, **parameter)
+
+    meta = {f'label.{k}': v for k, v in parameter['labels'].items()}
+    writer = Writer(output_path, **meta)
+
+
+
+    main(writer=writer, **parameter['params'])

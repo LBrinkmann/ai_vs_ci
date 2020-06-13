@@ -37,6 +37,7 @@ def ensure_dir(directory):
 
 def selector(func):
     def wrapper(self, *args, details_only=False, **kwargs):
+        print(self.details, details_only, self.meta, func) 
         if self.details or not details_only:
             return func(self, *args, **kwargs)
         else:
@@ -91,6 +92,7 @@ class Writer():
         for name, frames in self.frames.items():
             video = th.cat(frames, dim=1)
             self.add_video(name, video)
+        self.frames = {}
 
     def _write_image(self, name, array):
         ensure_dir(self.image_folder)

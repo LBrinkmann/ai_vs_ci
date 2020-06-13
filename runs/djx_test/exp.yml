@@ -1,20 +1,15 @@
 exec:
-  script_args:
-    python_file: aci/multi_train.py
-    log_file: log.log
-    output_folder: data
-  script_name: cpu
+  command: python aci/multi_train.py
+  script_name: local
 labels:
   num_episodes: 100
 grid:
   - params.env_args.n_agents: [5, 10]
     labels.n_agents: [5, 10]
-  - - params.env_args:
-        graph_args: 
+  - - params.env_args.graph_args: 
           degree: 2
       labels.networktype: nondense
-    - params.env_args:
-        graph_args: 
+    - params.env_args.graph_args: 
           degree: 4
       labels.networktype: dense
 params:
