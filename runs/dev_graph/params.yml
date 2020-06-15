@@ -1,28 +1,29 @@
-_meta:
-    project: ai_vs_ci
-    batch: dev_graph
-selector_args:
+labels:
+  project: ai_vs_ci
+  batch: dev_graph
+params:
+  selector_args:
     eps_start: 0.9
     eps_end: 0.05
     eps_decay: 200
-replay_memory: 10000
-controller_args:
+  replay_memory: 10000
+  controller_args:
     policy_args: 
-        net_type: learningheuristic
-        multi_type: shared_weights
+      net_type: learningheuristic
+      multi_type: shared_weights
     gamma: 0.999
     opt_args:
-        lr: 0.001
-train_args:
+      lr: 0.001
+  train_args:
     batch_size: 128
     target_update: 10
     eval_period: 10
     num_episodes: 1000
-env_class: graph_coloring
-env_args:
+  env_class: graph_coloring
+  env_args:
     graph_args: 
-        graph_type: cycle
-        degree: 2
+      graph_type: cycle
+      degree: 2
     n_agents: 10
     max_steps: 10
     global_reward_fraction: 0.5

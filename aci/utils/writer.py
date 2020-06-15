@@ -37,7 +37,6 @@ def ensure_dir(directory):
 
 def selector(func):
     def wrapper(self, *args, details_only=False, **kwargs):
-        print(self.details, details_only, self.meta, func) 
         if self.details or not details_only:
             return func(self, *args, **kwargs)
         else:
@@ -72,17 +71,20 @@ class Writer():
 
     @selector
     def add_image(self, name, image):
+        name = name.format(**self.meta)
         self.tensorboard_writer.add_image(name, image, self.step)
         self._write_image(name, image)
 
     @selector
     def add_video(self, name, video):
+        name = name.format(**self.meta)
         self.tensorboard_writer.add_video(name, video, self.step, fps=1)
         assert video.shape[0] == 1, 'Multiple videos are not yet supported'
         self._write_video(name, video[0], fps=1)
 
     @selector
     def add_frame(self, name, callback):
+        name = name.format(**self.meta)
         if name not in self.frames:
             self.frames[name] = [callback()]
         else:
@@ -116,6 +118,7 @@ class Writer():
 
     @selector
     def write_module(self, name, module):
+        name = name.format(**self.meta)
         for p_name, values in module.named_parameters():
             self.tensorboard_writer.add_histogram(f'{name}.{p_name}', values, self.step)
 
