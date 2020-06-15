@@ -37,21 +37,24 @@ def calc_metrics(rewards, episode_rewards):
     }
 
 
-def evaluation(env, controller, writer):
-    writer.add_meta(mode='eval', episode_step=0)
+def run_episode(*, env, controller, action_selector, memory=None, writer, test_mode=False):
     observations = env.reset()
-    screens = [env.render()]
     episode_rewards = th.zeros(env.n_agents)
 
+    if memory is not None:
+        memory.push(observations)
     for t in count():
-        writer.add_meta(episode_step=t)
+        writer.add_meta(episode_step=t, **action_selector.info())
 
         # Select and perform an action
-        actions = controller.get_action(observations)
-        observations, rewards, done, _ = env.step(actions)
+        proposed_actions = controller.get_q(observations.unsqueeze(0))
+        selected_action = action_selector.select_action(proposed_actions, test_mode=test_mode)
 
-        screens.append(env.render())
+        observations, rewards, done, _ = env.step(selected_action[0])
+
         episode_rewards += rewards
+        if memory is not None:
+            memory.push(observations, selected_action[0], rewards, done)
 
         writer.add_metrics(
             calc_metrics(rewards, episode_rewards),
@@ -59,44 +62,34 @@ def evaluation(env, controller, writer):
             tf=['avg_reward', 'avg_episode_rewards'] if done else [],
             details_only=not done
         )
-        writer.add_frame('eval.observations', lambda: env.render(), details_only=True)
-        if done:
-            writer.frames_flush()
+        writer.add_frame('{mode}.observations', lambda: env.render(), details_only=True)
+        if done: 
             break
+    
+    writer.frames_flush()
 
 
 def train_episode(env, controller, action_selector, memory, writer, batch_size):
-    writer.add_meta(mode='train', episode_step=0)
-    observations = env.reset()
-    episode_rewards = th.zeros(env.n_agents)
+    writer.add_meta(mode='train')
+    run_episode(
+        env=env, 
+        controller=controller, 
+        action_selector=action_selector, 
+        memory=memory, 
+        writer=writer)
 
-    memory.push(observations)
-    for t in count():
-        writer.add_meta(episode_step=t)
+    if len(memory) > batch_size:
+        controller.optimize(*memory.sample(batch_size))
 
-        # Select and perform an action
-        proposed_actions = controller.get_q(observations.unsqueeze(0))
-        selected_action = action_selector.select_action(proposed_actions)
 
-        observations, rewards, done, _ = env.step(selected_action[0])
-
-        episode_rewards += rewards
-        memory.push(observations, selected_action[0], rewards, done)
-
-        writer.add_metrics(
-            {**calc_metrics(rewards, episode_rewards), **action_selector.info()},
-            {'done': done},
-            tf=['avg_reward', 'avg_episode_rewards', 'eps'] if done else [],
-            details_only=not done
-        )
-        writer.add_frame('train.observations', lambda: env.render(), details_only=True)
-
-        if len(memory) > batch_size:
-            controller.optimize(*memory.sample(batch_size))
-
-        if done: 
-            writer.frames_flush()
-            break
+def evaluation(env, controller, action_selector, writer):
+    writer.add_meta(mode='eval')
+    run_episode(
+        env=env, 
+        controller=controller,
+        action_selector=action_selector,
+        writer=writer,
+        test_mode=True)
 
 
 def train(
@@ -113,7 +106,7 @@ def train(
             controller.update()
 
         if is_eval:
-            evaluation(env, controller, writer)
+            evaluation(env, controller, action_selector, writer)
 
         controller.log(writer)
 
@@ -153,9 +146,6 @@ if __name__ == "__main__":
     output_path = arguments['OUTPUT_PATH']
     parameter = load_yaml(parameter_file)
 
-    meta = {f'label.{k}': v for k, v in parameter['labels'].items()}
+    meta = {f'label.{k}': v for k, v in parameter.get('labels', {}).items()}
     writer = Writer(output_path, **meta)
-
-
-
     main(writer=writer, **parameter['params'])
