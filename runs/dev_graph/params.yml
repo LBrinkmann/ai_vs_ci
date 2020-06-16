@@ -6,16 +6,20 @@ params:
     eps_start: 0.9
     eps_end: 0.05
     eps_decay: 200
-  replay_memory: 10000
+  memory_args: 
+    n_seq: 1000
+    seq_length: 8
+    batch_size: 4
   controller_args:
     policy_args: 
-      net_type: learningheuristic
+      net_type: rnn
       multi_type: shared_weights
+      rnn_input_size: 12
+      rnn_hidden_size: 15
     gamma: 0.999
     opt_args:
       lr: 0.001
   train_args:
-    batch_size: 128
     target_update: 10
     eval_period: 10
     num_episodes: 1000

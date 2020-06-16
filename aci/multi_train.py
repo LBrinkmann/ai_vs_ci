@@ -42,7 +42,8 @@ def run_episode(*, env, controller, action_selector, memory=None, writer, test_m
     episode_rewards = th.zeros(env.n_agents)
 
     if memory is not None:
-        memory.push(observations)
+        memory.next_seq(observations)
+    controller.init_episode(observations)
     for t in count():
         writer.add_meta(episode_step=t, **action_selector.info())
 
@@ -69,7 +70,7 @@ def run_episode(*, env, controller, action_selector, memory=None, writer, test_m
     writer.frames_flush()
 
 
-def train_episode(env, controller, action_selector, memory, writer, batch_size):
+def train_episode(env, controller, action_selector, memory, writer):
     writer.add_meta(mode='train')
     run_episode(
         env=env, 
@@ -78,8 +79,8 @@ def train_episode(env, controller, action_selector, memory, writer, batch_size):
         memory=memory, 
         writer=writer)
 
-    if len(memory) > batch_size:
-        controller.optimize(*memory.sample(batch_size))
+    if memory.can_sample():
+        controller.optimize(*memory.sample())
 
 
 def evaluation(env, controller, action_selector, writer):
@@ -94,13 +95,13 @@ def evaluation(env, controller, action_selector, writer):
 
 def train(
         env, controller, action_selector, memory, writer, 
-        num_episodes, target_update, eval_period, batch_size):
+        num_episodes, target_update, eval_period):
     for i_episode in range(num_episodes):
         writer.add_meta(_step=i_episode, episode=i_episode)
         is_eval = i_episode % eval_period == 0
         writer.set_details(is_eval)
 
-        train_episode(env, controller, action_selector, memory, writer, batch_size)
+        train_episode(env, controller, action_selector, memory, writer)
 
         if i_episode % target_update == 0:
             controller.update()
@@ -118,7 +119,7 @@ envs = {
 
 def main(
         controller_args, env_class, selector_args, train_args, env_args, 
-        replay_memory, writer):
+        memory_args, writer):
 
     # if gpu is to be used
     device = th.device("cuda" if th.cuda.is_available() else "cpu")
@@ -127,7 +128,9 @@ def main(
     env.reset()
     n_actions = env.n_actions
     observation_shape = env.observation_shape
-    memory = ReplayMemory(replay_memory)
+    n_agents = env.n_agents
+    memory = ReplayMemory(
+        **memory_args, observation_shape=observation_shape, n_agents=n_agents)
 
     controller = MADQN(
         observation_shape=observation_shape,

@@ -117,7 +117,7 @@ class Writer():
         self.json_writer.close()
 
     @selector
-    def write_module(self, name, module):
+    def write_module(self, module, name):
         name = name.format(**self.meta)
         for p_name, values in module.named_parameters():
             self.tensorboard_writer.add_histogram(f'{name}.{p_name}', values, self.step)

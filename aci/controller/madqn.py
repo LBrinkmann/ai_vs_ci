@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from aci.neural_modules.logistic_regression import LogisticRegression
 from aci.neural_modules.medium_conv import MediumConv
 from aci.neural_modules.learning_heuristic import LearningHeuristic
+from aci.neural_modules.simple_rnn import RecurrentModel
 import torch.nn as nn
 
 
@@ -16,38 +17,39 @@ class FloatTransformer(nn.Module):
         super(FloatTransformer, self).__init__()
         self.model = model
 
-    def forward(self, x):
+    def forward(self, x, h):
         _x = x.type(th.float32)
-        y = self.model(_x)
-        return y
-    
+        y, h = self.model(_x, h)
+        return y, h
+
+    def init_hidden(self, batch_size):
+        return self.model.init_hidden(batch_size)
+
     def log(self, *args, **kwargs):
         self.model.log(*args, **kwargs)
 
 
 
 class SharedWeightModel(nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, n_agents):
         super(SharedWeightModel, self).__init__()
         self.model = model
+        self.n_agents = n_agents
 
-    def forward(self, x):
-        batch_size = x.shape[0]
-        n_agents = x.shape[1]
-        _x = x.reshape(-1, *x.shape[2:])
-        y = self.model(_x)
-        y = y.reshape(batch_size, n_agents, *y.shape[1:])
-        return y
+    def forward(self, x, h):
+        seq_length = x.shape[0]
+        batch_size = x.shape[1]
+        n_agents = x.shape[2]
+        _x = x.reshape(seq_length, -1, *x.shape[3:])
+        y, h_ = self.model(_x, h)
+        y = y.reshape(seq_length, batch_size, n_agents, *y.shape[2:])
+        return y, h_
+
+    def init_hidden(self, batch_size):
+        return self.model.init_hidden(batch_size * self.n_agents)
     
     def log(self, *args, **kwargs):
         self.model.log(*args, **kwargs)
-
-
-net_types = {
-    'shared_medium_conv': [FloatTransformer, SharedWeightModel, MediumConv],
-    'shared_logistic': [FloatTransformer, SharedWeightModel, LogisticRegression],
-    'shared_learningheuristic': [SharedWeightModel, LearningHeuristic],
-}
 
 
 def create_net(observation_shape, n_agents, n_actions, net_type, multi_type, **kwargs):
@@ -59,11 +61,14 @@ def create_net(observation_shape, n_agents, n_actions, net_type, multi_type, **k
         model = FloatTransformer(model)
     elif net_type == 'learningheuristic':
         model = LearningHeuristic(*observation_shape, n_actions, **kwargs)
+    elif net_type == 'rnn':
+        model = RecurrentModel(*observation_shape, n_actions, **kwargs)
+        model = FloatTransformer(model)
     else:
         raise NotImplementedError(f"Net type not found: {net_type}")
     
     if multi_type == 'shared_weights':
-        model = SharedWeightModel(model)
+        model = SharedWeightModel(model, n_agents)
     else:
         raise NotImplementedError(f"Multi type not found: {multi_type}")
 
@@ -82,30 +87,47 @@ class MADQN:
 
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), **opt_args)
         self.gamma = gamma
+        self.n_agents = n_agents
 
-    def get_action(self, observations):
-        observations = observations.unsqueeze(0)
-        with th.no_grad():
-            return self.policy_net(observations).max(-1)[1].view(-1)
+    def init_episode(self, observations):
+        self.hidden = self.policy_net.init_hidden(1)
+
+    # def get_action(self, observations):
+    #     observations = observations.unsqueeze(0)
+    #     with th.no_grad():
+    #         actions = self.policy_net(observations).max(-1)[1].view(-1)
 
     def get_q(self, observations):
         with th.no_grad():
-            return self.policy_net(observations)
+            q, h = self.policy_net(observations.unsqueeze(0), self.hidden)
+            self.hidden = h
+            return q.squeeze(0)
 
-    def optimize(self, prev_observations, actions, observations, rewards, done):
-        batch_size, n_agents = actions.shape
+    def optimize(self, prev_observations, actions, observations, rewards, done, valid):
+        seq_length, batch_size, n_agents = actions.shape
 
         # this will not work with multi yet
-        policy_state_action_values = self.policy_net(prev_observations).gather(2, actions.unsqueeze(2))
+        hidden = self.policy_net.init_hidden(batch_size)
+        policy_q_values, hidden = self.policy_net(prev_observations, hidden)
 
-        next_state_values = th.zeros((batch_size, n_agents), device=self.device)
-        next_state_values[~done] = self.target_net(observations[~done]).max(2)[0].detach()
+        policy_state_action_values = policy_q_values.gather(-1, actions.unsqueeze(-1))
+
+        # next_state_values = th.zeros((seq_length,batch_size, n_agents), device=self.device)
+        hidden = self.target_net.init_hidden(batch_size)
+        target_next_q_values, hidden = self.target_net(observations, hidden)
+        next_state_values = target_next_q_values.max(-1)[0].detach()
+        # next_state_values = self.target_net(observations, hidden).max(-1)[0].detach()
+
+        # next_state_values[~done] = self.target_net(observations).max(2)[0].detach()
+
+        import ipdb; ipdb.set_trace()
 
         # Compute the expected Q values
         expected_state_action_values = (next_state_values * self.gamma) + rewards
 
         # Compute Huber loss
-        loss = F.smooth_l1_loss(policy_state_action_values, expected_state_action_values.unsqueeze(2))
+        loss = F.smooth_l1_loss(
+            policy_state_action_values, expected_state_action_values.unsqueeze(-1), reduction='none')
 
         # Optimize the model
         self.optimizer.zero_grad()
