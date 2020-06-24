@@ -1,0 +1,29 @@
+labels:
+  project: ai_vs_ci
+  batch: dev_tabular
+params:
+  selector_args:
+    eps_start: 0.20
+    eps_end: 0.20
+    eps_decay: 2000
+  replay_memory: null
+  controller_args:
+    alpha: 0.05
+    gamma: 0.999
+    q_start: 0
+    obs_map: product
+  train_args:
+    eval_period: 100
+    num_episodes: 10000
+  env_class: partially_graph_coloring
+  controller_class: tabularq
+  env_args:
+    graph_args: 
+      graph_type: random_regular
+      degree: 4
+      chromatic_number: 4
+    n_agents: 10
+    fixed_agents: 0
+    max_steps: 50
+    fixed_length: true
+    global_reward_fraction: 0.5
