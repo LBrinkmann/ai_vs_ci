@@ -131,7 +131,10 @@ class GraphColoring():
         
         node_color = [self.state[i].item() for i in self.graph.nodes()]
         nx.draw(self.graph, self.graph_pos, node_color=node_color, labels=labels)
+
         plt.text(0, 0, f"{self.steps}:{avg_reward}", fontsize=30)
+        plt.text(-0.8, -0.5, f"s: {[i.item() for i in self.state]}", fontsize=15)
+        plt.text(-0.8, -0.7, f"nc: {node_color}", fontsize=15)
         if show:
             plt.savefig('temp.png')
         fig.canvas.draw()

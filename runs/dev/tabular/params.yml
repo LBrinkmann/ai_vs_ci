@@ -11,7 +11,7 @@ params:
     alpha: 0.05
     gamma: 0.999
     q_start: 0
-    obs_map: product
+    obs_map: combinations
   train_args:
     eval_period: 100
     num_episodes: 10000
@@ -20,10 +20,10 @@ params:
   env_args:
     graph_args: 
       graph_type: random_regular
-      degree: 4
-      chromatic_number: 4
-    n_agents: 10
-    fixed_agents: 0
+      degree: 3
+      chromatic_number: 3
+    n_agents: 1
+    fixed_agents: 9
     max_steps: 50
     fixed_length: true
     global_reward_fraction: 0.5

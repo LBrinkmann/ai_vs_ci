@@ -15,7 +15,7 @@ def create_product_map(observation_shape, n_actions):
     }
     def func(ob):
         return lookup[ob]
-    return func, len(lookup)
+    return func, lookup
 
 
 def create_combinations_map(observation_shape, n_actions):
@@ -28,7 +28,7 @@ def create_combinations_map(observation_shape, n_actions):
     }
     def func(ob):
         return lookup[(ob[0], tuple(sorted(ob[1:])))]
-    return func, len(lookup)
+    return func, lookup
 
     
 def get_idx(obs, omap):
@@ -44,8 +44,8 @@ class TabularQ:
             self, observation_shape, n_agents, n_actions, gamma, alpha, q_start, obs_map, device):
         self.n_actions = n_actions
         self.device = device
-        self.obs_idx_map, n_idx = MAPS[obs_map](observation_shape, n_actions)
-        self.q_table = th.ones((n_agents, n_idx, n_actions)) * q_start
+        self.obs_idx_map, self.lookup = MAPS[obs_map](observation_shape, n_actions)
+        self.q_table = th.ones((n_agents, len(self.lookup), n_actions)) * q_start
         self.n_agents = n_agents
         self.alpha = alpha
         self.gamma = gamma
@@ -77,7 +77,7 @@ class TabularQ:
 
     def log(self, writer, details):
         if details:
-            tt = self.q_table.sum(-1).sum(0)
-            tt = tt.abs() > 0.00001
-            # print(self.q_table[:, tt])
-            # print(tt.sum())
+            # tt = self.q_table.sum(-1).sum(0)
+            # tt = tt.abs() > 0.00001
+            for k, v in self.lookup.items():
+                print(k, self.q_table[:, v].argmax(1))

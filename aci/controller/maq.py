@@ -5,11 +5,11 @@ import random
 import torch as th
 import torch.optim as optim
 import torch.nn.functional as F
-from aci.components.torch_replay_memory import ReplayMemory
 from aci.neural_modules.linear_q_function import LinearFunction
 from aci.neural_modules.medium_conv import MediumConv
 from aci.neural_modules.learning_heuristic import LearningHeuristic
 import torch.nn as nn
+
 
 
 
@@ -26,7 +26,6 @@ class OneHotTransformer(nn.Module):
     
     def log(self, *args, **kwargs):
         self.model.log(*args, **kwargs)
-
 
 
 class FloatTransformer(nn.Module):
@@ -65,9 +64,9 @@ def create_net(observation_shape, n_agents, n_actions, net_type, multi_type, **k
     if net_type == 'medium_conv':
         model = MediumConv(*observation_shape, n_actions, **kwargs)
         model = FloatTransformer(model)
-    elif net_type == 'logistic':
+    elif net_type == 'linear':
         model = LinearFunction(*observation_shape, n_actions, **kwargs)
-        model = FloatTransformer(model)
+        model = OneHotTransformer(model)
     elif net_type == 'learningheuristic':
         model = LearningHeuristic(*observation_shape, n_actions, **kwargs)
     else:
@@ -83,18 +82,16 @@ def create_net(observation_shape, n_agents, n_actions, net_type, multi_type, **k
 
 class MADQN:
     def __init__(
-            self, observation_shape, n_agents, n_actions, policy_args, opt_args, memory_args, 
-            gamma, device):
+            self, observation_shape, n_agents, n_actions, policy_args, opt_args, gamma, device):
         self.n_actions = n_actions
         self.device = device
         self.policy_net = create_net(observation_shape, n_agents, n_actions, **policy_args).to(device)
         self.target_net = create_net(observation_shape, n_agents, n_actions, **policy_args).to(device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
-        self.memory = ReplayMemory(**memory_args)
         self.target_net.eval()
+
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), **opt_args)
         self.gamma = gamma
-        self.updates = 0
 
     def get_action(self, observations):
         observations = observations.unsqueeze(0)
@@ -104,12 +101,6 @@ class MADQN:
     def get_q(self, observations):
         with th.no_grad():
             return self.policy_net(observations)
-
-    def update(actions, observations, rewards, done):
-        self.memory.push(observations, actions, rewards, done)
-        
-
-        self.updates += 1
 
     def optimize(self, prev_observations, actions, observations, rewards, done):
         batch_size, n_agents = actions.shape
