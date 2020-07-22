@@ -36,15 +36,15 @@ def ensure_dir(directory):
 
 
 def selector(func):
-    def wrapper(self, *args, details_only=False, **kwargs):
-        if self.details or not details_only:
+    def wrapper(self, *args, on=None, **kwargs):
+        if on is None or (self.step % self.periods[on]) == 0:
             return func(self, *args, **kwargs)
         else:
             return None
     return wrapper
 
 class Writer():
-    def __init__(self, output_folder, **meta):
+    def __init__(self, output_folder, periods, **meta):
         self.meta = meta
         ensure_dir(output_folder)
         self.json_writer = jsonlines.open(f"{output_folder}/metrics.jsonl", mode='w', flush=True)
@@ -52,6 +52,7 @@ class Writer():
         self.image_folder = f"{output_folder}/images"
         self.video_folder = f"{output_folder}/videos"
         self.model_folder = f"{output_folder}/models"
+        self.periods = periods
         self.frames = {}
 
     def add_meta(self, **meta):
@@ -83,12 +84,14 @@ class Writer():
         self._write_video(name, video[0], fps=1)
 
     @selector
-    def add_frame(self, name, callback):
+    def add_frame(self, name, callback, flush=False):
         name = name.format(**self.meta)
         if name not in self.frames:
             self.frames[name] = [callback()]
         else:
             self.frames[name].append(callback())
+        if flush: 
+            self.frames_flush()
 
     def frames_flush(self):
         for name, frames in self.frames.items():

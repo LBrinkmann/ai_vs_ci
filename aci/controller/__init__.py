@@ -2,13 +2,13 @@ CONTROLLERS = {}
 
 # from .dqn import DQN
 from .madqn import MADQN
-from .simple_graph import SimpleGraphAgent
+from .heuristic import HeuristicController
 from .tabularq import TabularQ
 
 
 CONTROLLERS = {
     # "dqn": DQN,
     "madqn": MADQN,
-    "sgraph": SimpleGraphAgent,
+    "heuristic": HeuristicController,
     "tabularq": TabularQ
 }

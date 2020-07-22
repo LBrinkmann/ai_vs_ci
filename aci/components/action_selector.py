@@ -37,11 +37,10 @@ class MultiActionSelector():
         masked_q_values = proposed_action
         masked_q_values[avail_actions == 0.0] = -float("inf")  # should never be selected!
 
-        random_numbers = th.rand_like(proposed_action[:, :, 0])
+        random_numbers = th.rand_like(proposed_action[:, 0])
         pick_random = (random_numbers < eps).long()
         random_actions = Categorical(avail_actions.float()).sample().long()
-
-        picked_actions = pick_random * random_actions + (1 - pick_random) * masked_q_values.max(dim=2)[1]
+        picked_actions = pick_random * random_actions + (1 - pick_random) * masked_q_values.max(dim=-1)[1]
         return picked_actions
 
     def log(self, writer, step, details):

@@ -1,0 +1,52 @@
+labels:
+  project: ai_vs_ci
+  batch: dev_tabular
+params:
+  agent_types:
+    ci:
+      selector_args:
+        eps_start: 0.20
+        eps_end: 0.20
+        eps_decay: 2000
+      replay_memory: null
+      controller_args: 
+        heuristic_name: ha1
+        agent_args: 
+          self_weight: 0.5
+      controller_class: heuristic
+    ai:
+      selector_args:
+        eps_start: 0.20
+        eps_end: 0.20
+        eps_decay: 2000
+      replay_memory: null
+      controller_args: 
+        heuristic_name: hai1
+        agent_args: {}
+      controller_class: heuristic
+  train_args:
+    eval_period: 100
+    num_episodes: 10000
+  writer_args:
+    periods:
+      video: 100
+      trace: 1
+  env_class: adversial_graph_coloring
+  env_args:
+    graph_args: 
+      graph_type: random_regular
+      degree: 3
+      chromatic_number: 3
+    n_agents: 2
+    fixed_agents: 8
+    max_steps: 50
+    fixed_length: true
+    rewards_args:
+      ai:
+        global_coordination: -1
+        global_catches: 1
+      ci:
+        local_coordination: 0.5
+        global_coordination: 0.5
+        local_catches: -0.5
+        global_catches: -0.5
