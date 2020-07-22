@@ -24,6 +24,8 @@ def create_cycle_graph(n_nodes, degree):
 def random_regular_graph(n_nodes, degree, chromatic_number=None):
     for i in range(100):
         graph = nx.random_regular_graph(degree, n_nodes)
+        if not nx.is_connected(graph):
+            continue
         n_actions = max(nx.algorithms.coloring.greedy_color(graph).values()) + 1
         n_neighbors = degree
         if (chromatic_number is None) or (n_actions == chromatic_number):

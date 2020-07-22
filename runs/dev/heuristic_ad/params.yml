@@ -38,7 +38,7 @@ params:
       degree: 3
       chromatic_number: 3
     n_agents: 2
-    fixed_agents: 8
+    all_agents: 10
     max_steps: 50
     fixed_length: true
     rewards_args:
