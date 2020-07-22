@@ -1,0 +1,61 @@
+exec:
+  python_file: aci/adversial.py
+  script_name: cpu
+exp_id: d3cee201-f710-4a76-8750-6fa240dfc401
+job_id: project_ai_vs_ci__batch_test_djx_heuristic__self_weight_0.0__n_agents_2__networktype_nondense
+labels:
+  batch: test_djx_heuristic
+  n_agents: 2
+  networktype: nondense
+  project: ai_vs_ci
+  self_weight: 0.0
+parameter: {}
+params:
+  agent_types:
+    ai:
+      controller_args:
+        agent_args: {}
+        heuristic_name: hai1
+      controller_class: heuristic
+      replay_memory: null
+      selector_args:
+        eps_decay: 2000
+        eps_end: 0.2
+        eps_start: 0.2
+    ci:
+      controller_args:
+        agent_args:
+          self_weight: 0.0
+        heuristic_name: ha1
+      controller_class: heuristic
+      replay_memory: null
+      selector_args:
+        eps_decay: 2000
+        eps_end: 0.2
+        eps_start: 0.2
+  env_args:
+    all_agents: 10
+    fixed_length: true
+    graph_args:
+      chromatic_number: 3
+      degree: 2
+      graph_type: random_regular
+    max_steps: 50
+    n_agents: 2
+    rewards_args:
+      ai:
+        global_catches: 1
+        global_coordination: -1
+      ci:
+        global_catches: -0.5
+        global_coordination: 0.5
+        local_catches: -0.5
+        local_coordination: 0.5
+  env_class: adversial_graph_coloring
+  train_args:
+    eval_period: 1
+    num_episodes: 100
+  writer_args:
+    periods:
+      trace: 1
+      video: 100
