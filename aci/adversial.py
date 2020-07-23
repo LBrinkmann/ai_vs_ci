@@ -26,7 +26,7 @@ import torch as th
 def calc_metrics(rewards, episode_rewards):
     return {
         'rewards': rewards,
-        'avg_reward': rewards.mean(), 
+        'avg_reward': rewards.mean(),
         'episode_rewards': episode_rewards,
         'avg_episode_rewards': episode_rewards.mean()
     }
@@ -38,7 +38,7 @@ def run_episode(*, env, controller, action_selector, writer, test_mode=False):
     # added
     if not test_mode:
         for agent_type in ['ai', 'ci']:
-            controller[agent_type].init_episode(observations)
+            controller[agent_type].init_episode(observations[agent_type])
 
     for t in count():
         writer.add_meta(episode_step=t)
@@ -57,12 +57,12 @@ def run_episode(*, env, controller, action_selector, writer, test_mode=False):
             actions[agent_type] = selected_action
 
         observations, rewards, done, _ = env.step(actions, writer)
-        
+
         if not test_mode:
             for agent_type in ['ai', 'ci']:
                 controller[agent_type].update(
                     actions[agent_type], observations[agent_type], rewards[agent_type], done)
-        if done: 
+        if done:
             break
 
 def train(
@@ -71,15 +71,15 @@ def train(
         writer.add_meta(_step=i_episode, episode=i_episode, mode='train')
 
         run_episode(
-            env=env, 
-            controller=controller, 
-            action_selector=action_selector, 
+            env=env,
+            controller=controller,
+            action_selector=action_selector,
             writer=writer)
 
         if i_episode % eval_period == 0:
             writer.add_meta(mode='eval')
             run_episode(
-                env=env, 
+                env=env,
                 controller=controller,
                 action_selector=action_selector,
                 writer=writer,
