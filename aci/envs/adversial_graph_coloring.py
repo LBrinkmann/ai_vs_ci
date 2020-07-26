@@ -7,6 +7,7 @@ import torch as th
 import numpy as np
 import networkx as nx
 import matplotlib as mpl
+import string
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -40,10 +41,14 @@ def create_graph(graph_type, n_nodes, **kwargs):
     else:
         raise NotImplementedError(f'Graph type {graph_type} is not implemented.')
 
+def int_to_alphabete(val):
+    return string.ascii_uppercase[val]
+
 
 class AdGraphColoring():
     def __init__(
-            self, n_agents, all_agents, graph_args, max_steps, fixed_length, rewards_args, device):
+            self, n_agents, all_agents, graph_args, max_steps, fixed_length, rewards_args, device,
+            fixed_pos, fixed_network):
         self.steps = 0
         self.max_steps = max_steps
         self.n_agents = {'ci': n_agents, 'ai': n_agents}
@@ -52,10 +57,11 @@ class AdGraphColoring():
         self.graph_args = graph_args
         self.device = device
         self.fixed_length = fixed_length
+        self.fixed_pos, self.fixed_network = fixed_pos, fixed_network
         self.rewards_args = rewards_args
 
         self.new_graph()
-        self.reset()
+        self.reset(init=True)
 
     def new_graph(self):
         self.graph, n_actions, self.n_neighbors = create_graph(
@@ -121,8 +127,11 @@ class AdGraphColoring():
 
 
     def step(self, actions, writer=None):
-        self.state['ai'] = actions['ai']
-        self.state['ci'][self.agent_pos] = actions['ci']
+        if 'ai' in actions:
+            self.state['ai'] = actions['ai']
+        if 'ci' in actions:
+            self.state['ci'][self.agent_pos] = actions['ci']
+
         observations = self.observations()
         rewards, info = self.get_rewards(observations)
         if (self.steps == self.max_steps):
@@ -138,15 +147,17 @@ class AdGraphColoring():
 
         return observations, rewards, done, {}
 
-    def reset(self):
-        self.new_graph()
+    def reset(self, init=False):
+        if not self.fixed_network or init:
+            self.new_graph()
         self.steps = 0
         self.episode_rewards = {
             'ai': th.zeros(self.n_agents['ai']),
             'ci': th.zeros(self.n_agents['ci'])
         }
-        self.agent_pos = np.random.choice(
-            self.all_agents, self.n_agents['ci'], replace=False)
+        if not self.fixed_pos or init:
+            self.agent_pos = np.random.choice(
+                self.all_agents, self.n_agents['ci'], replace=False)
         _state = get_graph_colors(self.graph)
         self.state = {
             'ci': _state,
@@ -164,11 +175,12 @@ class AdGraphColoring():
         avg_ai_reward = rewards['ai'].mean()
         avg_ci_reward = rewards['ci'].mean()
 
-        labels = {i: f"{i}" for i in range(len(self.graph))}
-        labels2 = {i: f"{i}:{r:.2f}" for i,r in zip(self.agent_pos, rewards['ci']) }
+        labels = {i: f"{int_to_alphabete(i)}" for i in range(len(self.graph))}
+        labels2 = {
+            i: f"{int_to_alphabete(i)}:{r:.2f}" for i,r in zip(self.agent_pos, rewards['ci']) }
         labels = {**labels, **labels2}
         
-        node_color_ci = [state['ci'][i].item() for i in self.graph.nodes()]
+        node_color_ci = [state['ci'][i].item() for i in self.graph.nodes()]        
         node_color_ai = [state['ai'][i].item() for i in self.graph.nodes()]
         nx.draw(self.graph, self.graph_pos, node_color=node_color_ai, node_size=500)
         nx.draw(
@@ -209,3 +221,5 @@ class AdGraphColoring():
 
         # if done:
         #     writer.frames_flush()
+
+

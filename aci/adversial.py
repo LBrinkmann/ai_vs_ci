@@ -34,21 +34,22 @@ def calc_metrics(rewards, episode_rewards):
 
 def run_episode(*, env, controller, action_selector, writer, test_mode=False):
     observations = env.reset()
+    agent_types = controller.keys()
 
     # added
     if not test_mode:
-        for agent_type in ['ai', 'ci']:
+        for agent_type in agent_types:
             controller[agent_type].init_episode(observations[agent_type])
 
     for t in count():
         writer.add_meta(episode_step=t)
 
-        for agent_type in ['ai', 'ci']:
+        for agent_type in agent_types:
             ainfo = {f"{agent_type}_{k}": v for k,v in action_selector[agent_type].info().items()}
             writer.add_meta(**ainfo)
 
         actions = {}
-        for agent_type in ['ai', 'ci']:
+        for agent_type in agent_types:
             # Select and perform an action
             this_obs = observations[agent_type]
             proposed_actions = controller[agent_type].get_q(this_obs)
@@ -59,9 +60,9 @@ def run_episode(*, env, controller, action_selector, writer, test_mode=False):
         observations, rewards, done, _ = env.step(actions, writer)
 
         if not test_mode:
-            for agent_type in ['ai', 'ci']:
+            for agent_type in agent_types:
                 controller[agent_type].update(
-                    actions[agent_type], observations[agent_type], rewards[agent_type], done)
+                    actions[agent_type], observations[agent_type], rewards[agent_type], done, writer=writer)
         if done:
             break
 

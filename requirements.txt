@@ -10,5 +10,6 @@ structlog
 networkx
 scipy
 jsonlines
+openpyxl
 # dvc
 # boto3

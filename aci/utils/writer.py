@@ -3,6 +3,7 @@ import scipy.misc
 import jsonlines
 import torch as th
 import datetime
+import pandas as pd
 import imageio
 import os
 from moviepy.editor import ImageSequenceClip
@@ -52,15 +53,31 @@ class Writer():
         self.image_folder = f"{output_folder}/images"
         self.video_folder = f"{output_folder}/videos"
         self.model_folder = f"{output_folder}/models"
+        self.df_folder = f"{output_folder}/df"
+        ensure_dir(self.df_folder)
         self.periods = periods
         self.frames = {}
 
     def add_meta(self, **meta):
         self.meta = {**self.meta, **meta}
     
+    @selector
+    def check_on(self):
+        return True
+
     @property
     def step(self):
         return self.meta['_step']
+
+    @selector
+    def add_table(self, **kwargs):
+        # might change in the future
+        
+        # now = datetime.datetime.utcnow()
+        # meta = {**self.meta, **meta, 'createdAt': now, 'name': name}
+        # for k, v in meta.items():
+        #     df[k] = v
+        self._write_table(**kwargs)   
 
     @selector
     def add_metrics(self, metrics, meta, tf=[]):
@@ -115,6 +132,9 @@ class Writer():
     def _write_row(self, **row):
         parsed_row = parse_dict(row)
         self.json_writer.write(parsed_row)
+
+    def _write_table(self, df, name, sheet):
+        df.to_csv(f"{self.df_folder}/{name}.{sheet}.csv")
 
     def __del__(self):
         self.json_writer.close()

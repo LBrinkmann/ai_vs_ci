@@ -3,18 +3,19 @@ labels:
   batch: dev_tabular
 params:
   agent_types:
-    ci:
-      selector_args:
-        eps_start: 0.20
-        eps_end: 0.20
-        eps_decay: 2000
-      replay_memory: null
-      controller_args:
-        alpha: 0.05
-        gamma: 0.999
-        q_start: 0
-        obs_map: combinations
-      controller_class: tabularq
+    # ci:
+    #   selector_args:
+    #     eps_start: 0.20
+    #     eps_end: 0.20
+    #     eps_decay: 2000
+    #   replay_memory: null
+    #   controller_args:
+    #     alpha: 0.05
+    #     gamma: 0.999
+    #     q_start: 0
+    #     obs_map: product
+    #     cache_size: 1
+    #   controller_class: tabularq
     ai:
       selector_args:
         eps_start: 0.20
@@ -32,16 +33,19 @@ params:
     periods:
       video: 100
       trace: 1
+      table: 10
   env_class: adversial_graph_coloring
   env_args:
     graph_args:
       graph_type: random_regular
       degree: 3
       chromatic_number: 3
-    n_agents: 2
+    n_agents: 5
     all_agents: 10
     max_steps: 50
     fixed_length: true
+    fixed_pos: true
+    fixed_network: true
     rewards_args:
       ai:
         global_coordination: -1
