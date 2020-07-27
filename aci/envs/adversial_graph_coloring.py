@@ -213,19 +213,20 @@ class AdGraphColoring():
                     'avg_episode_rewards': self.episode_rewards[agent_type].mean(),
                     **info[agent_type]
                 },
-                {'done': done, 'agent_type': agent_type},
+                {'done': done, 'agent_type': agent_type, 'rowtype': 'trace'},
                 tf=[],
                 on=None if done else 'trace'
             )
 
             if writer.check_on(on='individual_trace'):
-                for r, er in zip(rewards[agent_type], self.episode_rewards[agent_type]):
+                for i, (r, er) in enumerate(zip(rewards[agent_type], self.episode_rewards[agent_type])):
                     writer.add_metrics(
                         {
                             'rewards': r,
                             'episode_rewards': er,
+                            'agent': int_to_alphabete(i),
                         },
-                        {'done': done, 'agent_type': agent_type},
+                        {'done': done, 'agent_type': agent_type, 'rowtype': 'individual_trace'},
                         tf=[],
                         on='individual_trace'
                     )
