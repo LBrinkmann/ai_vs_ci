@@ -31,10 +31,10 @@ params:
     num_episodes: 10
   writer_args:
     periods:
-      video: 250
+      # video: 250
       trace: 1
       individual_trace: 100
-      table: 250
+      # table: 250
   env_class: adversial_graph_coloring
   env_args:
     graph_args:

@@ -13,3 +13,4 @@ jsonlines
 openpyxl
 # dvc
 # boto3
+pyarrow

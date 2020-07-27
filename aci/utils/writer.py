@@ -38,7 +38,7 @@ def ensure_dir(directory):
 
 def selector(func):
     def wrapper(self, *args, on=None, **kwargs):
-        if on is None or (self.step % self.periods[on]) == 0:
+        if on is None or ((on in self.periods) and (self.step % self.periods[on]) == 0):
             return func(self, *args, **kwargs)
         else:
             return None
@@ -151,6 +151,7 @@ class Writer():
 
     def rows_flush(self):
         df = pd.DataFrame.from_records(self.metric_rows)
+        # import ipdb; ipdb.set_trace()
         df.to_parquet(self.metrics_file)
 
     @selector

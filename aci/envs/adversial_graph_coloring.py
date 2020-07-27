@@ -207,9 +207,9 @@ class AdGraphColoring():
             self.episode_rewards[agent_type] += rewards[agent_type]
             writer.add_metrics(
                 {
-                    'rewards': rewards[agent_type],
+                    # 'rewards': rewards[agent_type],
                     'avg_reward': rewards[agent_type].mean(), 
-                    'episode_rewards': self.episode_rewards[agent_type],
+                    # 'episode_rewards': self.episode_rewards[agent_type],
                     'avg_episode_rewards': self.episode_rewards[agent_type].mean(),
                     **info[agent_type]
                 },
