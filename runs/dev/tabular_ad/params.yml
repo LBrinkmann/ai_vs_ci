@@ -3,19 +3,19 @@ labels:
   batch: dev_tabular
 params:
   agent_types:
-    # ci:
-    #   selector_args:
-    #     eps_start: 0.20
-    #     eps_end: 0.20
-    #     eps_decay: 2000
-    #   replay_memory: null
-    #   controller_args:
-    #     alpha: 0.05
-    #     gamma: 0.999
-    #     q_start: 0
-    #     obs_map: product
-    #     cache_size: 1
-    #   controller_class: tabularq
+    ci:
+      selector_args:
+        eps_start: 0.20
+        eps_end: 0.20
+        eps_decay: 2000
+      replay_memory: null
+      controller_args:
+        alpha: 0.05
+        gamma: 0.999
+        q_start: 0
+        obs_map: product
+        cache_size: 1
+      controller_class: tabularq
     ai:
       selector_args:
         eps_start: 0.20
@@ -27,13 +27,14 @@ params:
         agent_args: {}
       controller_class: heuristic
   train_args:
-    eval_period: 100
-    num_episodes: 10000
+    eval_period: 10
+    num_episodes: 10
   writer_args:
     periods:
-      video: 100
+      video: 250
       trace: 1
-      table: 10
+      individual_trace: 100
+      table: 250
   env_class: adversial_graph_coloring
   env_args:
     graph_args:

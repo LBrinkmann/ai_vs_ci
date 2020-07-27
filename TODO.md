@@ -16,9 +16,15 @@
 * make ci, ai optional - done
 * allow for fixed network (fixed position, fixed network) - done
 * think of usefull networks to test - done
+* reduce filesize
+    <!-- * test other storage format -->
+    * save as parquet
+    * save individual agents less often
 * run grid
 * think of usefull plot to make
 * create plots
+
+
 
 
 to test:
@@ -43,3 +49,21 @@ to test:
         * q_start: [-2, 0, 2]
         * obs_map: [product, combinations]
         * cache_size: [1,2]
+
+
+test 1:
+* topology
+    * fully connected 2,3,4,5
+    * ring degree 2, 4
+* all agents
+* fixed position, fixed network   
+* rewards
+    * only agents
+        * local only
+        * local / global
+        * global only
+    * ai / ci
+        * ci mixed, ai global
+* controller
+    * heuristic
+        * self_weight [-0.5, 0, 0.5, 1, 2]    

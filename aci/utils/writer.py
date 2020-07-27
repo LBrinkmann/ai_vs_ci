@@ -45,11 +45,16 @@ def selector(func):
     return wrapper
 
 class Writer():
-    def __init__(self, output_folder, periods, **meta):
+    def __init__(self, output_folder, periods, use_tb=False, **meta):
         self.meta = meta
         ensure_dir(output_folder)
-        self.json_writer = jsonlines.open(f"{output_folder}/metrics.jsonl", mode='w', flush=True)
-        self.tensorboard_writer = SummaryWriter(log_dir=f'{output_folder}/tensorboard')
+        self.metric_rows = []
+        self.metrics_file = f"{output_folder}/metrics.parquet"
+        # self.json_writer = jsonlines.open(f"{output_folder}/metrics.jsonl", mode='w', flush=True)
+        if use_tb:
+            self.tensorboard_writer = SummaryWriter(log_dir=f'{output_folder}/tensorboard')
+        else:
+            self.tensorboard_writer = None
         self.image_folder = f"{output_folder}/images"
         self.video_folder = f"{output_folder}/videos"
         self.model_folder = f"{output_folder}/models"
@@ -81,8 +86,9 @@ class Writer():
 
     @selector
     def add_metrics(self, metrics, meta, tf=[]):
-        for n in tf:
-            self.tensorboard_writer.add_scalar(n, metrics[n], self.step)
+        if self.tensorboard_writer:
+            for n in tf:
+                self.tensorboard_writer.add_scalar(n, metrics[n], self.step)
         now = datetime.datetime.utcnow()
         meta = {**self.meta, **meta, 'createdAt': now}
         self._write_row(**{**meta, **metrics})
@@ -90,13 +96,15 @@ class Writer():
     @selector
     def add_image(self, name, image):
         name = name.format(**self.meta)
-        self.tensorboard_writer.add_image(name, image, self.step)
+        if self.tensorboard_writer:
+            self.tensorboard_writer.add_image(name, image, self.step)
         self._write_image(name, image)
 
     @selector
     def add_video(self, name, video):
         name = name.format(**self.meta)
-        self.tensorboard_writer.add_video(name, video, self.step, fps=1)
+        if self.tensorboard_writer:
+            self.tensorboard_writer.add_video(name, video, self.step, fps=1)
         assert video.shape[0] == 1, 'Multiple videos are not yet supported'
         self._write_video(name, video[0], fps=1)
 
@@ -131,19 +139,26 @@ class Writer():
     
     def _write_row(self, **row):
         parsed_row = parse_dict(row)
-        self.json_writer.write(parsed_row)
+        # self.json_writer.write(parsed_row)
+        self.metric_rows.append(parsed_row)
 
     def _write_table(self, df, name, sheet):
         df.to_csv(f"{self.df_folder}/{name}.{sheet}.csv")
 
     def __del__(self):
-        self.json_writer.close()
+        # self.json_writer.close()
+        self.rows_flush()
+
+    def rows_flush(self):
+        df = pd.DataFrame.from_records(self.metric_rows)
+        df.to_parquet(self.metrics_file)
 
     @selector
     def write_module(self, name, module):
         name = name.format(**self.meta)
-        for p_name, values in module.named_parameters():
-            self.tensorboard_writer.add_histogram(f'{name}.{p_name}', values, self.step)
+        if self.tensorboard_writer:
+            for p_name, values in module.named_parameters():
+                self.tensorboard_writer.add_histogram(f'{name}.{p_name}', values, self.step)
 
     def set_details(self, details):
         self.details = details

@@ -115,7 +115,7 @@ class AdGraphColoring():
         )
 
         reward = {
-            'ai': ai_reward,
+            'ai': ai_reward.unsqueeze(0),
             'ci': ci_reward
         }
 
@@ -152,7 +152,7 @@ class AdGraphColoring():
             self.new_graph()
         self.steps = 0
         self.episode_rewards = {
-            'ai': th.zeros(self.n_agents['ai']),
+            'ai': th.zeros(1),
             'ci': th.zeros(self.n_agents['ci'])
         }
         if not self.fixed_pos or init:
@@ -217,9 +217,20 @@ class AdGraphColoring():
                 tf=[],
                 on=None if done else 'trace'
             )
+
+            if writer.check_on(on='individual_trace'):
+                for r, er in zip(rewards[agent_type], self.episode_rewards[agent_type]):
+                    writer.add_metrics(
+                        {
+                            'rewards': r,
+                            'episode_rewards': er,
+                        },
+                        {'done': done, 'agent_type': agent_type},
+                        tf=[],
+                        on='individual_trace'
+                    )
+
         writer.add_frame('{mode}.observations', lambda: self._render(self.state, rewards), on='video', flush=done)
 
-        # if done:
-        #     writer.frames_flush()
 
 
