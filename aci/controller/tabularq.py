@@ -28,18 +28,20 @@ def create_product_map(cache_size, observation_shape, n_actions):
     return func, lookup
 
 
-def create_combinations_map(observation_shape, n_actions):
+def create_combinations_map(cache_size, observation_shape, n_actions):
     n_neighbors = observation_shape[0] - 1
 
     possible_single_node_traces = list(itertools.product(
         *itertools.repeat(list(range(n_actions)), cache_size)))
 
     neighbor_pos = itertools.combinations_with_replacement(possible_single_node_traces, n_neighbors)
-    self_pos = list(range(n_actions))
+    self_pos = possible_single_node_traces
     all_possible_obs = itertools.product(self_pos, neighbor_pos)
     lookup = {
         tuple(obs): idx for idx, obs in enumerate(all_possible_obs)
     }
+
+    # import ipdb; ipdb.set_trace()
     def func(ob):
         return lookup[(ob[0], tuple(sorted(ob[1:])))]
     return func, lookup
