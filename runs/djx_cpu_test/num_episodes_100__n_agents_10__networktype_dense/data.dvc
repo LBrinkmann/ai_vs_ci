@@ -1,7 +1,0 @@
-md5: a421419517a3fe9ceee4714c9f47c280
-outs:
-- md5: 8c9d3625b35eda34bdf51ec737dca223.dir
-  path: data
-  cache: true
-  metric: false
-  persist: false

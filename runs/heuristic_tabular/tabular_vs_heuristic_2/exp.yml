@@ -3,7 +3,7 @@ exec:
   script_name: cpu
 labels:
   project: ai_vs_ci
-  batch: heuristic_only
+  batch: tabular_vs_heuristic_2
 grid:
   - - params.agent_types.ci.selector_args:
         eps_start: 0.20
@@ -11,31 +11,11 @@ grid:
         eps_decay: 2000
       labels.eps:  fixed0.20
     - params.agent_types.ci.selector_args:
-        eps_start: 0.10
-        eps_end: 0.10
-        eps_decay: 2000
-      labels.eps:  fixed0.10
-    - params.agent_types.ci.selector_args:
-        eps_start: 0.05
-        eps_end: 0.05
-        eps_decay: 2000
-      labels.eps:  fixed0.05
-    - params.agent_types.ci.selector_args:
         eps_start: 0.20
         eps_end: 0.05
         eps_decay: 5000 # decay rate of 100 episodes
       labels.eps:  decay
-  - params.agent_types.ci.controller_args.agent_args.self_weight: [-0.5,0.,0.5,1.,2.]
-    labels.self_weight: [-0.5,0.,0.5,1.,2.]
   - - params.env_args: 
-        graph_args:
-          graph_type: random_regular
-          degree: 1
-          chromatic_number: 2
-        n_agents: 2
-        all_agents: 2
-      labels.networktype: full2
-    - params.env_args: 
         graph_args:
           graph_type: random_regular
           degree: 2
@@ -45,34 +25,41 @@ grid:
       labels.networktype: full3
     - params.env_args: 
         graph_args:
-          graph_type: random_regular
-          degree: 3
-          chromatic_number: 4
-        n_agents: 4
-        all_agents: 4
-      labels.networktype: full4
-    - params.env_args: 
-        graph_args:
-          graph_type: random_regular
-          degree: 4
-          chromatic_number: 5
-        n_agents: 5
-        all_agents: 5
-      labels.networktype: full5
-    - params.env_args: 
-        graph_args:
-          graph_type: cycle
-          degree: 2
-        n_agents: 6
-        all_agents: 6
-      labels.networktype: cycle62
-    - params.env_args: 
-        graph_args:
           graph_type: cycle
           degree: 4
         n_agents: 6
         all_agents: 6
       labels.networktype: cycle64
+  - - params.env_args.rewards_args:
+        ai:
+          global_coordination: -1
+          global_catches: 1
+        ci:
+          local_coordination: 1
+          global_coordination: 0
+          local_catches: 0
+          global_catches: 0
+      labels.rewards: local
+    - params.env_args.rewards_args:
+        ai:
+          global_coordination: -1
+          global_catches: 1
+        ci:
+          local_coordination: 0
+          global_coordination: 1
+          local_catches: 0
+          global_catches: 0
+      labels.rewards: global
+  - params.agent_types.ci.controller_args.alpha: [0.01, 0.05, 0.1]
+    labels.alpha: [0.01, 0.05, 0.1]
+  - params.agent_types.ci.controller_args.gamma: [0.999, 0.99, 0.9, 0.5]
+    labels.gamma: [0.999, 0.99, 0.9, 0.5]
+  - params.agent_types.ci.controller_args.q_start: [-2, 0, 2]
+    labels.q_start: [-2, 0, 2]
+  - params.agent_types.ci.controller_args.obs_map: [product, combinations]
+    labels.obs_map: [product, combinations]
+  - params.agent_types.ci.controller_args.cache_size: [1,2]
+    labels.cache_size: [1,2]
 params:
   agent_types:
     ci:
@@ -80,31 +67,31 @@ params:
         eps_start: 0.20
         eps_end: 0.20
         eps_decay: 2000
-      replay_memory: null
-      controller_args: 
-        heuristic_name: ha1
-        agent_args: 
-          self_weight: 0.5
-      controller_class: heuristic
+      controller_args:
+        alpha: 0.05
+        gamma: 0.999
+        q_start: 0
+        obs_map: combinations
+        cache_size: 3
+      controller_class: tabularq
     ai:
       selector_args:
         eps_start: 0.20
         eps_end: 0.20
         eps_decay: 2000
-      replay_memory: null
       controller_args: 
         heuristic_name: hai1
         agent_args: {}
       controller_class: heuristic
   train_args:
-    eval_period: 1
-    num_episodes: 1000
+    eval_period: 10
+    num_episodes: 10000
   writer_args:
     periods:
-      video: 100
-      trace: 1
-      individual_trace: 10
-      # table: 100
+      video: 1000
+      trace: 10
+      individual_trace: 100
+      table: 1000
   env_class: adversial_graph_coloring
   env_args:
     graph_args:

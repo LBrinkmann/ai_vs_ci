@@ -1,3 +1,0 @@
-dvc run -f runs/djx_test/num_episodes_100__n_agents_10__networktype_dense/dvc.dvc -d aci/multi_train.py -d runs/djx_test/num_episodes_100__n_agents_10__networktype_dense/params.yml \
-    -o runs/djx_test/num_episodes_100__n_agents_10__networktype_dense/data \
-    python aci/multi_train.py runs/djx_test/num_episodes_100__n_agents_10__networktype_dense/params.yml runs/djx_test/num_episodes_100__n_agents_10__networktype_dense/data > runs/djx_test/num_episodes_100__n_agents_10__networktype_dense/log.log
