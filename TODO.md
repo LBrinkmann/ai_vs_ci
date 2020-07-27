@@ -57,6 +57,21 @@ test 1:
     * ring degree 2, 4
 * all agents
 * fixed position, fixed network   
+* rewards 
+    * ai / ci
+        * ci mixed, ai global
+* ci_controller
+    * heuristic
+        * self_weight [-0.5, 0, 0.5, 1, 2]
+* ai_controller
+    * heuristic
+
+test 2:
+* topology
+    * fully connected 3,5
+    * ring degree 2, 4
+* all agents
+* fixed position, fixed network
 * rewards
     * only agents
         * local only
@@ -65,5 +80,35 @@ test 1:
     * ai / ci
         * ci mixed, ai global
 * controller
+    * qtable (test with three other settings only)
+        * alpha: [0.01, 0.05, 0.1]
+        * gamma: [0.999, 0.99, 0.9, 0.5]
+        * q_start: [-2, 0, 2]
+        * obs_map: [product, combinations]
+        * cache_size: [1,2]
+
+
+
+test 3:
+* topology
+    * fully connected 2,3,4,5
+    * ring degree 2, 4
+* all agents
+* fixed position, fixed network   
+* rewards
+    * only agents
+        * local only
+        * local / global
+        * global only
+    * ai / ci
+        * ci mixed, ai global
+* ci_controller
     * heuristic
-        * self_weight [-0.5, 0, 0.5, 1, 2]    
+        * self_weight [-0.5, 0, 0.5, 1, 2]
+* ai_controller
+    * qtable
+        * alpha: 0.05
+        * gamma: 0.999
+        * q_start: 0
+        * obs_map: product
+        * cache_size: [1,2]

@@ -13,7 +13,7 @@ params:
         alpha: 0.05
         gamma: 0.999
         q_start: 0
-        obs_map: product
+        obs_map: combinations
         cache_size: 1
       controller_class: tabularq
     ai:

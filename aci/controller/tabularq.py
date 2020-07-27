@@ -30,7 +30,11 @@ def create_product_map(cache_size, observation_shape, n_actions):
 
 def create_combinations_map(observation_shape, n_actions):
     n_neighbors = observation_shape[0] - 1
-    neighbor_pos = itertools.combinations_with_replacement(list(range(n_actions)), n_neighbors)
+
+    possible_single_node_traces = list(itertools.product(
+        *itertools.repeat(list(range(n_actions)), cache_size)))
+
+    neighbor_pos = itertools.combinations_with_replacement(possible_single_node_traces, n_neighbors)
     self_pos = list(range(n_actions))
     all_possible_obs = itertools.product(self_pos, neighbor_pos)
     lookup = {
