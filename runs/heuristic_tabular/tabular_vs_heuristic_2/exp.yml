@@ -1,6 +1,6 @@
 exec:
   python_file: aci/adversial.py
-  script_name: cpu
+  script_name: cpu_slurm
 labels:
   project: ai_vs_ci
   batch: tabular_vs_heuristic_2
