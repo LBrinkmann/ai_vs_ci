@@ -16,11 +16,11 @@
 * make ci, ai optional - done
 * allow for fixed network (fixed position, fixed network) - done
 * think of usefull networks to test - done
-* reduce filesize
+* reduce filesize - done
     <!-- * test other storage format -->
     * save as parquet
     * save individual agents less often
-* run grid
+* run grid - doing
 * think of usefull plot to make
 * create plots
 
