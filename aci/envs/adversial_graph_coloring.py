@@ -163,15 +163,12 @@ class AdGraphColoring():
             np.random.randint(0, self.n_actions['ai'], self.n_agents['ci']), dtype=th.int64)
         return self.observations()
 
-    def _render(self, state, rewards):
+    def _render(self, state, metrics):
         fig = plt.figure()
-
-        avg_ai_reward = rewards['ai'].mean()
-        avg_ci_reward = rewards['ci'].mean()
 
         labels = {i: f"{int_to_alphabete(i)}" for i in range(len(self.graph))}
         labels2 = {
-            i: f"{int_to_alphabete(i)}:{r:.2f}" for i,r in zip(self.agent_pos, rewards['ci']) }
+            i: f"{int_to_alphabete(i)}:{r:.2f}" for i,r in zip(self.agent_pos, metrics['ci']) }
         labels = {**labels, **labels2}
         
         node_color_ci = [state['ci'][i].item() for i in self.graph.nodes()]        
@@ -181,7 +178,10 @@ class AdGraphColoring():
             self.graph, self.graph_pos, node_color=node_color_ci, 
             labels=labels, node_size=200, edgelist=[], font_size=20, font_color='magenta')
 
-        plt.text(0, 0, f"{self.steps}:{avg_ai_reward}:{avg_ci_reward}", fontsize=30, color='magenta')
+        plt.text(
+            0, 0, f"#{self.steps} Corr {metrics['avg_coordination']} Catch {metrics['avg_catch']}", 
+            fontsize=30, color='magenta'
+        )
         # plt.text(-0.8, -0.5, f"s: {[i.item() for i in state['ci']]}", fontsize=15)
         # plt.text(-0.8, -0.7, f"nc ci: {node_color_ci}", fontsize=15)
         # plt.text(-0.8, -0.9, f"nc ai: {node_color_ai}", fontsize=15)
@@ -202,21 +202,22 @@ class AdGraphColoring():
         else:
             self.agg_metrics = {k: self.agg_metrics[k] + v for k, v in metrics.items()}
 
-        writer.add_metrics(
-            'trace',
-            {
-                'ai_reward': metrics['ai'],
-                'sum_ci_reward':  metrics['ci'].sum(),
-                'std_ci_reward':  metrics['ci'].std(),
-                'avg_coordination': metrics['avg_coordination'][0],
-                'avg_catch': metrics['avg_catch'][0],
-            },
-            {},
-            tf=[],
-            on='trace'
-        )
+        if writer.check_on(on='trace'):
+            writer.add_metrics(
+                'trace',
+                {
+                    'ai_reward': metrics['ai'],
+                    'sum_ci_reward':  metrics['ci'].sum(),
+                    'std_ci_reward':  metrics['ci'].std(),
+                    'avg_coordination': metrics['avg_coordination'][0],
+                    'avg_catch': metrics['avg_catch'][0],
+                },
+                {},
+                tf=[],
+                on='trace'
+            )
 
-        if done:
+        if done and writer.check_on(on='final'):
             writer.add_metrics(
                 'final',
                 {
@@ -245,7 +246,7 @@ class AdGraphColoring():
                         on='individual_trace'
                     )
 
-        writer.add_frame('{mode}.observations', lambda: self._render(self.state, rewards), on='video', flush=done)
+        writer.add_frame('{mode}.observations', lambda: self._render(self.state, metrics), on='video', flush=done)
 
 
 
