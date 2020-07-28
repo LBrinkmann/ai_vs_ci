@@ -47,18 +47,19 @@ def int_to_alphabete(val):
 
 class AdGraphColoring():
     def __init__(
-            self, n_agents, all_agents, graph_args, max_steps, fixed_length, rewards_args, device,
-            fixed_pos, fixed_network):
+            self, all_agents, graph_args, max_steps, fixed_length, rewards_args, device,
+            fixed_pos, fixed_network, ai_obs_mode='agents_matrix', fixed_agents=0):
         self.steps = 0
         self.max_steps = max_steps
-        self.n_agents = {'ci': n_agents, 'ai': n_agents}
 
+        self.fixed_agents = fixed_agents
         self.all_agents = all_agents
         self.graph_args = graph_args
         self.device = device
         self.fixed_length = fixed_length
         self.fixed_pos, self.fixed_network = fixed_pos, fixed_network
         self.rewards_args = rewards_args
+        self.ai_obs_mode = ai_obs_mode
 
         self.new_graph()
         self.reset(init=True)
@@ -73,9 +74,26 @@ class AdGraphColoring():
             random.sample(self.graph[n].keys(), len(self.graph[n])) 
             for n in range(len(self.graph))
         ], dtype=th.int64, device=self.device) # n_agents, n_neighbors
+
+        ci_obs_shape = (self.n_neighbors + 1,)
+        ci_agents = self.all_agents - self.fixed_agents
+        if self.ai_obs_mode == 'neighbors':
+            ai_obs_shape = ci_obs_shape
+            ai_agents = ci_agents
+        elif self.ai_obs_mode == 'agents_only':
+            ai_obs_shape = (self.all_agents,)
+            ai_agents = 1
+        elif self.ai_obs_mode == 'agents_matrix':
+            ai_obs_shape = (self.all_agents,(self.all_agents, self.all_agents))
+            ai_agents = None
+        else:
+            raise NotImplementedError(f'AI observation mode is not implemented yet.')
+
+        self.n_agents = {'ci': ci_agents, 'ai': ai_agents}
+
         self.observation_shape = {
-            'ai': (self.all_agents, (self.all_agents, self.all_agents)),
-            'ci': (self.n_neighbors + 1,)
+            'ai': ai_obs_shape,
+            'ci': ci_obs_shape
         }
         self.n_actions = {
             'ai': n_actions,
@@ -86,9 +104,20 @@ class AdGraphColoring():
         state_ = self.state['ci'].reshape(1,-1).repeat(self.all_agents,1)
         neighbor_colors = th.gather(state_, 1, self.neighbors)
         observations = th.cat((self.state['ci'].reshape(-1,1), neighbor_colors), dim=1)
+
+        ci_obs = observations[self.agent_pos]
+        if self.ai_obs_mode == 'neighbors':
+            ai_obs = ci_obs
+        elif self.ai_obs_mode == 'agents_only':
+            ai_obs = self.state['ci'].unsqueeze(0)
+        elif self.ai_obs_mode == 'agents_matrix':
+            ai_obs = (self.state['ci'], self.adjacency_matrix)
+        else:
+            raise NotImplementedError(f'AI observation mode is not implemented yet.')
+
         return {
-            'ai': [(self.state['ci'], self.adjacency_matrix)],
-            'ci': observations[self.agent_pos]
+            'ai': ai_obs,
+            'ci': ci_obs
         }
 
     def get_rewards(self, observations):

@@ -41,7 +41,6 @@ def create_combinations_map(cache_size, observation_shape, n_actions):
         tuple(obs): idx for idx, obs in enumerate(all_possible_obs)
     }
 
-    # import ipdb; ipdb.set_trace()
     def func(ob):
         return lookup[(ob[0], tuple(sorted(ob[1:])))]
     return func, lookup
@@ -64,11 +63,13 @@ MAPS = {
 class TabularQ:
     def __init__(
             self, observation_shape, n_agents, n_actions, gamma, alpha,
-            q_start, obs_map, cache_size, device):
+            q_start, obs_map, cache_size, share_table, device):
         self.n_actions = n_actions
         self.device = device
         self.obs_idx_map, self.lookup = MAPS[obs_map](cache_size, observation_shape, n_actions)
-        self.q_table = th.ones((n_agents, len(self.lookup), n_actions)) * q_start
+
+        n_q_tables = 1 if share_table else n_agents
+        self.q_table = th.ones((n_q_tables, len(self.lookup), n_actions)) * q_start
 
         print(f'Created lookup table with {len(self.lookup)} entries for each of {n_agents} agents.')
         
@@ -76,11 +77,13 @@ class TabularQ:
         self.alpha = alpha
         self.gamma = gamma
         self.cache_size = cache_size
+        self.share_table = share_table
 
     def get_q(self, observations):
         historized_obs = self.evalcache.add_get(observations)
         observations_idx = get_idx(historized_obs, self.obs_idx_map)
-        q_value = self.q_table[np.arange(self.n_agents), observations_idx]
+        q_table_idxs = np.zeros(self.n_agents, dtype=int) if self.share_table else np.arange(self.n_agents)
+        q_value = self.q_table[q_table_idxs, observations_idx]
         return q_value
 
     def init_episode(self, observations):
@@ -93,10 +96,15 @@ class TabularQ:
         observations_idx = get_idx(historized_obs[:-1], self.obs_idx_map)
         prev_observations_idx = get_idx(historized_obs[1:], self.obs_idx_map)
 
-        old_q_values = self.q_table[np.arange(self.n_agents), prev_observations_idx, actions]
-        next_max_q_val = self.q_table[np.arange(self.n_agents), observations_idx].max(-1)[0]
+        q_table_idxs = np.zeros(self.n_agents, dtype=int) if self.share_table else np.arange(self.n_agents)
+        old_q_values = self.q_table[q_table_idxs, prev_observations_idx, actions]
+        next_max_q_val = self.q_table[q_table_idxs, observations_idx].max(-1)[0]
         new_q_value = (1 - self.alpha) * old_q_values + self.alpha * (rewards + self.gamma * next_max_q_val)
-        self.q_table[np.arange(self.n_agents), prev_observations_idx, actions] = new_q_value
+
+        if self.share_table:
+            self.q_table[0, prev_observations_idx, actions] = new_q_value.sum(0)
+        else:
+            self.q_table[q_table_idxs, prev_observations_idx, actions] = new_q_value
 
         if writer and done:
             self.log(writer)
