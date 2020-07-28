@@ -94,36 +94,31 @@ class AdGraphColoring():
     def get_rewards(self, observations):
         conflicts = (observations['ci'][:,[0]] == observations['ci'][:,1:])
 
-        local_coordination = 1 - conflicts.any(dim=1).type(th.float)
-        global_coordination = local_coordination.mean()
-
-        local_catches = (
+        ind_coordination = 1 - conflicts.any(dim=1).type(th.float)
+        ind_catch = (
             self.state['ai'][self.agent_pos] == self.state['ci'][self.agent_pos]).type(th.float)
 
-        global_catches = local_catches.mean()
+        metrics = {
+            'ind_coordination': ind_coordination,
+            'avg_coordination': ind_coordination.mean(0, keepdim=True).expand(self.n_agents['ci']),
+            'ind_catch': ind_catch,
+            'avg_catch': ind_catch.mean(0, keepdim=True).expand(self.n_agents['ci']),
+        }
 
-        ci_reward = (
-            local_coordination * self.rewards_args['ci']['local_coordination'] +
-            global_coordination * self.rewards_args['ci']['global_coordination'] +
-            local_catches * self.rewards_args['ci']['local_catches'] +
-            global_catches * self.rewards_args['ci']['global_catches']
-        )
-        
-        ai_reward = (
-            self.n_agents['ci'] * global_coordination * self.rewards_args['ai']['global_coordination'] +
-            self.n_agents['ci'] * global_catches * self.rewards_args['ai']['global_catches']
-        )
+        # cat = [metrics[k] * v for k,v in self.rewards_args['ci'].items()]
+        # cat = th.cat(cat)
+        ci_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ci'].items()]).sum(0)
+
+        ai_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ai'].items()]).sum(0).sum(0, keepdim=True)
+
+        assert ai_reward.shape[0] == 1
 
         reward = {
-            'ai': ai_reward.unsqueeze(0),
+            'ai': ai_reward,
             'ci': ci_reward
         }
 
-        info = {
-            'ci': {'coordinations': global_coordination},
-            'ai': {'catches': global_catches}
-        }
-        return reward, info
+        return reward, {**metrics, **reward}
 
 
     def step(self, actions, writer=None):
@@ -143,7 +138,7 @@ class AdGraphColoring():
         self.steps += 1
 
         if writer:
-            self._log(observations, rewards, done, info, writer) 
+            self._log(observations, info, done, writer) 
 
         return observations, rewards, done, {}
 
@@ -151,10 +146,9 @@ class AdGraphColoring():
         if not self.fixed_network or init:
             self.new_graph()
         self.steps = 0
-        self.episode_rewards = {
-            'ai': th.zeros(1),
-            'ci': th.zeros(self.n_agents['ci'])
-        }
+
+        self.agg_metrics = {}
+
         if not self.fixed_pos or init:
             self.agent_pos = np.random.choice(
                 self.all_agents, self.n_agents['ci'], replace=False)
@@ -202,31 +196,51 @@ class AdGraphColoring():
     def close(self):
         pass
 
-    def _log(self, observations, rewards, done, info, writer):
-        for agent_type in ['ci', 'ai']:
-            self.episode_rewards[agent_type] += rewards[agent_type]
+    def _log(self, observations, metrics, done, writer):
+        if len(self.agg_metrics) == 0:
+            self.agg_metrics = metrics
+        else:
+            self.agg_metrics = {k: self.agg_metrics[k] + v for k, v in metrics.items()}
+
+        writer.add_metrics(
+            'trace',
+            {
+                'ai_reward': metrics['ai'],
+                'sum_ci_reward':  metrics['ci'].sum(),
+                'std_ci_reward':  metrics['ci'].std(),
+                'avg_coordination': metrics['avg_coordination'][0],
+                'avg_catch': metrics['avg_catch'][0],
+            },
+            {},
+            tf=[],
+            on='trace'
+        )
+
+        if done:
             writer.add_metrics(
+                'final',
                 {
-                    # 'rewards': rewards[agent_type],
-                    'avg_reward': rewards[agent_type].mean(), 
-                    # 'episode_rewards': self.episode_rewards[agent_type],
-                    'avg_episode_rewards': self.episode_rewards[agent_type].mean(),
-                    **info[agent_type]
+                    'ai_reward': self.agg_metrics['ai'],
+                    'sum_ci_reward':  self.agg_metrics['ci'].sum(),
+                    'std_ci_reward':  self.agg_metrics['ci'].std(),
+                    'avg_coordination': self.agg_metrics['avg_coordination'][0],
+                    'avg_catch': self.agg_metrics['avg_catch'][0],
                 },
-                {'done': done, 'agent_type': agent_type, 'rowtype': 'trace'},
+                {},
                 tf=[],
-                on=None if done else 'trace'
+                on='final'
             )
 
             if writer.check_on(on='individual_trace'):
-                for i, (r, er) in enumerate(zip(rewards[agent_type], self.episode_rewards[agent_type])):
+                for i in range(self.n_agents['ci']):
                     writer.add_metrics(
+                        'individual_trace',
                         {
-                            'rewards': r,
-                            'episode_rewards': er,
-                            'agent': int_to_alphabete(i),
+                            'ci_reward': self.agg_metrics['ci'][i],
+                            'ind_coordination': self.agg_metrics['ind_coordination'][i],
+                            'ind_catch': self.agg_metrics['ind_catch'][i],
                         },
-                        {'done': done, 'agent_type': agent_type, 'rowtype': 'individual_trace'},
+                        {'done': done, 'agent': int_to_alphabete(i)},
                         tf=[],
                         on='individual_trace'
                     )

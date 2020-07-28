@@ -20,9 +20,19 @@
     <!-- * test other storage format -->
     * save as parquet
     * save individual agents less often
-* run grid - doing
-* think of usefull plot to make
-* create plots
+* run grid - done
+* think of usefull plot to make - done
+* create plots - done
+
+
+
+* update writing
+    * different files for different type of logs - done
+    * seperate meta and data - not needed
+    * log all metrics individual, then mix for final reward - done
+    * sum reward per group (AI / CI) - done
+    * CI reward - ???
+* check qtables simple settings, is it working correctly?
 
 
 

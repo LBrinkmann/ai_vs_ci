@@ -23,15 +23,6 @@ from aci.utils.writer import Writer
 import torch as th
 
 
-def calc_metrics(rewards, episode_rewards):
-    return {
-        'rewards': rewards,
-        'avg_reward': rewards.mean(),
-        'episode_rewards': episode_rewards,
-        'avg_episode_rewards': episode_rewards.mean()
-    }
-
-
 def run_episode(*, env, controller, action_selector, writer, test_mode=False):
     observations = env.reset()
     agent_types = controller.keys()
@@ -44,9 +35,9 @@ def run_episode(*, env, controller, action_selector, writer, test_mode=False):
     for t in count():
         writer.add_meta(episode_step=t)
 
-        for agent_type in agent_types:
-            ainfo = {f"{agent_type}_{k}": v for k,v in action_selector[agent_type].info().items()}
-            writer.add_meta(**ainfo)
+        # for agent_type in agent_types:
+        #     ainfo = {f"{agent_type}_{k}": v for k,v in action_selector[agent_type].info().items()}
+        #     writer.add_meta(**ainfo)
 
         actions = {}
         for agent_type in agent_types:

@@ -48,8 +48,9 @@ class Writer():
     def __init__(self, output_folder, periods, use_tb=False, **meta):
         self.meta = meta
         ensure_dir(output_folder)
-        self.metric_rows = []
-        self.metrics_file = f"{output_folder}/metrics.parquet"
+        self.metric_rows = {}
+        self.meta_rows = {}
+        self.metrics_folder = f"{output_folder}/metrics"
         # self.json_writer = jsonlines.open(f"{output_folder}/metrics.jsonl", mode='w', flush=True)
         if use_tb:
             self.tensorboard_writer = SummaryWriter(log_dir=f'{output_folder}/tensorboard')
@@ -60,6 +61,7 @@ class Writer():
         self.model_folder = f"{output_folder}/models"
         self.df_folder = f"{output_folder}/df"
         ensure_dir(self.df_folder)
+        ensure_dir(self.metrics_folder)
         self.periods = periods
         self.frames = {}
 
@@ -85,13 +87,18 @@ class Writer():
         self._write_table(**kwargs)   
 
     @selector
-    def add_metrics(self, metrics, meta, tf=[]):
+    def add_metrics(self, name, metrics, meta, tf=[]):
         if self.tensorboard_writer:
             for n in tf:
                 self.tensorboard_writer.add_scalar(n, metrics[n], self.step)
-        now = datetime.datetime.utcnow()
-        meta = {**self.meta, **meta, 'createdAt': now}
-        self._write_row(**{**meta, **metrics})
+        meta = {**self.meta, **meta}
+        if name in self.meta_rows:
+            assert name in self.metric_rows
+            self.meta_rows[name].append(parse_dict(meta))
+            self.metric_rows[name].append(parse_dict(metrics))
+        else:
+            self.meta_rows[name] = [parse_dict(meta)]
+            self.metric_rows[name] = [parse_dict(metrics)]
 
     @selector
     def add_image(self, name, image):
@@ -137,10 +144,8 @@ class Writer():
         clip = ImageSequenceClip([f for f in array_np], fps=1)
         clip.write_videofile(file_name)
     
-    def _write_row(self, **row):
-        parsed_row = parse_dict(row)
-        # self.json_writer.write(parsed_row)
-        self.metric_rows.append(parsed_row)
+    # def _write_row(self, metrics, meta):
+
 
     def _write_table(self, df, name, sheet):
         df.to_csv(f"{self.df_folder}/{name}.{sheet}.csv")
@@ -150,9 +155,13 @@ class Writer():
         self.rows_flush()
 
     def rows_flush(self):
-        df = pd.DataFrame.from_records(self.metric_rows)
-        # import ipdb; ipdb.set_trace()
-        df.to_parquet(self.metrics_file)
+        names = self.metric_rows.keys()
+        for n in names:
+            df_metrics = pd.DataFrame.from_records(self.metric_rows[n])
+            df_meta = pd.DataFrame.from_records(self.meta_rows[n]).astype('category')
+            df = pd.concat([df_meta, df_metrics], axis=1)
+            metrics_file = os.path.join(self.metrics_folder, f"{n}.parquet")
+            df.to_parquet(metrics_file)
 
     @selector
     def write_module(self, name, module):
