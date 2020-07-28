@@ -32,7 +32,7 @@
     * log all metrics individual, then mix for final reward - done
     * sum reward per group (AI / CI) - done
     * CI reward - ???
-* check qtables simple settings, is it working correctly?
+* check qtables with simple settings, is it working correctly?
 
 
 

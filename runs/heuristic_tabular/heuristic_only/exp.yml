@@ -46,14 +46,6 @@ grid:
     - params.env_args: 
         graph_args:
           graph_type: random_regular
-          degree: 3
-          chromatic_number: 4
-        n_agents: 4
-        all_agents: 4
-      labels.networktype: full4
-    - params.env_args: 
-        graph_args:
-          graph_type: random_regular
           degree: 4
           chromatic_number: 5
         n_agents: 5
@@ -73,6 +65,14 @@ grid:
         n_agents: 6
         all_agents: 6
       labels.networktype: cycle64
+    - params.env_args: 
+        graph_args:
+          graph_type: random_regular
+          degree: 4
+          chromatic_number: 4
+        n_agents: 10
+        all_agents: 10
+      labels.networktype: reg10_4_4
 params:
   agent_types:
     ci:
@@ -102,8 +102,9 @@ params:
   writer_args:
     periods:
       video: 100
-      trace: 1
-      individual_trace: 10
+      trace: 10
+      individual_trace: 100
+      final: 1
       # table: 100
   env_class: adversial_graph_coloring
   env_args:
@@ -119,10 +120,10 @@ params:
     fixed_network: true
     rewards_args:
       ai:
-        global_coordination: -1
-        global_catches: 1
+        avg_coordination: -1
+        avg_catch: 1
       ci:
-        local_coordination: 0.5
-        global_coordination: 0.5
-        local_catches: -0.5
-        global_catches: -0.5
+        ind_coordination: 0.5
+        avg_coordination: 0.5
+        ind_catch: -0.5
+        avg_catch: -0.5
