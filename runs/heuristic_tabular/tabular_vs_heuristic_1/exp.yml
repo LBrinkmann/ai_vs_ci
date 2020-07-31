@@ -30,7 +30,6 @@ grid:
           graph_type: random_regular
           degree: 1
           chromatic_number: 2
-        n_agents: 2
         all_agents: 2
       labels.networktype: full2
     - params.env_args: 
@@ -38,78 +37,73 @@ grid:
           graph_type: random_regular
           degree: 2
           chromatic_number: 3
-        n_agents: 3
         all_agents: 3
       labels.networktype: full3
     - params.env_args: 
         graph_args:
           graph_type: random_regular
-          degree: 3
-          chromatic_number: 4
-        n_agents: 4
-        all_agents: 4
-      labels.networktype: full4
-    - params.env_args: 
-        graph_args:
-          graph_type: random_regular
           degree: 4
           chromatic_number: 5
-        n_agents: 5
         all_agents: 5
       labels.networktype: full5
     - params.env_args: 
         graph_args:
           graph_type: cycle
           degree: 2
-        n_agents: 6
         all_agents: 6
       labels.networktype: cycle62
     - params.env_args: 
         graph_args:
           graph_type: cycle
           degree: 4
-        n_agents: 6
         all_agents: 6
       labels.networktype: cycle64
+    - params.env_args: 
+        graph_args:
+          graph_type: random_regular
+          degree: 4
+          chromatic_number: 4
+        all_agents: 10
+      labels.networktype: reg10_4_4
   - - params.env_args.rewards_args:
         ai:
-          global_coordination: -1
-          global_catches: 1
+          avg_coordination: -1
+          avg_catch: 1
         ci:
-          local_coordination: 1
-          global_coordination: 0
-          local_catches: 0
-          global_catches: 0
-      labels.rewards: local
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 0
+      labels.rewards: individual
     - params.env_args.rewards_args:
         ai:
-          global_coordination: -1
-          global_catches: 1
+          avg_coordination: -1
+          avg_catch: 1
         ci:
-          local_coordination: 0.5
-          global_coordination: 0.5
-          local_catches: 0
-          global_catches: 0
+          ind_coordination: 0.5
+          avg_coordination: 0.5
+          ind_catch: 0
+          avg_catch: 0
       labels.rewards: mixed
     - params.env_args.rewards_args:
         ai:
-          global_coordination: -1
-          global_catches: 1
+          avg_coordination: -1
+          avg_catch: 1
         ci:
-          local_coordination: 0
-          global_coordination: 1
-          local_catches: 0
-          global_catches: 0
-      labels.rewards: global
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: 0
+      labels.rewards: collective
     - params.env_args.rewards_args:
         ai:
-          global_coordination: -1
-          global_catches: 1
+          avg_coordination: -1
+          avg_catch: 1
         ci:
-          local_coordination: 0.5
-          global_coordination: 0.5
-          local_catches: -0.5
-          global_catches: -0.5
+          ind_coordination: 0.5
+          avg_coordination: 0.5
+          ind_catch: -0.5
+          avg_catch: -0.5
       labels.rewards: mixed_zero_sum
   - - params.agent_types.ci.controller_args:
         alpha: 0.05
@@ -183,28 +177,30 @@ params:
     num_episodes: 10000
   writer_args:
     periods:
-      video: 1000
-      trace: 10
-      individual_trace: 100
-      table: 1000
+      video: 2500
+      final: 10
+      trace: 100
+      # individual_trace: 100
+      table: 2500
   env_class: adversial_graph_coloring
   env_args:
+    ai_obs_mode: agents_matrix
     graph_args:
       graph_type: random_regular
       degree: 3
       chromatic_number: 3
-    n_agents: 5
     all_agents: 10
+    fixed_agents: 0
     max_steps: 50
     fixed_length: true
     fixed_pos: true
     fixed_network: true
     rewards_args:
       ai:
-        global_coordination: -1
-        global_catches: 1
+        avg_coordination: -1
+        avg_catch: 1
       ci:
-        local_coordination: 0.5
-        global_coordination: 0.5
-        local_catches: -0.5
-        global_catches: -0.5
+        ind_coordination: 0.5
+        avg_coordination: 0.5
+        ind_catch: -0.5
+        avg_catch: -0.5

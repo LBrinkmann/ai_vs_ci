@@ -63,7 +63,7 @@ MAPS = {
 class TabularQ:
     def __init__(
             self, observation_shape, n_agents, n_actions, gamma, alpha,
-            q_start, obs_map, cache_size, share_table, device):
+            q_start, obs_map, cache_size, device, share_table=False):
         self.n_actions = n_actions
         self.device = device
         self.obs_idx_map, self.lookup = MAPS[obs_map](cache_size, observation_shape, n_actions)

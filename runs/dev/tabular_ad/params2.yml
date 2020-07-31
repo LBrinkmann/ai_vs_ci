@@ -1,0 +1,60 @@
+labels:
+  project: ai_vs_ci
+  batch: dev_tabular
+params:
+  agent_types:
+    ci:
+      selector_args:
+        eps_start: 0.20
+        eps_end: 0.20
+        eps_decay: 2000
+      controller_args:
+        alpha: 0.05
+        gamma: 0.999
+        q_start: 0
+        obs_map: combinations
+        cache_size: 3
+        share_table: false
+      controller_class: tabularq
+    ai:
+      selector_args:
+        eps_start: 0.20
+        eps_end: 0.20
+        eps_decay: 2000
+      replay_memory: null
+      controller_args: 
+        heuristic_name: hai1
+        agent_args: {}
+      controller_class: heuristic
+  train_args:
+    eval_period: 10
+    num_episodes: 100
+  writer_args:
+    periods:
+      # video: 250
+      trace: 10
+      individual_trace: 100
+      final: 1
+      # table: 250
+  env_class: adversial_graph_coloring
+  env_args:
+    ai_obs_mode: agents_matrix
+    graph_args:
+      graph_type: random_regular
+      degree: 3
+      chromatic_number: 3
+    fixed_agents: 0
+    all_agents: 6
+    max_steps: 50
+    fixed_length: true
+    fixed_pos: true
+    fixed_network: true
+    rewards_args:
+      ai:
+        avg_coordination: -1
+        avg_catch: 1
+      ci:
+        ind_coordination: 0.5
+        avg_coordination: 0.5
+        ind_catch: -0.5
+        avg_catch: -0.5

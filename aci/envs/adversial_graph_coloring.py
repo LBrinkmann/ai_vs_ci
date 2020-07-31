@@ -111,7 +111,7 @@ class AdGraphColoring():
         elif self.ai_obs_mode == 'agents_only':
             ai_obs = self.state['ci'].unsqueeze(0)
         elif self.ai_obs_mode == 'agents_matrix':
-            ai_obs = (self.state['ci'], self.adjacency_matrix)
+            ai_obs = [(self.state['ci'], self.adjacency_matrix)]
         else:
             raise NotImplementedError(f'AI observation mode is not implemented yet.')
 
