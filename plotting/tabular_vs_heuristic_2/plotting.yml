@@ -1,0 +1,54 @@
+
+input_file: "{RUN_FOLDER}/heuristic_tabular/tabular_vs_heuristic_2/agg/final.parquet"
+preprocess_args:
+  metrics: [ai_reward, sum_ci_reward, std_ci_reward, avg_coordination, avg_catch]
+  smooth: 50
+  x: episode
+  groupby: label.*|mode
+  bins: null
+plot_args:
+  - selectors:
+      label.rewards: individual
+      label.eps: fixed0.20
+      label.cache_size: 1
+      label.q_start: 0
+      metric: avg_coordination
+    grid: [label.alpha,label.gamma]
+    hue: label.networktype
+    style: mode
+    name: alpha_gamma
+  - selectors:
+      label.rewards: individual
+      # label.eps: fixed0.20
+      label.gamma: 0.9
+      label.cache_size: 1
+      label.q_start: 0
+      metric: avg_coordination
+    # expand:
+    #   - label.rewards
+    grid: [label.networktype,label.alpha]
+    hue: label.eps
+    style: mode
+    name: eps
+  - selectors:
+      label.eps: fixed0.20
+      label.gamma: 0.9
+      label.cache_size: 1
+      label.q_start: 0
+      label.alpha: 0.1
+      metric: avg_coordination
+    grid: [label.networktype]
+    hue: label.rewards
+    style: mode
+    name: rewards
+  - selectors:
+      label.eps: fixed0.20
+      label.gamma: 0.9
+      label.rewards: individual
+      label.q_start: 0
+      label.alpha: 0.1
+      metric: avg_coordination
+    grid: [label.networktype]
+    hue: label.cache_size
+    style: mode
+    name: cache_size
