@@ -138,9 +138,12 @@ class AdGraphColoring():
         # cat = th.cat(cat)
         ci_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ci'].items()]).sum(0)
 
-        ai_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ai'].items()]).sum(0).sum(0, keepdim=True)
+        ai_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ai'].items()]).sum(0)
+        
+        if self.n_agents['ai'] == 1:
+            ai_reward = ai_reward.sum(0, keepdim=True)            
 
-        assert ai_reward.shape[0] == 1
+        # assert ai_reward.shape[0] == 1
 
         reward = {
             'ai': ai_reward,
@@ -167,7 +170,7 @@ class AdGraphColoring():
         self.steps += 1
 
         if writer:
-            self._log(observations, info, done, writer) 
+            self._log(actions, observations, info, done, writer) 
 
         return observations, rewards, done, {}
 
@@ -225,7 +228,7 @@ class AdGraphColoring():
     def close(self):
         pass
 
-    def _log(self, observations, metrics, done, writer):
+    def _log(self, actions, observations, metrics, done, writer):
         if len(self.agg_metrics) == 0:
             self.agg_metrics = metrics
         else:
@@ -269,6 +272,8 @@ class AdGraphColoring():
                             'ci_reward': self.agg_metrics['ci'][i],
                             'ind_coordination': self.agg_metrics['ind_coordination'][i],
                             'ind_catch': self.agg_metrics['ind_catch'][i],
+                            'ci_action': actions['ci'][i],
+                            'ai_action': actions['ai'][i]
                         },
                         {'done': done, 'agent': int_to_alphabete(i)},
                         tf=[],

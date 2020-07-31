@@ -96,13 +96,16 @@ class TabularQ:
         observations_idx = get_idx(historized_obs[:-1], self.obs_idx_map)
         prev_observations_idx = get_idx(historized_obs[1:], self.obs_idx_map)
 
+
         q_table_idxs = np.zeros(self.n_agents, dtype=int) if self.share_table else np.arange(self.n_agents)
         old_q_values = self.q_table[q_table_idxs, prev_observations_idx, actions]
         next_max_q_val = self.q_table[q_table_idxs, observations_idx].max(-1)[0]
         new_q_value = (1 - self.alpha) * old_q_values + self.alpha * (rewards + self.gamma * next_max_q_val)
 
         if self.share_table:
-            self.q_table[0, prev_observations_idx, actions] = new_q_value.sum(0)
+            # currently this is ill behaving. There could be two subagents with the same prev_obs_id and actions, and it
+            # is not clear of which agent the value is taken. 
+            self.q_table[0, prev_observations_idx, actions] = new_q_value
         else:
             self.q_table[q_table_idxs, prev_observations_idx, actions] = new_q_value
 
