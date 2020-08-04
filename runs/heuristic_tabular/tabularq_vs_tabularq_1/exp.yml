@@ -1,0 +1,230 @@
+exec:
+  python_file: aci/adversial.py
+  script_name: cpu
+labels:
+  project: ai_vs_ci
+  batch: tabularq_vs_tabularq_1
+grid:
+  - - params.env_args: 
+        graph_args:
+          graph_type: random_regular
+          degree: 1
+          chromatic_number: 2
+        all_agents: 2
+      labels.networktype: full2
+    - params.env_args: 
+        graph_args:
+          graph_type: random_regular
+          degree: 5
+          chromatic_number: 6
+        all_agents: 6
+      labels.networktype: full6
+    - params.env_args: 
+        graph_args:
+          graph_type: cycle
+          degree: 2
+        all_agents: 6
+      labels.networktype: cycle62
+    - params.env_args: 
+        graph_args:
+          graph_type: cycle
+          degree: 4
+        all_agents: 6
+      labels.networktype: cycle64
+    - params.env_args: 
+        graph_args:
+          graph_type: random_regular
+          degree: 4
+          chromatic_number: 3
+        all_agents: 6
+      labels.networktype: reg6_4_3
+    - params.env_args: 
+        graph_args:
+          graph_type: random_regular
+          degree: 4
+          chromatic_number: 4
+        all_agents: 10
+      labels.networktype: reg10_4_4
+  - - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: -1
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: -1
+          avg_catch: 0
+      labels.reward: ai_coll_ci_ind_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: -1
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: -1
+      labels.reward: ai_coll_ci_coll_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: -1
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: -1
+          avg_catch: 0
+      labels.reward: ai_ind_ci_ind_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: -1
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: -1
+      labels.reward: ai_ind_ci_coll_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_coll_ci_ind
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_coll_ci_coll
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_ind_ci_ind
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_ind_ci_coll
+  - - params.env_args:
+        fixed_pos: false
+        fixed_network: false
+      labels.network: changing
+    - params.env_args:
+        fixed_pos: true
+        fixed_network: true
+      labels.network: fixed
+  - - params.agent_types.ai.controller_args.share_table: true
+      params.agent_types.ci.controller_args.share_table: false
+      labels.share_table: ai_only
+    - params.agent_types.ai.controller_args.share_table: false
+      params.agent_types.ci.controller_args.share_table: false
+      labels.share_table: neither
+    - params.agent_types.ai.controller_args.share_table: true
+      params.agent_types.ci.controller_args.share_table: true
+      labels.share_table: both   
+  - params.agent_types.ci.controller_args.alpha: [0.01,  0.1]
+    params.agent_types.ai.controller_args.alpha: [0.01,  0.1]
+    labels.alpha: [0.01, 0.1]
+  - params.agent_types.ci.controller_args.obs_map: [product, combinations]
+    params.agent_types.ai.controller_args.obs_map: [product, combinations]
+    labels.obs_map: [product, combinations]
+  - params.agent_types.ci.controller_args.cache_size: [1,2]
+    params.agent_types.ai.controller_args.cache_size: [1,2]
+    labels.cache_size: [1,2]
+params:
+  agent_types:
+    ci:
+      selector_args:
+        eps_start: 0.10
+        eps_end: 0.10
+        eps_decay: 2000
+      controller_args:
+        alpha: 0.05
+        gamma: 0.8
+        q_start: 0
+        obs_map: combinations
+        cache_size: 1
+      controller_class: tabularq
+    ai:
+      selector_args:
+        eps_start: 0.10
+        eps_end: 0.10
+        eps_decay: 2000
+      controller_args:
+        alpha: 0.05
+        gamma: 0.8
+        q_start: 0
+        obs_map: combinations
+        cache_size: 1
+      controller_class: tabularq
+  train_args:
+    eval_period: 10
+    num_episodes: 10000
+  writer_args:
+    periods:
+      video: 2500
+      final: 10
+      trace: 100
+      # individual_trace: 100
+      table: 2500
+  env_class: adversial_graph_coloring
+  env_args:
+    ai_obs_mode: neighbors
+    graph_args:
+      graph_type: random_regular
+      degree: 3
+      chromatic_number: 3
+    all_agents: 10
+    fixed_agents: 0
+    max_steps: 50
+    fixed_length: true
+    fixed_pos: true
+    fixed_network: true
+    rewards_args:
+      ai:
+        avg_coordination: -1
+        avg_catch: 1
+      ci:
+        ind_coordination: 0.5
+        avg_coordination: 0.5
+        ind_catch: -0.5
+        avg_catch: -0.5
+
+
+
