@@ -32,7 +32,10 @@ def single_filter(s, f):
 
 
 def selector(df, selectors):
-    return reduce(lambda a,b: a & b, (single_filter(df[k], v) for k, v in selectors.items()))
+    if len(selectors) > 0:
+        return reduce(lambda a,b: a & b, (single_filter(df[k], v) for k, v in selectors.items()))
+    else:
+        return pd.Series(True, index=df.index)
 
 def plot(df, output_path, name, selectors, grid, hue=None, style=None):
     w = selector(df, selectors)

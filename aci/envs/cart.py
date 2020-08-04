@@ -42,7 +42,7 @@ def get_screen(env, device):
 
 
 class CartWrapper():
-    def __init__(self, device, n_agents):
+    def __init__(self, device, n_agents, max_steps):
         self.envs = [gym.make('CartPole-v0').unwrapped for i in range(n_agents)]
         self.device = device
         self.n_agents = n_agents

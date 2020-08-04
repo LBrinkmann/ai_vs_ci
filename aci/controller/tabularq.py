@@ -46,56 +46,87 @@ def create_combinations_map(cache_size, observation_shape, n_actions):
     return func, lookup
 
 
+def discretisation(cache_size, observation_shape, n_actions, n_bins, minmax):
+    assert len(minmax) == observation_shape[0]
+    minmax = np.array(minmax)
+    totrange = minmax[:,1] - minmax[:,0] + 0.0000001
+
+    def func(ob):
+        disc = tuple(tuple(int(((oo - minmax[i,0]) / totrange[i]) * n_bins) for j, oo in enumerate(o)) for i, o in enumerate(ob))
+        return disc
+    return func
+
+
+def discrete_product(cache_size, observation_shape, n_actions, n_bins, minmax):
+    dis = discretisation(cache_size, observation_shape, n_actions, n_bins, minmax)
+    lfunc, lookup = create_product_map(cache_size, observation_shape, n_bins)
+    def func(ob):
+        ob = dis(ob)
+        return lfunc(ob)
+    return func, lookup
+
+
 def get_idx(obs, omap):
     """
     obs input shape: trace, agents, neighbors + self
+    obs input shape: agents, trace, neighbors + self
     """
 
-    _obs = obs.permute(1, 2, 0)
+    _obs = obs.permute(0, 2, 1)
 
     return [omap(tuple(tuple(ooo.item() for ooo in oo) for oo in o)) for o in _obs]
 
+
 MAPS = {
     'product': create_product_map,
-    'combinations': create_combinations_map
+    'combinations': create_combinations_map,
+    'discrete_product': discrete_product
 }
+
 
 class TabularQ:
     def __init__(
             self, observation_shape, n_agents, n_actions, gamma, alpha,
-            q_start, obs_map, cache_size, device, share_table=False):
+            q_start, obs_map, cache_size, device, share_table=False, map_args={}):
         self.n_actions = n_actions
         self.device = device
-        self.obs_idx_map, self.lookup = MAPS[obs_map](cache_size, observation_shape, n_actions)
+        self.obs_idx_map, self.lookup = MAPS[obs_map](cache_size, observation_shape, n_actions, **map_args)
 
         n_q_tables = 1 if share_table else n_agents
         self.q_table = th.ones((n_q_tables, len(self.lookup), n_actions)) * q_start
 
         print(f'Created lookup table with {len(self.lookup)} entries for each of {n_agents} agents.')
-        
+        print(cache_size)
+
         self.n_agents = n_agents
         self.alpha = alpha
         self.gamma = gamma
         self.cache_size = cache_size
         self.share_table = share_table
 
-    def get_q(self, observations):
-        historized_obs = self.evalcache.add_get(observations)
+    def get_q(self, observations=None):
+        """ Retrieves q values for all possible actions. 
+
+        If observations are given, they are used. Otherwise last observations are used.
+
+        """
+        if observations is not None:
+            historized_obs = self.cache.add_get(observations)
+        else:
+            historized_obs = self.cache.get()
         observations_idx = get_idx(historized_obs, self.obs_idx_map)
         q_table_idxs = np.zeros(self.n_agents, dtype=int) if self.share_table else np.arange(self.n_agents)
         q_value = self.q_table[q_table_idxs, observations_idx]
         return q_value
 
     def init_episode(self, observations):
-        self.traincache = SimpleCache(observations, self.cache_size + 1)
-        self.evalcache = SimpleCache(observations, self.cache_size)
+        self.cache = SimpleCache(observations, self.cache_size)
+        # self.evalcache = SimpleCache(observations, self.cache_size)
 
     def update(self, actions, observations, rewards, done, writer=None):
-        historized_obs = self.traincache.add_get(observations)
 
-        observations_idx = get_idx(historized_obs[:-1], self.obs_idx_map)
-        prev_observations_idx = get_idx(historized_obs[1:], self.obs_idx_map)
-
+        prev_observations_idx = get_idx(self.cache.get(), self.obs_idx_map)
+        observations_idx = get_idx(self.cache.add_get(observations), self.obs_idx_map)
 
         q_table_idxs = np.zeros(self.n_agents, dtype=int) if self.share_table else np.arange(self.n_agents)
         old_q_values = self.q_table[q_table_idxs, prev_observations_idx, actions]

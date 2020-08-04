@@ -33,6 +33,7 @@ def run_episode(*, env, controller, action_selector, writer, test_mode=False):
             controller[agent_type].init_episode(observations[agent_type])
 
     for t in count():
+        # print(f'Start step {t} with test mode {test_mode}.')
         writer.add_meta(episode_step=t)
 
         # for agent_type in agent_types:
@@ -42,8 +43,7 @@ def run_episode(*, env, controller, action_selector, writer, test_mode=False):
         actions = {}
         for agent_type in agent_types:
             # Select and perform an action
-            this_obs = observations[agent_type]
-            proposed_actions = controller[agent_type].get_q(this_obs)
+            proposed_actions = controller[agent_type].get_q(observations[agent_type] if test_mode else None)
             selected_action = action_selector[agent_type].select_action(
                 proposed_actions, test_mode=test_mode)
             actions[agent_type] = selected_action
@@ -61,7 +61,7 @@ def train(
         env, controller, action_selector, writer,  num_episodes, eval_period):
     for i_episode in range(num_episodes):
         writer.add_meta(_step=i_episode, episode=i_episode, mode='train')
-
+        print(f'Start episode {i_episode}.')
         run_episode(
             env=env,
             controller=controller,

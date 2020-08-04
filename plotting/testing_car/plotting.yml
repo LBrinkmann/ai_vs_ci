@@ -1,0 +1,13 @@
+
+input_file: "{RUN_FOLDER}/dev/m_car_qt/data/metrics/final.parquet"
+preprocess_args:
+  metrics: [tot_rewards]
+  smooth: 20
+  x: episode
+  groupby: mode
+  bins: null
+plot_args:
+  - selectors: {}
+    grid: []
+    hue: mode
+    name: test

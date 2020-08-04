@@ -1,0 +1,35 @@
+labels:
+  project: ai_vs_ci
+  batch: dev_tabular
+params:
+  agent_types:
+    car:
+      selector_args:
+        eps_start: 0.10
+        eps_end: 0.10
+        eps_decay: 2000
+      controller_args:
+        alpha: 0.10
+        gamma: 0.99
+        q_start: 1
+        obs_map: discrete_product
+        map_args:
+          n_bins: 20
+          minmax: [[-1.2,0.6], [-0.07,0.07]]
+        cache_size: 1
+        share_table: true
+      controller_class: tabularq
+  train_args:
+    eval_period: 100
+    num_episodes: 50000
+  writer_args:
+    periods:
+      # video: 250
+      # trace: 10
+      # individual_trace: 100
+      final: 1
+      table: 500
+  env_class: mountain_car
+  env_args:
+    n_agents: 1
+    max_steps: 200
