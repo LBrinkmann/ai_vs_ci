@@ -2,12 +2,17 @@ import torch
 import math
 import torch.nn as nn
 import torch.nn.functional as F
+from functools import reduce 
+
+def prod(l):
+    return reduce((lambda x, y: x * y), l)
+
 
 
 class LinearFunction(nn.Module):
     def __init__(self, n_agents, observation_shape, n_actions):
         super(LinearFunction, self).__init__()
-        self.in_channels = n_agents * math.prod(observation_shape)
+        self.in_channels = n_agents * prod(observation_shape)
         self.out_channels = n_agents * n_actions
         self.n_agents = n_agents
         self.n_actions = n_actions
