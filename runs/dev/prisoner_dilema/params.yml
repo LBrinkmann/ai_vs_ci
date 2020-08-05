@@ -21,20 +21,16 @@ params:
       controller_class: maq
     ai:
       selector_args:
-        eps_start: 0.20
-        eps_end: 0.20
+        eps_start: 0.0
+        eps_end: 0.0
         eps_decay: 2000
-      controller_args:
-        alpha: 0.05
-        gamma: 0.999
-        q_start: 0
-        obs_map: product
-        cache_size: 2
-        share_table: true
-      controller_class: tabularq
+      controller_args: 
+        heuristic_name: titfortat
+        agent_args: {}
+      controller_class: heuristic
   train_args:
     eval_period: 10
-    num_episodes: 100
+    num_episodes: 1
   writer_args:
     periods:
       # video: 250
@@ -44,6 +40,8 @@ params:
       # table: 250
   env_class: table_game
   env_args:
+    max_steps: 10000
+    n_agents: 1
     rewards:
       ai: 
         - [-1, -3]

@@ -15,9 +15,19 @@ class TableGame():
     def __init__(self, n_agents, max_steps, rewards, device):
         self.steps = 0
         self.max_steps = max_steps
-        self.new_graph()
-        self.agent_groups = rewards.keys()
         self.rewards = rewards
+        self.observation_shape = {
+            'ai': (2,),
+            'ci': (2,),
+        }
+        self.n_actions = {
+            'ai': 2,
+            'ci': 2
+        }
+        self.n_agents = {
+            'ai': n_agents,
+            'ci': n_agents
+        }
 
 
     def step(self, actions, writer=None):
@@ -38,8 +48,8 @@ class TableGame():
         }
 
         rewards = {
-            'ai': th.tensor(ai_rewards),
-            'ci': th.tensor(ci_rewards)
+            'ai': th.tensor(ai_rewards, dtype=th.float),
+            'ci': th.tensor(ci_rewards, dtype=th.float)
         }
 
 
@@ -53,11 +63,11 @@ class TableGame():
 
         self.agg_metrics = {}
 
-        random_actions = th.random.randint(1, shape=(self.n_agents, 2))
+        random_actions = th.randint(1, size=(self.n_agents['ci'], 2))
 
         observations = {
             'ai': random_actions,
-            'ci': random_actions[:, ::-1]
+            'ci': th.flip(random_actions, (1,))
         }
 
         return observations
