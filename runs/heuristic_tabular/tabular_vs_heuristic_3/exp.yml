@@ -1,6 +1,6 @@
 exec:
   python_file: aci/adversial.py
-  script_name: cpu_slurm
+  script_name: cpu
 labels:
   project: ai_vs_ci
   batch: tabular_vs_heuristic_3
@@ -125,6 +125,7 @@ params:
   train_args:
     eval_period: 10
     num_episodes: 10000
+    # num_episodes: 1000
   writer_args:
     periods:
       video: 2500
