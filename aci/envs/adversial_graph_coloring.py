@@ -238,7 +238,8 @@ class AdGraphColoring():
             writer.add_metrics(
                 'trace',
                 {
-                    'ai_reward': metrics['ai'],
+                    'sum_ai_reward': metrics['ai'].sum(),
+                    'std_ai_reward': metrics['ai'].sum(),
                     'sum_ci_reward':  metrics['ci'].sum(),
                     'std_ci_reward':  metrics['ci'].std(),
                     'avg_coordination': metrics['avg_coordination'][0],
@@ -253,7 +254,8 @@ class AdGraphColoring():
             writer.add_metrics(
                 'final',
                 {
-                    'ai_reward': self.agg_metrics['ai'],
+                    'sum_ai_reward':  self.agg_metrics['ai'].sum(),
+                    'std_ai_reward':  self.agg_metrics['ai'].std(),
                     'sum_ci_reward':  self.agg_metrics['ci'].sum(),
                     'std_ci_reward':  self.agg_metrics['ci'].std(),
                     'avg_coordination': self.agg_metrics['avg_coordination'][0],
@@ -269,6 +271,7 @@ class AdGraphColoring():
                     writer.add_metrics(
                         'individual_trace',
                         {
+                            **({'ai_reward': self.agg_metrics['ai'][i]} if self.n_agents['ai'] == self.n_agents['ci'] else {}),
                             'ci_reward': self.agg_metrics['ci'][i],
                             'ind_coordination': self.agg_metrics['ind_coordination'][i],
                             'ind_catch': self.agg_metrics['ind_catch'][i],

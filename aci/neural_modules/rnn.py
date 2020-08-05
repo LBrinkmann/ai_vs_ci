@@ -2,13 +2,18 @@ import torch as th
 import math
 import torch.nn as nn
 import torch.nn.functional as F
+from functools import reduce 
+
+def prod(l):
+    return reduce((lambda x, y: x * y), l)
+
 
 
 class RNN(nn.Module):
     def __init__(self, batch_size, n_agents, observation_shape, n_actions, hidden_size):
         super(RNN, self).__init__()
         self.rnn = nn.ModuleList([
-            nn.RNNCell(input_size=math.prod(observation_shape), hidden_size=hidden_size)
+            nn.RNNCell(input_size=prod(observation_shape), hidden_size=hidden_size)
             for i in range(n_agents)
         ])
         self.linear = nn.Conv1d(n_agents*hidden_size, n_agents * n_actions, kernel_size=1, groups=n_agents)
@@ -28,7 +33,7 @@ class RNN(nn.Module):
         x: batch x agents x *observation_shape
         returns: batch x agents x actions
         """
-        _x = x.reshape(self.batch_size, self.n_agents, math.prod(self.observation_shape))
+        _x = x.reshape(self.batch_size, self.n_agents, prod(self.observation_shape))
 
         _new_hidden = [self.rnn[j](_x[:,j], self.hidden[:,j]) for j in range(self.n_agents)]
 
