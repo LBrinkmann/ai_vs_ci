@@ -1,0 +1,15 @@
+
+input_file: "{RUN_FOLDER}/maq/maq_vs_heuristic/agg/final.parquet"
+preprocess_args:
+  metrics: [sum_ai_reward, std_ai_reward, sum_ci_reward, std_ci_reward, avg_coordination, avg_catch]
+  smooth: 5
+  x: episode
+  groupby: label.*|mode
+  bins: null
+plot_args:
+  - selectors:
+      metric: avg_coordination
+    grid: [label.multi_type,label.net_type]
+    hue: label.lr
+    style: mode
+    name: all

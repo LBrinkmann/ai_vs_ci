@@ -12,6 +12,7 @@ import pandas as pd
 import os
 import re
 from functools import reduce
+from itertools import product
 from multiprocessing import Manager, Pool
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -69,6 +70,9 @@ def plot(df, output_path, name, selectors, grid, hue=None, style=None):
 
 
 def preprocess(df, x, groupby, smooth=None, metrics=None, bins=None):
+
+    print(df.head())
+
     groupby_reg = re.compile(groupby)
     groupby_columns = [c for c in df.columns if groupby_reg.search(c)]
     groupby_columns = [c for c in groupby_columns if df[c].nunique() > 1]
@@ -76,8 +80,10 @@ def preprocess(df, x, groupby, smooth=None, metrics=None, bins=None):
     if bins:
         df[f'{x}_bin'] = pd.cut(df[x], bins=bins).cat.codes
         groupby_columns.append(f'{x}_bin')
+    
     print(groupby_columns)
     if smooth:
+        assert df.groupby(groupby_columns)[x].count().min() > smooth, 'To few datapoints for smoothing.'
         df = df.groupby(groupby_columns).rolling(on=x, window=smooth)[metrics].mean().reset_index()
     else:
         df = df.groupby(groupby_columns + [x])[metrics].mean().reset_index()
@@ -85,13 +91,19 @@ def preprocess(df, x, groupby, smooth=None, metrics=None, bins=None):
     return df
 
 
+def merge_dicts(l):
+    return reduce(lambda x,y: {**x, **y}, l, {})
+
+
 def expand(df, plots):
     for p in plots:
         if 'expand' in p:
-            for e in p['expand']:
-                for f in df[e].unique():
-                    _p = {k:v for k,v in p.items() if k != 'expand'}
-                    yield {**_p, 'selectors': {**p['selectors'], e: f}, 'name': f"{p['name']}.{f}"}
+            grid_dims = [[{e: f} for f in df[e].unique()] for e in p['expand']]
+            grid = list(product(*grid_dims))
+            grid = list(map(merge_dicts, grid))
+            _p = {k:v for k,v in p.items() if k != 'expand'}
+            for i, g in enumerate(grid):
+                yield {**_p, 'selectors': {**p['selectors'], **g}, 'name': f"{p['name']}.{i}"}
         else:
             yield p
 
@@ -101,6 +113,8 @@ def main(input_file, preprocess_args, plot_args, output_path):
     df = preprocess(df, **preprocess_args)
     plot_args = list(expand(df, plot_args))
     plot_args = [{**pa, 'output_path': output_path} for pa in plot_args]
+
+    print(f"Make {len(plot_args)} plots.")
 
     mgr = Manager()
     ns = mgr.Namespace()
