@@ -2,6 +2,8 @@ labels:
   project: ai_vs_ci
   batch: dev_linear_ad
 params:
+  run_args:
+    num_threads: 1
   agent_types:
     ci:
       selector_args:

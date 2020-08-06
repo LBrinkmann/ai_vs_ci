@@ -79,7 +79,12 @@ def train(
             )
 
 
-def main(agent_types, env_class, train_args, env_args, writer_args, meta):
+def main(agent_types, env_class, train_args, env_args, writer_args, meta, run_args={}):
+    if 'num_threads' in run_args:
+        th.set_num_threads(run_args['num_threads'])
+
+    print(f'Use {th.get_num_threads()} threads.')
+
     writer = Writer(output_path, **writer_args, **meta)
     # if gpu is to be used
     device = th.device("cuda" if th.cuda.is_available() else "cpu")
