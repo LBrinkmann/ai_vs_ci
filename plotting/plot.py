@@ -16,6 +16,7 @@ from itertools import product
 from multiprocessing import Manager, Pool
 import matplotlib.pyplot as plt
 import seaborn as sns
+import shutil
 
 from aci.utils.io import load_yaml
 
@@ -38,19 +39,23 @@ def selector(df, selectors):
     else:
         return pd.Series(True, index=df.index)
 
-def plot(df, output_path, name, selectors, grid, hue=None, style=None):
+def plot(df, output_path, name, selectors, grid, hue=None, style=None, folder=None):
     w = selector(df, selectors)
 
     title = ' | '.join(f"{k}:{v}" for k, v in selectors.items() if not isinstance(v, list))
 
     print(f'start plotting {name}')
 
-    grid.sort(key=lambda l: df[l].nunique())
+    dfs = df[w].copy()
+    if pd.api.types.is_numeric_dtype(dfs[hue].dtype):
+        dfs[hue] = "#" + dfs[hue].astype(str)
+
+    grid.sort(key=lambda l: dfs[l].nunique())
 
     grid = {n: g for g, n in zip(grid[::-1], ['col','row'])}
 
     g = sns.relplot(
-        data=df[w], 
+        data=dfs, 
         x='episode', 
         y='value', 
         **grid,
@@ -62,8 +67,11 @@ def plot(df, output_path, name, selectors, grid, hue=None, style=None):
     plt.subplots_adjust(top=0.9)
     g.fig.suptitle(title)
     g.fig.patch.set_facecolor('white')
-
-    filename = os.path.join(output_path, f"{name}.png")
+    if folder: 
+        ensure_directory(os.path.join(output_path, folder))
+        filename = os.path.join(output_path, folder, f"{name}.png")
+    else:
+        filename = os.path.join(output_path, f"{name}.png")
     plt.savefig(filename)
     print(f'Saved {filename}')
     plt.close()
@@ -81,18 +89,38 @@ def preprocess(df, x, groupby, smooth=None, metrics=None, bins=None):
         df[f'{x}_bin'] = pd.cut(df[x], bins=bins).cat.codes
         groupby_columns.append(f'{x}_bin')
     
-    print(groupby_columns)
+    for gc in groupby_columns:
+        values = ', '.join(map(str, df[gc].unique()))
+        print(f'{gc} has the values: {values}')
+
+    print(', '.join(groupby_columns))
     if smooth:
-        assert df.groupby(groupby_columns)[x].count().min() > smooth, 'To few datapoints for smoothing.'
-        df = df.groupby(groupby_columns).rolling(on=x, window=smooth)[metrics].mean().reset_index()
+        assert df.groupby(groupby_columns, observed=True)[x].count().min() > smooth, 'To few datapoints for smoothing.'
+        df = df.groupby(groupby_columns, observed=True).rolling(on=x, window=smooth)[metrics].mean().reset_index()
     else:
-        df = df.groupby(groupby_columns + [x])[metrics].mean().reset_index()
+        df = df.groupby(groupby_columns + [x], observed=True)[metrics].mean().reset_index()
     df = df.melt(id_vars=groupby_columns + [x], value_vars=metrics, var_name='metric')
     return df
 
 
 def merge_dicts(l):
     return reduce(lambda x,y: {**x, **y}, l, {})
+
+
+def ensure_directory(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+
+def check_selector(selectors, new_selectors):
+    for k, v in new_selectors.items():
+        if k in selectors:
+            if isinstance(selectors[k], list):
+                if v not in selectors[k]:
+                    return False
+            elif selectors[k] != v:
+                return False
+    return True
 
 
 def expand(df, plots):
@@ -103,12 +131,16 @@ def expand(df, plots):
             grid = list(map(merge_dicts, grid))
             _p = {k:v for k,v in p.items() if k != 'expand'}
             for i, g in enumerate(grid):
-                yield {**_p, 'selectors': {**p['selectors'], **g}, 'name': f"{p['name']}.{i}"}
+                if check_selector(p['selectors'], g):
+                    yield {**_p, 'selectors': {**p['selectors'], **g}, 'name': str(i), 'folder': p['name']}
         else:
             yield p
 
 
-def main(input_file, preprocess_args, plot_args, output_path):
+def main(input_file, clean, preprocess_args, plot_args, output_path):
+    if clean:
+        shutil.rmtree(output_path, ignore_errors=True)
+    ensure_directory(output_path)
     df = pd.read_parquet(input_file.format(**os.environ))
     df = preprocess(df, **preprocess_args)
     plot_args = list(expand(df, plot_args))

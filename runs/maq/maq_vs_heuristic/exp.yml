@@ -1,6 +1,6 @@
 exec:
   python_file: aci/adversial.py
-  script_name: cpu
+  script_name: local
 labels:
   project: ai_vs_ci
   batch: maq_vs_heuristic
@@ -12,39 +12,39 @@ grid:
           chromatic_number: 2
         all_agents: 2
       labels.networktype: full2
-    - params.env_args: 
-        graph_args:
-          graph_type: random_regular
-          degree: 5
-          chromatic_number: 6
-        all_agents: 6
-      labels.networktype: full6
-    - params.env_args: 
-        graph_args:
-          graph_type: cycle
-          degree: 2
-        all_agents: 6
-      labels.networktype: cycle62
-    - params.env_args: 
-        graph_args:
-          graph_type: cycle
-          degree: 4
-        all_agents: 6
-      labels.networktype: cycle64
-    - params.env_args: 
-        graph_args:
-          graph_type: random_regular
-          degree: 4
-          chromatic_number: 3
-        all_agents: 6
-      labels.networktype: reg6_4_3
-    - params.env_args: 
-        graph_args:
-          graph_type: random_regular
-          degree: 4
-          chromatic_number: 4
-        all_agents: 10
-      labels.networktype: reg10_4_4
+    # - params.env_args: 
+    #     graph_args:
+    #       graph_type: random_regular
+    #       degree: 5
+    #       chromatic_number: 6
+    #     all_agents: 6
+    #   labels.networktype: full6
+    # - params.env_args: 
+    #     graph_args:
+    #       graph_type: cycle
+    #       degree: 2
+    #     all_agents: 6
+    #   labels.networktype: cycle62
+    # - params.env_args: 
+    #     graph_args:
+    #       graph_type: cycle
+    #       degree: 4
+    #     all_agents: 6
+    #   labels.networktype: cycle64
+    # - params.env_args: 
+    #     graph_args:
+    #       graph_type: random_regular
+    #       degree: 4
+    #       chromatic_number: 3
+    #     all_agents: 6
+    #   labels.networktype: reg6_4_3
+    # - params.env_args: 
+    #     graph_args:
+    #       graph_type: random_regular
+    #       degree: 4
+    #       chromatic_number: 4
+    #     all_agents: 10
+    #   labels.networktype: reg10_4_4
   - - params.env_args.rewards_args:
         ai:
           avg_coordination: -1
@@ -94,9 +94,11 @@ grid:
       labels.net_type: linear
   - params.agent_types.ci.controller_args.model_args.multi_type: [shared_weights, individual_weights]
     labels.multi_type: [shared_weights, individual_weights]
-  - params.agent_types.ci.controller_args.opt_args.lr: [0.1, 0.01, 0.001]
-    labels.lr: [0.1, 0.01, 0.001]
+  # - params.agent_types.ci.controller_args.opt_args.lr: [0.1, 0.01, 0.001]
+  #   labels.lr: [0.1, 0.01, 0.001]
 params:
+  run_args:
+    num_threads: 1
   agent_types:
     ci:
       selector_args:
@@ -126,15 +128,15 @@ params:
       controller_class: heuristic
   train_args:
     eval_period: 10
-    num_episodes: 10000
+    num_episodes: 100
     # num_episodes: 1000
   writer_args:
     periods:
-      video: 2500
+      # video: 2500
       final: 10
       trace: 100
       # individual_trace: 100
-      table: 2500
+      # table: 2500
   env_class: adversial_graph_coloring
   env_args:
     ai_obs_mode: agents_matrix

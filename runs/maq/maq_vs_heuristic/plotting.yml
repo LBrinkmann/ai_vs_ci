@@ -1,0 +1,21 @@
+input_file: "{RUN_FOLDER}/maq/maq_vs_heuristic/agg/final.parquet"
+clean: true
+preprocess_args:
+  metrics: [sum_ai_reward, std_ai_reward, sum_ci_reward, std_ci_reward, avg_coordination, avg_catch]
+  smooth: 20
+  x: episode
+  groupby: label.*|mode
+  bins: null
+# label.lr, label.multi_type, label.net_type, label.networktype, label.rewards, mode
+plot_args:
+  - 
+    expand: [label.networktype, label.rewards]
+    selectors:
+      # label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+      mode: train
+      metric: [avg_coordination, avg_catch]
+    grid: [label.multi_type, label.net_type]
+    hue: metric
+    style: label.lr
+    name: reward
+

@@ -1,0 +1,77 @@
+
+input_file: "{RUN_FOLDER}/heuristic_tabular/tabular_vs_heuristic_3/agg/final.parquet"
+clean: true
+preprocess_args:
+  metrics: [sum_ai_reward, std_ai_reward, sum_ci_reward, std_ci_reward, avg_coordination, avg_catch]
+  smooth: 20
+  x: episode
+  groupby: label.*|mode
+  bins: null
+  # 'label.alpha', 'label.cache_size', 'label.network', 'label.networktype', 'label.obs_map', 'label.rewards', 'mode'
+plot_args:
+  - 
+    # expand: [label.alpha, label.cache_size, label.obs_map,label.network]
+    selectors:
+      label.alpha: 0.1
+      label.cache_size: 1
+      label.network: changing
+      metric: [avg_coordination, avg_catch]
+      # label.networktype: reg6_4_3
+      label.obs_map: combinations
+    grid: [label.networktype,label.rewards]
+    hue: metric
+    style: mode
+    name: networktype
+  - 
+    # expand: [label.cache_size, label.obs_map,label.network]
+    selectors:
+      # label.alpha: 0.1
+      mode: train
+      label.cache_size: 1
+      label.network: changing
+      metric: [avg_coordination, avg_catch]
+      label.obs_map: combinations
+      metric: [avg_coordination, avg_catch]
+      label.networktype: [reg10_4_4, cycle64, reg6_4_3, cycle62]
+    grid: [label.rewards,label.networktype]
+    hue: label.alpha
+    style: metric
+    name: alpha
+  - 
+    # expand: [mode]
+    selectors:
+      mode: train
+      metric: [avg_coordination, avg_catch]
+      label.alpha: 0.01
+      label.cache_size: 1
+      label.networktype: reg10_4_4
+    grid: [label.obs_map,label.rewards]
+    hue: label.network
+    style: metric
+    name: network
+  - 
+    # expand: [label.cache_size, label.alpha,label.network,label.networktype]
+    selectors:  
+      label.alpha: 0.01
+      label.network: changing
+      label.cache_size: 1
+      label.networktype: reg10_4_4
+      metric: [avg_coordination, avg_catch]
+      # label.networktype: [reg10_4_4, cycle64, reg6_4_3, cycle62]
+    grid: [mode,label.rewards]
+    hue: label.obs_map
+    style: metric
+    name: obs_map
+  - 
+    # expand: [label.alpha,label.network,label.networktype]
+    selectors:  
+      label.alpha: 0.1
+      # label.cache_size: 1
+      label.network: changing
+      metric: [avg_coordination, avg_catch]
+      label.networktype: reg6_4_3
+      label.obs_map: combinations
+    grid: [mode,label.rewards]
+    hue: label.cache_size
+    style: metric
+    name: cache_size

@@ -1,0 +1,106 @@
+
+input_file: "{RUN_FOLDER}/heuristic_tabular/tabularq_vs_tabularq_1/agg/final.parquet"
+clean: true
+preprocess_args:
+  metrics: [sum_ai_reward, std_ai_reward, sum_ci_reward, std_ci_reward, avg_coordination, avg_catch]
+  smooth: 20
+  x: episode
+  groupby: label.*|mode
+  bins: null
+# label.alpha, label.cache_size, label.network, label.networktype, label.obs_map, label.reward, label.share_table, mode
+plot_args:
+  # - 
+  #   expand: [label.cache_size, label.network, label.obs_map, label.share_table]
+  #   selectors:
+  #     label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+  #     mode: train
+  #     metric: [avg_coordination, avg_catch]
+  #   grid: [label.networktype,label.reward]
+  #   hue: metric
+  #   style: label.alpha
+  #   name: networktype
+  # - 
+  #   expand: [label.cache_size, label.alpha, label.obs_map, label.share_table]
+  #   selectors:
+  #     label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+  #     mode: train
+      # mode: train
+      # label.alpha: 0.01
+      # label.obs_map: combinations
+  #     metric: [avg_coordination, avg_catch]
+  #   grid: [label.networktype,label.reward]
+  #   hue: metric
+  #   style: label.network
+  #   name: network
+  # - 
+  #   expand: [label.cache_size, label.alpha, label.network, label.share_table]
+  #   selectors:
+  #     label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+      # mode: train
+      # label.alpha: 0.01
+      # label.network: changing
+  #     metric: [avg_coordination, avg_catch]
+  #   grid: [label.networktype,label.reward]
+  #   hue: metric
+  #   style: label.obs_map
+  #   name: obs_map
+  # - 
+  #   expand: [label.cache_size, label.alpha, label.network, label.obs_map]
+  #   selectors:
+  #     label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+  #     mode: train
+  #     label.network: changing
+  #     label.obs_map: combinations
+  #     metric: [avg_coordination, avg_catch]
+  #   grid: [label.networktype,label.reward]
+  #   hue: label.share_table
+  #   style: metric
+  #   name: share_table
+  - 
+    expand: [label.alpha, label.cache_size, label.network, label.obs_map, label.share_table]
+    selectors:
+      label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+      mode: train
+      label.share_table: neither
+      label.network: changing
+      label.obs_map: combinations
+      label.cache_size: 1
+      label.alpha: 0.01
+      label.reward: [ai_coll_ci_ind, ai_ind_ci_coll, ai_coll_ci_coll, ai_ind_ci_ind]
+      metric: [avg_coordination, avg_catch]
+    grid: [label.networktype,metric]
+    hue: label.reward
+    # style: label.alpha
+    name: reward_coordination
+  - 
+    expand: [label.alpha, label.cache_size, label.network, label.obs_map, label.share_table]
+    selectors:
+      label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+      mode: train
+      label.network: changing
+      label.obs_map: combinations
+      label.cache_size: 1
+      label.share_table: neither
+      label.alpha: 0.01
+      label.reward: [ai_ind_ci_ind_zero_sum, ai_coll_ci_coll_zero_sum,  ai_coll_ci_coll, ai_ind_ci_ind]
+      metric: [avg_coordination, avg_catch]
+    grid: [label.networktype,metric]
+    hue: label.reward
+    # style: label.alpha
+    name: reward_comparision
+  - 
+    expand: [label.alpha, label.cache_size, label.network, label.obs_map, label.share_table]
+    selectors:
+      label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+      mode: train
+      label.network: changing
+      label.obs_map: combinations
+      label.cache_size: 1
+      label.share_table: neither
+      label.alpha: 0.01
+      label.reward: [ai_ind_ci_coll_zero_sum, ai_ind_ci_ind_zero_sum, ai_coll_ci_coll_zero_sum, ai_coll_ci_ind_zero_sum]
+      metric: [avg_coordination, avg_catch]
+    grid: [label.networktype,metric]
+    hue: label.reward
+    # style: label.alpha
+    name: reward_zero_sum
