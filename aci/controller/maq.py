@@ -157,7 +157,7 @@ class MAQ:
         self.q_func = create_model(
             cache_size, observation_shape, n_agents, n_actions, **model_args).to(device)
         self.optimizer = optim.RMSprop(self.q_func.parameters(), **opt_args)
-        th.autograd.set_detect_anomaly(True)
+        # th.autograd.set_detect_anomaly(True)
 
     def get_q(self, observations=None):
         """ Retrieves q values for all possible actions. 

@@ -1,0 +1,84 @@
+exec:
+  python_file: aci/adversial.py
+  script_name: cpu_slurm
+labels:
+  project: ai_vs_ci
+  batch: ipd_maq_vs_titfortat
+grid:
+  - - params.agent_types.ci.controller_args.model_args:
+        net_type: rnn
+        hidden_size: 10
+      labels.net_type: rnn
+    - params.agent_types.ci.controller_args.model_args:
+        net_type: linear
+      labels.net_type: linear
+  - params.agent_types.ci.controller_args.opt_args.lr: [0.1, 0.01, 0.001]
+    labels.lr: [0.1, 0.01, 0.001]
+  - - params.agent_types.ci.selector_args:
+        eps_start: 0.20
+        eps_end: 0.20
+        eps_decay: 2000
+      labels.eps:  fixed0.20
+    - params.agent_types.ci.selector_args:
+        eps_start: 0.10
+        eps_end: 0.10
+        eps_decay: 2000
+      labels.eps:  fixed0.10
+    - params.agent_types.ci.selector_args:
+        eps_start: 0.05
+        eps_end: 0.05
+        eps_decay: 2000
+      labels.eps:  fixed0.05
+    - params.agent_types.ci.selector_args:
+        eps_start: 0.20
+        eps_end: 0.05
+        eps_decay: 5000 # decay rate of 100 episodes
+      labels.eps:  decay
+params:
+  agent_types:
+    ci:
+      selector_args:
+        eps_start: 0.20
+        eps_end: 0.20
+        eps_decay: 2000
+      controller_args:
+        gamma: 0.8
+        cache_size: 1
+        model_args: 
+          # net_type: rnn
+          # hidden_size: 10
+          # multi_type: shared_weights
+          multi_type: individual_weights
+        opt_args:
+          lr: 0.001
+      controller_class: maq
+    ai:
+      selector_args:
+        eps_start: 0.0
+        eps_end: 0.0
+        eps_decay: 2000
+      controller_args: 
+        heuristic_name: titfortat
+        agent_args: {}
+      controller_class: heuristic
+  train_args:
+    eval_period: 10
+    num_episodes: 1
+  writer_args:
+    periods:
+      # video: 250
+      trace: 10
+      individual_trace: 100
+      final: 1
+      # table: 250
+  env_class: table_game
+  env_args:
+    max_steps: 10000
+    n_agents: 1
+    rewards:
+      ai: 
+        - [-1, -3]
+        - [0, -2]
+      ci: 
+        - [-1, -3]
+        - [0, -2]
