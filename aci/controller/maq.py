@@ -40,9 +40,8 @@ class OneHotTransformer(nn.Module):
     def forward(self, x):
            # In your for loop
         self.onehot.zero_()
-        self.onehot.scatter_(-1, x, 1)
-        _x = x.type(th.float32)
-        y = self.model(_x)
+        self.onehot.scatter_(-1, x.unsqueeze(-1), 1)
+        y = self.model(self.onehot)
         return y
     
     def log(self, *args, **kwargs):
@@ -128,13 +127,14 @@ def create_model(cache_size, observation_shape, n_agents, n_actions, net_type, m
     batch_size = n_agents if multi_type == 'shared_weights' else 1
     if net_type == 'linear':
         model = LinearFunction(observation_shape=(cache_size,*observation_shape), n_agents=effective_agents, n_actions=n_actions)
+        # model = FlatObservation(model, observation_shape=(cache_size,*observation_shape),)
         model = OneHotTransformer(
-            observation_shape=observation_shape, n_actions=n_actions, n_agents=effective_agents, 
+            observation_shape=(cache_size,*observation_shape), n_actions=n_actions, n_agents=effective_agents, 
             model=model, batch_size=batch_size)
     elif net_type == 'rnn':
         model = RNN(batch_size=batch_size, observation_shape=(cache_size,*observation_shape), n_agents=effective_agents, n_actions=n_actions, **kwargs)
         model = OneHotTransformer(
-            observation_shape=observation_shape, n_actions=n_actions, n_agents=effective_agents, 
+            observation_shape=(cache_size,*observation_shape), n_actions=n_actions, n_agents=effective_agents, 
             model=model, batch_size=batch_size)
 
 

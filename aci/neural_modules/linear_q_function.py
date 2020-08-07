@@ -12,7 +12,7 @@ def prod(l):
 class LinearFunction(nn.Module):
     def __init__(self, n_agents, observation_shape, n_actions):
         super(LinearFunction, self).__init__()
-        self.in_channels = n_agents * prod(observation_shape)
+        self.in_channels = n_agents * prod(observation_shape) * n_actions
         self.out_channels = n_agents * n_actions
         self.n_agents = n_agents
         self.n_actions = n_actions
@@ -21,7 +21,7 @@ class LinearFunction(nn.Module):
 
     def forward(self, x):
         """
-        x: batch x agents x *observation_shape
+        x: batch x agents x *observation_shape x n_actions
         returns: batch x agents x actions
         """
         _x = x.reshape(-1, self.in_channels, 1)
