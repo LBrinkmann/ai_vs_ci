@@ -14,10 +14,10 @@ params:
         gamma: 0.999
         cache_size: 2
         model_args:
-          net_type: linear
+          net_type: rnn
           hidden_size: 10
-          multi_type: shared_weights
-          # multi_type: individual_weights
+          # multi_type: shared_weights
+          multi_type: individual_weights
         opt_args:
           lr: 0.001
       controller_class: maq
