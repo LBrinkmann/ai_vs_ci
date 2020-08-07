@@ -1,0 +1,126 @@
+exec:
+  python_file: aci/adversial.py
+  script_name: cpu
+labels:
+  project: ai_vs_ci
+  batch: t_vs_t_networks
+grid:
+  - params.env_args.all_agents: [4,6,10,20]
+    labels.agents: [4,6,10,20]
+  - params.env_args.graph_args.degree: [3,4,5]
+    labels.agents: [3,4,5]
+  - params.env_args.graph_args.chromatic_number: [2,3,4]
+    labels.chromatic_number: [2,3,4]
+  - - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: -1
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: -1
+      labels.reward: ai_coll_ci_coll_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: -1
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: -1
+          avg_catch: 0
+      labels.reward: ai_ind_ci_ind_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_coll_ci_coll
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_ind_ci_ind
+  - params.agent_types.ci.controller_args.alpha: [0.01,  0.1]
+    params.agent_types.ai.controller_args.alpha: [0.01,  0.1]
+    labels.alpha: [0.01, 0.1]
+params:
+  agent_types:
+    ci:
+      selector_args:
+        eps_start: 0.10
+        eps_end: 0.10
+        eps_decay: 2000
+      controller_args:
+        alpha: 0.05
+        gamma: 0.8
+        q_start: 0
+        obs_map: combinations
+        cache_size: 1
+      controller_class: tabularq
+    ai:
+      selector_args:
+        eps_start: 0.10
+        eps_end: 0.10
+        eps_decay: 2000
+      controller_args:
+        alpha: 0.05
+        gamma: 0.8
+        q_start: 0
+        obs_map: combinations
+        cache_size: 1
+      controller_class: tabularq
+  train_args:
+    eval_period: 10
+    num_episodes: 10000
+    # num_episodes: 1000
+  writer_args:
+    periods:
+      # video: 2500
+      final: 10
+      trace: 100
+      # individual_trace: 100
+      table: 5000
+  env_class: adversial_graph_coloring
+  env_args:
+    ai_obs_mode: neighbors
+    graph_args:
+      graph_type: random_regular
+      degree: 3
+      chromatic_number: 3
+    all_agents: 10
+    fixed_agents: 0
+    max_steps: 50
+    fixed_length: true
+    fixed_pos: false
+    fixed_network: false
+    rewards_args:
+      ai:
+        avg_coordination: -1
+        avg_catch: 1
+      ci:
+        ind_coordination: 0.5
+        avg_coordination: 0.5
+        ind_catch: -0.5
+        avg_catch: -0.5
+
+
+
