@@ -1,0 +1,22 @@
+
+input_file: "{RUN_FOLDER}/heuristic_tabular/t_vs_t_cache_size/agg/final.parquet"
+clean: true
+preprocess_args:
+  metrics: [sum_ai_reward, std_ai_reward, sum_ci_reward, std_ci_reward, avg_coordination, avg_catch]
+  smooth: 20
+  x: episode
+  groupby: label.*|mode
+  bins: null
+# label.ai_cache_size, label.alpha, label.ci_cache_size, label.networktype, label.reward, mode
+plot_args:
+  - 
+    expand: [label.networktype]
+    selectors:
+      # label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+      mode: train
+      label.alpha: 0.01
+      metric: [avg_coordination, avg_catch]
+    grid: [label.ai_cache_size,label.ci_cache_size]
+    hue: label.reward
+    style: metric
+    name: networktype

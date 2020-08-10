@@ -1,0 +1,48 @@
+
+input_file: "{RUN_FOLDER}/heuristic_tabular/t_vs_t_networks/agg/final.parquet"
+clean: true
+preprocess_args:
+  metrics: [sum_ai_reward, std_ai_reward, sum_ci_reward, std_ci_reward, avg_coordination, avg_catch]
+  smooth: 20
+  x: episode
+  groupby: label.*|mode
+  bins: null
+# label.agents, label.alpha, label.chromatic_number, label.degree, label.reward, mode
+plot_args:
+  - 
+    # expand: [label.alpha, label.reward]
+    selectors:
+      label.agents: [6, 10, 20]
+      label.chromatic_number: [3,4]
+      label.degree: 3
+      mode: train
+      label.alpha: 0.01
+      metric: [avg_coordination, avg_catch]
+    grid: [label.agents,label.reward]
+    hue: label.chromatic_number
+    style: metric
+    name: chromatic_number
+  - 
+    expand: [label.alpha, label.reward]
+    selectors:
+      label.agents: [6, 10, 20]
+      label.chromatic_number: [3,4]
+      mode: train
+      label.alpha: 0.01
+      metric: [avg_coordination, avg_catch]
+    grid: [label.agents,label.chromatic_number]
+    hue: label.degree
+    style: metric
+    name: degree
+  - 
+    expand: [label.alpha, label.reward]
+    selectors:
+      label.agents: [6, 10, 20]
+      label.chromatic_number: [3,4]
+      mode: train
+      label.alpha: 0.01
+      metric: [avg_coordination, avg_catch]
+    grid: [label.degree,label.chromatic_number]
+    hue: label.agents
+    style: metric
+    name: agents

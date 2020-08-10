@@ -1,0 +1,33 @@
+
+input_file: "{RUN_FOLDER}/heuristic_tabular/t_vs_t_share_table/agg/final.parquet"
+clean: true
+preprocess_args:
+  metrics: [sum_ai_reward, std_ai_reward, sum_ci_reward, std_ci_reward, avg_coordination, avg_catch]
+  smooth: 20
+  x: episode
+  groupby: label.*|mode
+  bins: null
+# label.alpha, label.networktype, label.reward, label.share_table, mode
+plot_args:
+  - 
+    expand: [label.alpha]
+    selectors:
+      # label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+      mode: train
+      metric: [avg_coordination, avg_catch]
+    grid: [label.networktype,label.reward]
+    hue: label.share_table
+    style: metric
+    name: share_table
+  - 
+    # expand: [label.alpha]
+    selectors:
+      # label.alpha: 0.01
+      label.networktype: reg10_4_4
+      label.reward: [ai_coll_ci_coll, ai_coll_ci_coll_zero_sum]
+      mode: train
+      metric: [avg_coordination, avg_catch]
+    grid: [label.reward, label.alpha]
+    hue: label.share_table
+    style: metric
+    name: selection

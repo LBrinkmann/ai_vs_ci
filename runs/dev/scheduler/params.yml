@@ -1,0 +1,113 @@
+labels:
+  project: ai_vs_ci
+  batch: dev_tabular
+params:
+  scheduler_args:
+    episodes: 10000
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training: 
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.2
+            ai: 1.
+          training: 
+            ci: true
+            ai: false
+      - episode: 2000
+        setting:
+          eps:
+            ci: 0.0
+            ai: 0.2
+          training: 
+            ci: false
+            ai: true
+      - episode: 4000
+        setting:
+          eps:
+            ci: 0.2
+            ai: 0.0
+          training: 
+            ci: true
+            ai: false
+      - episode: 6000
+        setting:
+          eps:
+            ci: 0.0
+            ai: 0.2
+          training: 
+            ci: false
+            ai: true
+      - episode: 8000
+        setting:
+          eps:
+            ci: 0.2
+            ai: 0.0
+          training: 
+            ci: true
+            ai: false
+  agent_types:
+    ai:
+      controller_args:
+        alpha: 0.01
+        cache_size: 1
+        gamma: 0.8
+        obs_map: combinations
+        q_start: 0
+        share_table: true
+      controller_class: tabularq
+      selector_args:
+        eps_decay: 2000
+        eps_end: 0.1
+        eps_start: 0.1
+    ci:
+      controller_args:
+        alpha: 0.01
+        cache_size: 1
+        gamma: 0.8
+        obs_map: combinations
+        q_start: 0
+        share_table: true
+      controller_class: tabularq
+      selector_args:
+        eps_decay: 2000
+        eps_end: 0.1
+        eps_start: 0.1
+  writer_args:
+    periods:
+      # video: 250
+      # trace: 10
+      # individual_trace: 100
+      final: 1
+      # table: 250
+  env_class: adversial_graph_coloring
+  env_args:
+    ai_obs_mode: neighbors
+    all_agents: 10
+    fixed_agents: 0
+    fixed_length: true
+    fixed_network: false
+    fixed_pos: false
+    graph_args:
+      chromatic_number: 4
+      degree: 4
+      graph_type: random_regular
+    max_steps: 50
+    rewards_args:
+      ai:
+        avg_catch: 1
+        avg_coordination: -1
+        ind_catch: 0
+        ind_coordination: 0
+      ci:
+        avg_catch: -1
+        avg_coordination: 1
+        ind_catch: 0
+        ind_coordination: 0

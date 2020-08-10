@@ -1,10 +1,14 @@
-# Tabular only
+# TabularQ learning 
 
-## gamma, alpha, networktype
+CI: 
+each agent has as an input its own color and the colors of all neighbors
+normally each agent has its own Q-table.
+
+## gamma, alpha, networktype (!)
 
 ![](../plotting/tabular_vs_heuristic_2/plots/alpha_gamma.png)
 
-The network type (and number of agents) has a huge impact on the complexity of the task and hence on the learning rate.
+The network type (and number of agents) has a huge impact on the complexity of the task and hence on the learning speed.
 
 The parameter gamma controlles how much the model anticipates future rewards. The learning rate, alpha, controlles how much the model changes its weights in each iteration. 
 
@@ -23,14 +27,13 @@ We see (unsurprisingly) large differences in the training performances between t
 
 When changing the learning strategy it is therefore important to always compare on the base of the evaluation performance.
 
-
 ## Collective rewards
 ![](../plotting/tabular_vs_heuristic_2/plots/rewards.png)
 
 In this specific setting individual rewards are converging faster. Also collective rewards more tend towards oscillating behaviour.
 
 
-## Collective rewards
+## Cache Size
 ![](../plotting/tabular_vs_heuristic_2/plots/cache_size.png)
 
 The cache size determine how many actions of each neighbor the agent sees (cachesize = 1: only the last action, cachesize = 2: the last and the one before).
@@ -45,7 +48,7 @@ In this task a larger cachesize (and hence much larger observation space), leads
 The network topology has a massive influence on the learning dynamic. Fully connected networks do (in general) show little improvement over time. In particular networks with lower density appear more interesting. 
 
 
-### Alpha
+### Alpha (!)
 ![](../runs/heuristic_tabular/tabular_vs_heuristic_3/plots/alpha.png)
 
 The learning rate, alpha, is an important parameter. Good alpha depend usualy on the other parameter of the network, for this reason it makes sense to routinely scan a couple of different alpha values.
@@ -67,7 +70,35 @@ When mapping the observations to individual q values, one can either distinguish
 
 When playing against a heuristic a larger cache is not beneficial, but instead leads to a slower learning.
 
+## Tabular vs Tabular 
 
+### Share Table
+
+![](../runs/heuristic_tabular/t_vs_t_share_table/plots/selection.png)
+
+In the general sum case, the AI seems to quickly predict the CIs actions. Over episodes the CI is linearly improving their coordination. For the CI a shared Q table is beneficially. The performance of the AI seems to be mainly governed by the CI, so the AI just mirrors the CI performance.
+
+
+### Cache Size (!) 
+
+![](../runs/heuristic_tabular/t_vs_t_cache_size/plots/networktype/2.png)
+
+To write.
+
+### Networks (!)
+
+
+![](../runs/heuristic_tabular/t_vs_t_networks/plots/chromatic_number.png)
+
+Not really clear picture. Still to be investigated.
+
+### On / Off (!)
+
+In this plot there are episodes in which only the ai and others where only the ci is learning. 
+
+![](../runs/dev/scheduler/plots/plot.png)
+
+Surprisingly the AI is not improving performance, even in periods when the CI is not learning. **BUG anywhere?**
 
 
 

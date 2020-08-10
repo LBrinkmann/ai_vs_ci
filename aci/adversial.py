@@ -14,7 +14,7 @@ Outputs:
 from itertools import count
 from docopt import docopt
 import sys
-from aci.components.action_selector import MultiActionSelector
+from aci.components.scheduler import Scheduler, select_action
 
 from aci.envs import ENVIRONMENTS
 from aci.controller import CONTROLLERS
@@ -23,63 +23,49 @@ from aci.utils.writer import Writer
 import torch as th
 
 
-def run_episode(*, env, controller, action_selector, writer, test_mode=False):
+
+def run(env, controller, scheduler, writer):
+    for episode in scheduler:
+        writer.add_meta(_step=episode['episode'], episode=episode['episode'], mode=episode['mode'])
+        print(f'Start episode {episode["episode"]}.')
+        run_episode(
+            env=env,
+            controller=controller,
+            writer=writer,
+            eps=episode['eps'],
+            training=episode['training'])
+
+
+
+def run_episode(*, env, controller, eps, training, writer):
     observations = env.reset()
     agent_types = controller.keys()
 
-    # added
-    if not test_mode:
-        for agent_type in agent_types:
-            controller[agent_type].init_episode(observations[agent_type])
+    for agent_type in agent_types:
+        controller[agent_type].init_episode(observations[agent_type])
 
     for t in count():
         # print(f'Start step {t} with test mode {test_mode}.')
         writer.add_meta(episode_step=t)
 
-        # for agent_type in agent_types:
-        #     ainfo = {f"{agent_type}_{k}": v for k,v in action_selector[agent_type].info().items()}
-        #     writer.add_meta(**ainfo)
-
         actions = {}
         for agent_type in agent_types:
             # Select and perform an action
-            proposed_actions = controller[agent_type].get_q(observations[agent_type] if test_mode else None)
-            selected_action = action_selector[agent_type].select_action(
-                proposed_actions, test_mode=test_mode)
+            proposed_actions = controller[agent_type].get_q(observations[agent_type] if training[agent_type] else None)
+            selected_action = select_action(proposed_actions=proposed_actions, eps=eps[agent_type])
             actions[agent_type] = selected_action
 
         observations, rewards, done, _ = env.step(actions, writer)
 
-        if not test_mode:
-            for agent_type in agent_types:
+        for agent_type in agent_types:
+            if training[agent_type]:
                 controller[agent_type].update(
                     actions[agent_type], observations[agent_type], rewards[agent_type], done, writer=writer)
         if done:
             break
 
-def train(
-        env, controller, action_selector, writer,  num_episodes, eval_period):
-    for i_episode in range(num_episodes):
-        writer.add_meta(_step=i_episode, episode=i_episode, mode='train')
-        print(f'Start episode {i_episode}.')
-        run_episode(
-            env=env,
-            controller=controller,
-            action_selector=action_selector,
-            writer=writer)
 
-        if i_episode % eval_period == 0:
-            writer.add_meta(mode='eval')
-            run_episode(
-                env=env,
-                controller=controller,
-                action_selector=action_selector,
-                writer=writer,
-                test_mode=True
-            )
-
-
-def main(agent_types, env_class, train_args, env_args, writer_args, meta, run_args={}):
+def main(*, agent_types, env_class, env_args, writer_args, meta, run_args={}, scheduler_args):
     if 'num_threads' in run_args:
         th.set_num_threads(run_args['num_threads'])
 
@@ -92,6 +78,8 @@ def main(agent_types, env_class, train_args, env_args, writer_args, meta, run_ar
     env = ENVIRONMENTS[env_class](**env_args, device=device)
     env.reset()
 
+    scheduler = Scheduler(**scheduler_args)
+
     controller = {
         name: CONTROLLERS[args['controller_class']](
         observation_shape=env.observation_shape[name],
@@ -102,12 +90,7 @@ def main(agent_types, env_class, train_args, env_args, writer_args, meta, run_ar
         for name, args in agent_types.items()
     }
 
-    action_selector = {
-        name: MultiActionSelector(device=device, **args['selector_args'])
-        for name, args in agent_types.items()
-    }
-
-    train(env, controller, action_selector, writer, **train_args)
+    run(env, controller, scheduler, writer)
 
 
 if __name__ == "__main__":

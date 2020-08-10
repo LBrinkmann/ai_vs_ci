@@ -61,7 +61,7 @@ plot_args:
     selectors:
       label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
       mode: train
-      label.share_table: neither
+      # label.share_table: neither
       label.network: changing
       label.obs_map: combinations
       label.cache_size: 1

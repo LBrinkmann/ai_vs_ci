@@ -39,7 +39,7 @@ def selector(df, selectors):
     else:
         return pd.Series(True, index=df.index)
 
-def plot(df, output_path, name, selectors, grid, hue=None, style=None, folder=None):
+def plot(df, output_path, name, selectors, grid=[], hue=None, style=None, folder=None):
     w = selector(df, selectors)
 
     title = ' | '.join(f"{k}:{v}" for k, v in selectors.items() if not isinstance(v, list))
