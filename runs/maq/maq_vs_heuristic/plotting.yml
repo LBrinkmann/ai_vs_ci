@@ -12,10 +12,24 @@ plot_args:
     expand: [label.networktype, label.rewards]
     selectors:
       # label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+      # label.networktype: reg10_4_4
       mode: train
       metric: [avg_coordination, avg_catch]
     grid: [label.multi_type, label.net_type]
     hue: metric
     style: label.lr
     name: reward
+  - 
+    # expand: [label.networktype, label.rewards]
+    selectors:
+      # label.networktype: [reg6_4_3, reg10_4_4, cycle62, cycle64]
+      label.networktype: reg10_4_4
+      label.rewards: col_zero_sum
+      mode: train
+      metric: [avg_coordination, avg_catch]
+    grid: [label.multi_type, label.net_type]
+    hue: metric
+    style: label.lr
+    name: reward
+
 
