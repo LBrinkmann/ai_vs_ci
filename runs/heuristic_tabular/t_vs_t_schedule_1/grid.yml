@@ -1,22 +1,22 @@
 exec:
   command: train
-  script_name: cpu
+  script_name: local_parallel
 labels:
   project: ai_vs_ci
   batch: t_vs_t_schedule_1
 grid:
   - params.env_args.graph_args.chromatic_number: [3, 4]
     labels.chromatic_number: [3, 4]
-  # - params.env_args.fixed_pos: [true, false]
-  #   labels.fixed_pos: [true, false]
-  # - params.env_args.fixed_network: [true, false]
-  #   labels.fixed_network: [true, false]
-  # - params.agent_types.ci.controller_args.obs_map: [product, combinations]
-  #   params.agent_types.ai.controller_args.obs_map: [product, combinations]
-  #   labels.obs_map: [product, combinations]
-  # - params.agent_types.ci.controller_args.alpha: [0.01,  0.1]
-  #   params.agent_types.ai.controller_args.alpha: [0.01,  0.1]
-  #   labels.alpha: [0.01, 0.1]
+  - params.env_args.fixed_pos: [true, false]
+    labels.fixed_pos: [true, false]
+  - params.env_args.fixed_network: [true, false]
+    labels.fixed_network: [true, false]
+  - params.agent_types.ci.controller_args.obs_map: [product, combinations]
+    params.agent_types.ai.controller_args.obs_map: [product, combinations]
+    labels.obs_map: [product, combinations]
+  - params.agent_types.ci.controller_args.alpha: [0.01,  0.1]
+    params.agent_types.ai.controller_args.alpha: [0.01,  0.1]
+    labels.alpha: [0.01, 0.1]
 labels:
   project: ai_vs_ci
   batch: dev_tabular

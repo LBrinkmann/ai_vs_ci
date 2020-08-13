@@ -25,6 +25,9 @@ setup(
     entry_points={
         'console_scripts': [
             'train = aci.train:main',
+            'preprocess = aci.preprocess:main',
+            'plot = aci.plot:main',
+            'video = aci.video:main',
         ],
     },
     scripts=[

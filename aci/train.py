@@ -40,6 +40,9 @@ def run(env, controller, scheduler, writer):
 
 def run_episode(*, env, controller, eps, training, writer):
     observations = env.reset()
+
+    writer.add_env(env, on='env')
+
     agent_types = controller.keys()
 
     for agent_type in agent_types:

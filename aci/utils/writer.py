@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import imageio
 import os
+import json
 from moviepy.editor import ImageSequenceClip
 
 # hack to suppress annoying warnings
@@ -58,11 +59,13 @@ class Writer():
         else:
             self.tensorboard_writer = None
         self.image_folder = f"{output_folder}/images"
+        self.env_folder = f"{output_folder}/envs"
         self.video_folder = f"{output_folder}/videos"
         self.model_folder = f"{output_folder}/models"
         self.df_folder = f"{output_folder}/df"
         ensure_dir(self.df_folder)
         ensure_dir(self.metrics_folder)
+        ensure_dir(self.env_folder)
         self.periods = periods
         self.frames = {}
         self.traces = {}
@@ -88,6 +91,12 @@ class Writer():
         # for k, v in meta.items():
         #     df[k] = v
         self._write_table(**kwargs)   
+
+    @selector
+    def add_env(self, env):
+        filename = os.path.join(self.env_folder, f"{self.meta['mode']}.{self.meta['episode']}.json")
+        with open(filename, 'w') as outfile:
+            json.dump(env.to_dict(), outfile)
 
 
     @selector

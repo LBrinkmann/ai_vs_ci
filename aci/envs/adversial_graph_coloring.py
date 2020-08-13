@@ -66,6 +66,12 @@ class AdGraphColoring():
         self.new_graph()
         self.reset(init=True)
 
+    def to_dict(self):
+        return {
+            'graph': list(nx.to_edgelist(self.graph)),
+            'agent_pos': self.agent_pos.tolist()
+        }
+
     def new_graph(self):
         self.graph, n_actions, self.n_neighbors = create_graph(
             n_nodes=self.all_agents, **self.graph_args)
@@ -183,9 +189,12 @@ class AdGraphColoring():
 
         self.agg_metrics = {}
 
-        if not self.fixed_pos or init:
-            self.agent_pos = np.random.choice(
-                self.all_agents, self.n_agents['ci'], replace=False)
+        # TODO: fix agent_pos
+        # if not self.fixed_pos or init:
+        #     self.agent_pos = np.random.choice(
+        #         self.all_agents, self.n_agents['ci'], replace=False)
+        self.agent_pos = np.arange(self.all_agents)
+
         _state = get_graph_colors(self.graph)
         self.state = {
             'ci': _state,
