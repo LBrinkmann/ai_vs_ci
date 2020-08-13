@@ -83,9 +83,9 @@ params:
   writer_args:
     periods:
       # video: 250
-      # trace: 10
+      trace: 1
       # individual_trace: 100
-      final: 1
+      # final: 1
       # table: 250
   env_class: adversial_graph_coloring
   env_args:

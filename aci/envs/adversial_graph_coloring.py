@@ -61,6 +61,8 @@ class AdGraphColoring():
         self.rewards_args = rewards_args
         self.ai_obs_mode = ai_obs_mode
 
+        self.traces = {}
+
         self.new_graph()
         self.reset(init=True)
 
@@ -150,10 +152,10 @@ class AdGraphColoring():
             'ci': ci_reward
         }
 
-        return reward, {**metrics, **reward}
+        return reward, metrics
 
 
-    def step(self, actions, writer=None):
+    def step(self, actions):
         if 'ai' in actions:
             self.state['ai'] = actions['ai']
         if 'ci' in actions:
@@ -169,10 +171,10 @@ class AdGraphColoring():
             done = False
         self.steps += 1
 
-        if writer:
-            self._log(actions, observations, info, done, writer) 
+        # if writer:
+        #     self._log(actions, observations, info, done, writer) 
 
-        return observations, rewards, done, {}
+        return observations, rewards, done, info
 
     def reset(self, init=False):
         if not self.fixed_network or init:
@@ -227,63 +229,3 @@ class AdGraphColoring():
 
     def close(self):
         pass
-
-    def _log(self, actions, observations, metrics, done, writer):
-        if len(self.agg_metrics) == 0:
-            self.agg_metrics = metrics
-        else:
-            self.agg_metrics = {k: self.agg_metrics[k] + v for k, v in metrics.items()}
-
-        if writer.check_on(on='trace'):
-            writer.add_metrics(
-                'trace',
-                {
-                    'sum_ai_reward': metrics['ai'].sum(),
-                    'std_ai_reward': metrics['ai'].sum(),
-                    'sum_ci_reward':  metrics['ci'].sum(),
-                    'std_ci_reward':  metrics['ci'].std(),
-                    'avg_coordination': metrics['avg_coordination'][0],
-                    'avg_catch': metrics['avg_catch'][0],
-                },
-                {},
-                tf=[],
-                on='trace'
-            )
-
-        if done and writer.check_on(on='final'):
-            writer.add_metrics(
-                'final',
-                {
-                    'sum_ai_reward':  self.agg_metrics['ai'].sum(),
-                    'std_ai_reward':  self.agg_metrics['ai'].std(),
-                    'sum_ci_reward':  self.agg_metrics['ci'].sum(),
-                    'std_ci_reward':  self.agg_metrics['ci'].std(),
-                    'avg_coordination': self.agg_metrics['avg_coordination'][0],
-                    'avg_catch': self.agg_metrics['avg_catch'][0],
-                },
-                {},
-                tf=[],
-                on='final'
-            )
-
-            if writer.check_on(on='individual_trace'):
-                for i in range(self.n_agents['ci']):
-                    writer.add_metrics(
-                        'individual_trace',
-                        {
-                            **({'ai_reward': self.agg_metrics['ai'][i]} if self.n_agents['ai'] == self.n_agents['ci'] else {}),
-                            'ci_reward': self.agg_metrics['ci'][i],
-                            'ind_coordination': self.agg_metrics['ind_coordination'][i],
-                            'ind_catch': self.agg_metrics['ind_catch'][i],
-                            'ci_action': actions['ci'][i],
-                            'ai_action': actions['ai'][i]
-                        },
-                        {'done': done, 'agent': int_to_alphabete(i)},
-                        tf=[],
-                        on='individual_trace'
-                    )
-
-        writer.add_frame('{mode}.observations', lambda: self._render(self.state, metrics), on='video', flush=done)
-
-
-

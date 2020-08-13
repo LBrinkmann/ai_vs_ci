@@ -1,4 +1,4 @@
-"""Usage: train.py PARAMETER_FILE OUTPUT_PATH
+"""Usage: train.py PARAMETER_FILE
 
 Arguments:
     RUN_PATH
@@ -79,7 +79,6 @@ def plot(df, output_path, name, selectors, grid=[], hue=None, style=None, folder
 
 def preprocess(df, x, groupby, smooth=None, metrics=None, bins=None):
 
-    print(df.head())
 
     groupby_reg = re.compile(groupby)
     groupby_columns = [c for c in df.columns if groupby_reg.search(c)]
@@ -137,12 +136,21 @@ def expand(df, plots):
             yield p
 
 
-def main(input_file, clean, preprocess_args, plot_args, output_path):
+def main(*, input_file, clean, preprocess_args=None, plot_args, output_path):
     if clean:
         shutil.rmtree(output_path, ignore_errors=True)
     ensure_directory(output_path)
     df = pd.read_parquet(input_file.format(**os.environ))
-    df = preprocess(df, **preprocess_args)
+    if preprocess_args:
+        df = preprocess(df, **preprocess_args)
+
+    print(df.head())
+    for col in df.columns:
+        if df[col].nunique() < 20:
+            values = ', '.join(map(str, df[col].unique()))
+            print(f'{col} has the values: {values}')
+
+
     plot_args = list(expand(df, plot_args))
     plot_args = [{**pa, 'output_path': output_path} for pa in plot_args]
 
@@ -165,7 +173,12 @@ def main(input_file, clean, preprocess_args, plot_args, output_path):
 if __name__ == "__main__":
     arguments = docopt(__doc__)
     parameter_file = arguments['PARAMETER_FILE']
-    output_path = arguments['OUTPUT_PATH']
+
+    exp_dir = os.path.dirname(parameter_file)
+    output_path = os.path.join(exp_dir, 'plot')
+
     parameter = load_yaml(parameter_file)
 
-    main(output_path=output_path, **parameter)
+    input_file = os.path.join(exp_dir, parameter.pop('input_file'))
+
+    main(output_path=output_path, input_file=input_file, **parameter)

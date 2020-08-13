@@ -1,7 +1,7 @@
-"""Usage: train.py PARAMETER_YAML
+"""Usage: train.py PARAMETER_FILE
 
 Arguments:
-    PARAMETER_YAML        A yaml parameter file.
+    RUN_PATH
 
 Outputs:
     ....
@@ -13,156 +13,100 @@ Outputs:
 
 from itertools import count
 from docopt import docopt
-from aci.envs.cart import CartWrapper
-from aci.controller.dqn import DQN
-from aci.controller.utils import ActionSelector
-from aci.ploting.training import plot_durations
-from aci.ploting.screen import plot_screen
+import sys
+from aci.components.scheduler import Scheduler, select_action
+
+from aci.envs import ENVIRONMENTS
+from aci.controller import CONTROLLERS
 from aci.utils.io import load_yaml
-import matplotlib
-import matplotlib.pyplot as plt
-import torch
-from torch.utils.tensorboard import SummaryWriter
+from aci.utils.writer import Writer
+import torch as th
+import os
 
 
-def divobservation(env):
-    last_screen = env.observe()
-    last_state = last_screen - last_screen
-    while True:
-        current_screen = env.observe()
-        try:
-            current_state = current_screen - last_screen
-        except: 
-            current_state = None
-        yield last_state, current_state, current_screen
-        last_screen = current_screen
-        last_state = current_state
+
+def run(env, controller, scheduler, writer):
+    for episode in scheduler:
+        writer.add_meta(_step=episode['episode'], episode=episode['episode'], mode=episode['mode'])
+        print(f'Start episode {episode["episode"]}.')
+        run_episode(
+            env=env,
+            controller=controller,
+            writer=writer,
+            eps=episode['eps'],
+            training=episode['training'])
 
 
-def evaluation(env, controller):
-    env.reset()
-    last_state, current_state, screen = next(divobservation(env))
-    screens = []
-    episode_reward = 0
+
+def run_episode(*, env, controller, eps, training, writer):
+    observations = env.reset()
+    agent_types = controller.keys()
+
+    for agent_type in agent_types:
+        controller[agent_type].init_episode(observations[agent_type])
+
     for t in count():
-        # Select and perform an action
-        action = controller.get_action(current_state)
-        reward, done = env.step(action)
+        # print(f'Start step {t} with test mode {test_mode}.')
+        writer.add_meta(episode_step=t)
 
-        last_state, current_state, screen = next(divobservation(env))
+        actions = {}
+        for agent_type in agent_types:
+            # Select and perform an action
+            proposed_action = controller[agent_type].get_q(observations[agent_type] if training[agent_type] else None)
+            selected_action = select_action(proposed_actions=proposed_action, eps=eps[agent_type])
+            actions[agent_type] = selected_action
 
-        screens.append(screen)
-        episode_reward += reward[0]
+        observations, rewards, done, info = env.step(actions)
+
+        writer.add_metrics2('actions', actions, on='trace')
+        writer.add_metrics2('rewards', rewards, on='trace')
+        writer.add_metrics2('info', info, on='trace')
+
+        for agent_type in agent_types:
+            if training[agent_type]:
+                controller[agent_type].update(
+                    actions[agent_type], observations[agent_type], rewards[agent_type], done, writer=writer)
         if done:
             break
-    video = torch.cat(screens).unsqueeze(0)
-    return {'episode_reward': episode_reward, 'episode_steps': t+1}, video
 
 
-def add_metrics(d, scope, **kwargs):
-    return {k: {**d.get(k, {}), scope: v} for k, v in kwargs.items()}
+def main(*, output_path, agent_types, env_class, env_args, writer_args, meta, run_args={}, scheduler_args):
+    if 'num_threads' in run_args:
+        th.set_num_threads(run_args['num_threads'])
 
-def write_metrics(metrics_dict, writer, i_episode):
-    for k, v in metrics_dict.items():
-        writer.add_scalars(k, v, i_episode)
+    print(f'Use {th.get_num_threads()} threads.')
 
-
-def train(env, controller, action_selector, writer, num_episodes, target_update, eval_period):
-    total_steps = 0
-    episode_durations = []
-    for i_episode in range(num_episodes):
-        episode_reward = 0
-
-        # Initialize the environment and state
-        env.reset()
-
-        last_screen = env.observe()
-        current_screen = env.observe()
-        state = current_screen - last_screen
-
-        # last_state, current_state, _ = next(divobservation(env))
-        for t in count():
-            # Select and perform an action
-            proposed_action = controller.get_action(state)
-            selected_action = action_selector.select_action(proposed_action)
-            reward, done = env.step(selected_action)
-
-            # Observe new state
-            last_screen = current_screen
-            current_screen = env.observe()
-            if not done:
-                next_state = current_screen - last_screen
-            else:
-                next_state = None
-
-
-            # last_state, current_state, _ = next(divobservation(env))
-
-            controller.push_transition(state, selected_action, next_state, reward)
-
-            # Move to the next state
-            state = next_state
-
-            # Perform one step of the optimization (on the target network)
-            controller.optimize()
-
-            total_steps += 1
-            episode_reward += reward[0]
-
-            if done:
-                episode_durations.append(t + 1)
-                plot_durations(episode_durations)
-                break
-        
-        # metrics_dict = add_metrics(
-        #     {}, 'train', episode_reward=episode_reward, episode_steps=t+1)
-
-        # Update the target network, copying all weights and biases in DQN
-        if i_episode % target_update == 0:
-            controller.update()
-
-        # # eval and logging
-        # if i_episode % eval_period == 0:
-        #     eval_metrics_dict, video  = evaluation(env, controller)
-        #     writer.add_video('eval_play', video, i_episode)
-        
-        # metrics_dict = add_metrics(
-        #     metrics_dict, 'train', **eval_metrics_dict)
-        
-        # write_metrics(metrics_dict, writer, i_episode)
-        # controller.log(writer, i_episode, i_episode % eval_period == 0)
-        # action_selector.log(writer, i_episode, i_episode % eval_period == 0)
-
-
-def main(opt_args, selector_args, train_args, replay_memory):
+    writer = Writer(output_path, **writer_args, **meta)
     # if gpu is to be used
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = th.device("cuda" if th.cuda.is_available() else "cpu")
+    device = th.device("cpu")
 
-    writer = SummaryWriter()
-    env = CartWrapper(device)
+
+    env = ENVIRONMENTS[env_class](**env_args, device=device)
     env.reset()
-    n_actions = env.n_actions
-    observation_shape = env.observation_shape
 
-    controller = DQN(
-        observation_shape=observation_shape,
-        n_actions=n_actions,
-        opt_args=opt_args, 
-        replay_memory=replay_memory,
+    scheduler = Scheduler(**scheduler_args)
+
+    controller = {
+        name: CONTROLLERS[args['controller_class']](
+        observation_shape=env.observation_shape[name],
+        n_actions=env.n_actions[name],
+        n_agents=env.n_agents[name],
+        **args['controller_args'],
         device=device)
+        for name, args in agent_types.items()
+    }
 
-    action_selector = ActionSelector(device=device, **selector_args)
-
-    train(env, controller, action_selector, writer, **train_args)
-
-    print('Complete')
-    env.env.render()
-    env.env.close()
-    plt.ioff()
-    plt.show()
+    run(env, controller, scheduler, writer)
 
 
 if __name__ == "__main__":
     arguments = docopt(__doc__)
-    parameter = load_yaml(arguments['PARAMETER_YAML'])
-    main(**parameter)
+    parameter_file = arguments['PARAMETER_FILE']
+    parameter = load_yaml(parameter_file)
+
+    exp_dir = os.path.dirname(parameter_file)
+    output_path = os.path.join(exp_dir, 'train')
+
+    meta = {f'label.{k}': v for k, v in parameter.get('labels', {}).items()}
+    main(meta=meta, output_path=output_path, **parameter['params'])

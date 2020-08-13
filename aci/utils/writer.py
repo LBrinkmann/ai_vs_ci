@@ -4,6 +4,7 @@ import jsonlines
 import torch as th
 import datetime
 import pandas as pd
+import numpy as np
 import imageio
 import os
 from moviepy.editor import ImageSequenceClip
@@ -64,6 +65,8 @@ class Writer():
         ensure_dir(self.metrics_folder)
         self.periods = periods
         self.frames = {}
+        self.traces = {}
+        self.flush_idx = 0
 
     def add_meta(self, **meta):
         self.meta = {**self.meta, **meta}
@@ -85,6 +88,30 @@ class Writer():
         # for k, v in meta.items():
         #     df[k] = v
         self._write_table(**kwargs)   
+
+
+    @selector
+    def add_metrics2(self, scope, metrics):
+        if scope not in self.traces:
+            self.traces[scope] = {
+                'values': [], 'episode': [], 'episode_step': [], 'mode': [], 'name': []
+            }
+        metrics = {k: v.cpu().numpy() for k, v in metrics.items()}
+        for k,v in metrics.items():
+            self.traces[scope]['episode'].append(self.meta['episode'])
+            self.traces[scope]['episode_step'].append(self.meta['episode_step'])
+            self.traces[scope]['mode'].append(self.meta['mode'])
+            self.traces[scope]['name'].append(k)
+            self.traces[scope]['values'].append(v)
+
+    def metrics2_flush(self, flush_idx):
+        for scope_name, traces in self.traces.items():
+            values = traces.pop('values')
+            index = pd.MultiIndex.from_frame(pd.DataFrame(traces))
+            agents_names = pd.Series([f'agent_{i}' for i in range(len(values[0]))], name='agents')
+            df = pd.DataFrame(data=values, index=index, columns=agents_names)
+            metrics_file = os.path.join(self.metrics_folder, f"{scope_name}.{flush_idx}.parquet")
+            df.to_parquet(metrics_file)
 
     @selector
     def add_metrics(self, name, metrics, meta, tf=[]):
@@ -144,15 +171,17 @@ class Writer():
         clip = ImageSequenceClip([f for f in array_np], fps=1)
         clip.write_videofile(file_name)
     
-    # def _write_row(self, metrics, meta):
-
-
     def _write_table(self, df, name, sheet):
         df.to_csv(f"{self.df_folder}/{name}.{sheet}.csv")
 
+    def flush(self):
+        self.rows_flush()
+        self.metrics2_flush(self.flush_idx)
+        self.flush_idx += 1
+
     def __del__(self):
         # self.json_writer.close()
-        self.rows_flush()
+        self.flush()
 
     def rows_flush(self):
         names = self.metric_rows.keys()
