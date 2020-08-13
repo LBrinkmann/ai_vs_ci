@@ -8,7 +8,7 @@ grid:
   - params.env_args.all_agents: [4,6,10,20]
     labels.agents: [4,6,10,20]
   - params.env_args.graph_args.degree: [3,4,5]
-    labels.agents: [3,4,5]
+    labels.degree: [3,4,5]
   - params.env_args.graph_args.chromatic_number: [2,3,4]
     labels.chromatic_number: [2,3,4]
   - - params.env_args.rewards_args:

@@ -1,7 +1,7 @@
-"""Usage: train.py PARAMETER_FILE
+"""Usage: train.py RUN_FOLDER
 
 Arguments:
-    RUN_PATH
+    RUN_FOLDER
 
 Outputs:
     ....
@@ -70,7 +70,7 @@ def run_episode(*, env, controller, eps, training, writer):
             break
 
 
-def main(*, output_path, agent_types, env_class, env_args, writer_args, meta, run_args={}, scheduler_args):
+def _main(*, output_path, agent_types, env_class, env_args, writer_args, meta, run_args={}, scheduler_args):
     if 'num_threads' in run_args:
         th.set_num_threads(run_args['num_threads'])
 
@@ -100,13 +100,17 @@ def main(*, output_path, agent_types, env_class, env_args, writer_args, meta, ru
     run(env, controller, scheduler, writer)
 
 
-if __name__ == "__main__":
+def main():
     arguments = docopt(__doc__)
-    parameter_file = arguments['PARAMETER_FILE']
+    run_folder = arguments['RUN_FOLDER']
+
+    parameter_file = os.path.join(run_folder, 'train.yml')
+    out_dir = os.path.join(run_folder, 'train')
     parameter = load_yaml(parameter_file)
 
-    exp_dir = os.path.dirname(parameter_file)
-    output_path = os.path.join(exp_dir, 'train')
-
     meta = {f'label.{k}': v for k, v in parameter.get('labels', {}).items()}
-    main(meta=meta, output_path=output_path, **parameter['params'])
+    _main(meta=meta, output_path=out_dir, **parameter['params'])
+
+
+if __name__ == "__main__":
+    main()

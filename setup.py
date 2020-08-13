@@ -22,6 +22,11 @@ setup(
     zip_safe=False,
     install_requires=load_requirements(),
     extras_require={'dev': load_requirements('dev_requirements.txt')},
+    entry_points={
+        'console_scripts': [
+            'train = aci.train:main',
+        ],
+    },
     scripts=[
         'djx/scripts/djx'
     ]
