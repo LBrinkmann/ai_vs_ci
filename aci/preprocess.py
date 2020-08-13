@@ -10,8 +10,7 @@ Outputs:
 from docopt import docopt
 import os
 import pandas as pd
-import multiprocessing
-import itertools
+from multiprocessing import Manager, Pool
 from itertools import groupby
 from aci.utils.io import load_yaml
 
@@ -34,6 +33,14 @@ def find_files_with_extension(_dir, ext):
         for file in files:
             if file.endswith(ext):
                 yield (file, os.path.join(root, file))
+
+
+def get_subdirs(_dir):
+    return [
+        o
+        for o in os.listdir(_dir) 
+        if os.path.isdir(os.path.join(_dir,o))
+    ]
 
 
 
@@ -122,7 +129,12 @@ def parse(name, files, parse_args):
     df = pd.concat(pd.read_parquet(p) for n, p in files)
     return parser[name](df, **parse_args[name])
 
-def main(exp_dir, output_file, parse_args, labels):
+def single(run_folder, parse_args):
+    run_yml = os.path.join(run_folder, 'train.yml')
+    run_parameter = load_yaml(run_yml)
+    labels = run_parameter['labels']
+
+    exp_dir = os.path.join(run_folder, 'train')
     files_g = find_files_with_extension(exp_dir, ".parquet")
 
     files_g = list(files_g)
@@ -136,22 +148,43 @@ def main(exp_dir, output_file, parse_args, labels):
     df = obj_to_category(df)
     for k, v in labels.items():
         df[k] = pd.Series(v, index=df.index, **({'dtype': 'category'} if isinstance(v, str) else {}))
+
+
+def _main(in_folders=in_folders, out_file=out_file, **parameter)
+    
+    pool = Pool(N_JOBS)
+
+    arg_list = list(zip(in_folders, [parameter]*len(plot_args)))
+
+    dfs = pool.map(single, arg_list)
+    import ipdb; ipdb.set_trace()
+    df = dfs.concat(dfs)
     df.to_parquet(output_file)
 
 
-if __name__ == "__main__":
+
+def main():
     arguments = docopt(__doc__)
-    parameter_file = arguments['PARAMETER_FILE']
-    exp_dir = os.path.dirname(parameter_file)
-    output_folder = os.path.join(exp_dir, 'preprocess')
+    run_folder = arguments['RUN_FOLDER']
+
+    parameter_file = os.path.join(run_folder, 'preprocess.yml')
+
+
+    out_folder = os.path.join(run_folder, 'preprocess')
+    out_file = os.path.join(out_folder, 'metrics.parquet')
     ensure_dir(output_folder)
-    output_file = os.path.join(output_folder, 'metrics.parquet')
     parameter = load_yaml(parameter_file)
 
-    run_yml = os.path.join(exp_dir, 'train.yml')
-    run_parameter = load_yaml(run_yml)
-    labels = run_parameter['labels']
 
-    exp_dir = os.path.join(exp_dir, parameter.pop('input_dir'))
+    if 'grid' in get_subdirs(run_folder):
+        in_folders = get_subdirs(os.path.join(run_folder, 'grid'))
+    elif 'train' in get_subdirs(run_folder):
+        in_folders = [os.path.join(run_folder, 'train')]
+    else:
+        raise FileNotFoundError('No data found.')
+    _main(in_folders=in_folders, out_file=out_file, **parameter)
+    
 
-    main(output_file=output_file, exp_dir=exp_dir, labels=labels, **parameter)
+
+if __name__ == "__main__":
+    main()
