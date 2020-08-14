@@ -1,7 +1,7 @@
-"""Usage: train.py PARAMETER_FILE
+"""Usage: train.py RUN_FOLDER
 
 Arguments:
-    RUN_PATH
+    RUN_FOLDER
 
 Outputs:
     ....
@@ -129,7 +129,13 @@ def parse(name, files, parse_args):
     df = pd.concat(pd.read_parquet(p) for n, p in files)
     return parser[name](df, **parse_args[name])
 
-def single(run_folder, parse_args):
+
+def single(args):
+    run_folder, parse_args = args
+    return _single(run_folder, parse_args)
+
+
+def _single(run_folder, parse_args):
     run_yml = os.path.join(run_folder, 'train.yml')
     run_parameter = load_yaml(run_yml)
     labels = run_parameter['labels']
@@ -148,19 +154,15 @@ def single(run_folder, parse_args):
     df = obj_to_category(df)
     for k, v in labels.items():
         df[k] = pd.Series(v, index=df.index, **({'dtype': 'category'} if isinstance(v, str) else {}))
+    return df
 
 
-def _main(in_folders=in_folders, out_file=out_file, **parameter)
-    
+def _main(in_folders, out_file, parse_args):
     pool = Pool(N_JOBS)
-
-    arg_list = list(zip(in_folders, [parameter]*len(plot_args)))
-
+    arg_list = list(zip(in_folders, [parse_args]*len(in_folders)))
     dfs = pool.map(single, arg_list)
-    import ipdb; ipdb.set_trace()
-    df = dfs.concat(dfs)
-    df.to_parquet(output_file)
-
+    df = pd.concat(dfs)
+    df.to_parquet(out_file)
 
 
 def main():
@@ -172,14 +174,14 @@ def main():
 
     out_folder = os.path.join(run_folder, 'preprocess')
     out_file = os.path.join(out_folder, 'metrics.parquet')
-    ensure_dir(output_folder)
+    ensure_dir(out_folder)
     parameter = load_yaml(parameter_file)
 
 
     if 'grid' in get_subdirs(run_folder):
         in_folders = get_subdirs(os.path.join(run_folder, 'grid'))
     elif 'train' in get_subdirs(run_folder):
-        in_folders = [os.path.join(run_folder, 'train')]
+        in_folders = [run_folder]
     else:
         raise FileNotFoundError('No data found.')
     _main(in_folders=in_folders, out_file=out_file, **parameter)
