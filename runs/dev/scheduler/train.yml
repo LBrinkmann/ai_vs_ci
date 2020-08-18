@@ -88,6 +88,7 @@ params:
     fixed_length: true
     fixed_network: false
     fixed_pos: false
+    fixed_mapping: false
     graph_args:
       chromatic_number: 4
       degree: 4

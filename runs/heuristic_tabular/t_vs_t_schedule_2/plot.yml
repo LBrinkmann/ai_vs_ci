@@ -1,0 +1,62 @@
+
+clean: true
+plot_args:
+  # - 
+  #   expand: [fixed_network, fixed_pos, obs_map, reward]
+  #   selectors:
+  #     # chromatic_number: 4
+  #     agents: mean
+  #     name: [avg_coordination, avg_catch]
+  #   grid: [mode, chromatic_number]
+  #   hue: alpha
+  #   style: name
+  #   name: mean
+  - 
+    expand: [alpha, chromatic_number, obs_map, reward]
+    selectors:
+      # chromatic_number: 4
+      agents: mean
+      name: [avg_coordination, avg_catch]
+    grid: [fixed_network, fixed_pos]
+    hue: name
+    style: mode
+    name: mean
+  # - 
+  #   expand: [alpha, chromatic_number, fixed_network, obs_map]
+  #   selectors:
+  #     agents: mean
+  #     name: [avg_coordination, avg_catch]
+  #   grid: [mode, reward]
+  #   hue: name
+  #   name: mean
+
+  # - 
+  #   selectors:
+  #     agents: [agent_0, agent_1, agent_2]
+  #     name: [ind_catch, ind_coordination]
+  #   grid: [mode]
+  #   hue: agents
+  #   style: name
+  #   name: agents
+  # - 
+  #   selectors:
+  #     agents: [agent_0, agent_1, agent_2]
+  #     name: [stick_to_color, max_freq]
+  #   grid: [mode, agent_type]
+  #   hue: agents
+  #   style: name
+  #   name: actions_agents
+  # - 
+  #   selectors:
+  #     agents: mean
+  #     name: [stick_to_color, max_freq]
+  #   grid: [mode, agent_type]
+  #   hue: name
+  #   # style: name
+  #   name: actions_mean
+  # - 
+  #   selectors:
+  #     metric: [sum_ai_reward, sum_ci_reward]
+  #   grid: [mode]
+  #   hue: metric
+  #   name: reward

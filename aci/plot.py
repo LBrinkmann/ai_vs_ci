@@ -1,7 +1,7 @@
-"""Usage: train.py PARAMETER_FILE
+"""Usage: train.py RUN_FOLDER
 
 Arguments:
-    RUN_PATH
+    RUN_FOLDER
 
 Outputs:
     ....
@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import shutil
 
-from aci.utils.io import load_yaml
+from aci.utils.io import load_yaml, ensure_dir
 
 
 def _plot(args):
@@ -136,7 +136,7 @@ def expand(df, plots):
             yield p
 
 
-def main(*, input_file, clean, preprocess_args=None, plot_args, output_path):
+def _main(*, input_file, clean, preprocess_args=None, plot_args, output_path):
     if clean:
         shutil.rmtree(output_path, ignore_errors=True)
     ensure_directory(output_path)
@@ -170,15 +170,19 @@ def main(*, input_file, clean, preprocess_args=None, plot_args, output_path):
     #     plot(df, **p)
 
 
-if __name__ == "__main__":
+def main():
     arguments = docopt(__doc__)
-    parameter_file = arguments['PARAMETER_FILE']
+    run_folder = arguments['RUN_FOLDER']
+    parameter_file = os.path.join(run_folder, 'plot.yml')
 
-    exp_dir = os.path.dirname(parameter_file)
-    output_path = os.path.join(exp_dir, 'plot')
-
+    out_folder = os.path.join(run_folder, 'plot')
+    ensure_dir(out_folder)
     parameter = load_yaml(parameter_file)
 
-    input_file = os.path.join(exp_dir, parameter.pop('input_file'))
+    input_file = os.path.join(run_folder, 'preprocess', 'metrics.parquet')
 
-    main(output_path=output_path, input_file=input_file, **parameter)
+    _main(output_path=out_folder, input_file=input_file, **parameter)
+
+
+if __name__ == "__main__":
+    main()

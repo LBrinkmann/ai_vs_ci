@@ -7,6 +7,11 @@ import os
 # basics
 
 
+def ensure_dir(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+
 def save_json(obj, filename):
     with open(filename, 'w') as f:
         json.dump(obj, f)

@@ -5,6 +5,10 @@ import random
 import torch as th
 import torch.optim as optim
 import torch.nn.functional as F
+
+from aci.controller.tabularq import MAPS, get_idx
+
+
 from aci.neural_modules.linear_q_function import LinearFunction
 from aci.neural_modules.rnn import RNN
 from aci.neural_modules.medium_conv import MediumConv
@@ -122,6 +126,25 @@ class FakeBatch(nn.Module):
         self.model.log(*args, **kwargs)
 
 
+class MapLikeQTable(nn.Module):
+    def __init__(self, model, cache_size, observation_shape, n_actions, map_args):
+        super(MapLikeQTable, self).__init__()
+        self.obs_idx_map, self.lookup = MAPS[obs_map](cache_size, observation_shape, n_actions, **map_args)
+        self.model = None
+
+    def size(self):
+        return len(self.lookup)
+
+    def add_model(self, model):
+        self.model = model
+
+    def forward(self, x):
+        idx = get_idx(x)
+        y = self.model(idx)
+        import ipdb; ipdb.set_trace()
+        return y
+
+
 def create_model(cache_size, observation_shape, n_agents, n_actions, net_type, multi_type, **kwargs):
     effective_agents = 1 if multi_type == 'shared_weights' else n_agents
     batch_size = n_agents if multi_type == 'shared_weights' else 1
@@ -131,6 +154,18 @@ def create_model(cache_size, observation_shape, n_agents, n_actions, net_type, m
         model = OneHotTransformer(
             observation_shape=(cache_size,*observation_shape), n_actions=n_actions, n_agents=effective_agents, 
             model=model, batch_size=batch_size)
+    elif net_type == 'flat_linear':
+
+        mapper = MapLikeQTable(cache_size=cache_size, observation_shape=observation_shape, n_actions=n_actions, map_args=kwargs['map_args'])
+
+        new_obs_shape = mapper.size()
+
+        model = LinearFunction(observation_shape=new_obs_shape, n_agents=effective_agents, n_actions=n_actions)
+        model = OneHotTransformer(
+            observation_shape=new_obs_shape, n_actions=n_actions, n_agents=effective_agents, 
+            model=model, batch_size=batch_size)
+
+        mapper.add_model(model)
     elif net_type == 'rnn':
         model = RNN(batch_size=batch_size, observation_shape=(cache_size,*observation_shape), n_agents=effective_agents, n_actions=n_actions, **kwargs)
         model = OneHotTransformer(

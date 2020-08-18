@@ -1,0 +1,117 @@
+exec:
+  command: train
+  script_name: cpu
+labels:
+  project: ai_vs_ci
+  batch: tabular_vs_heuristic_2_2
+grid:
+  - - params.env_args: 
+        graph_args:
+          graph_type: random_regular
+          degree: 2
+          chromatic_number: 3
+        all_agents: 3
+      labels.networktype: full3
+    - params.env_args: 
+        graph_args:
+          graph_type: cycle
+          degree: 4
+        all_agents: 6
+      labels.networktype: cycle64
+    - params.env_args: 
+        graph_args:
+          graph_type: random_regular
+          degree: 4
+          chromatic_number: 3
+        all_agents: 6
+      labels.networktype: reg6_4_3
+    - params.env_args: 
+        graph_args:
+          graph_type: random_regular
+          degree: 4
+          chromatic_number: 4
+        all_agents: 10
+      labels.networktype: reg10_4_4
+  - - params.env_args.rewards_args:
+        ai:
+          avg_coordination: -1
+          avg_catch: 1
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 0
+      labels.rewards: individual
+  - params.agent_types.ci.controller_args.alpha: [0.01, 0.05, 0.1]
+    labels.alpha: [0.01, 0.05, 0.1]
+  - params.agent_types.ci.controller_args.gamma: [0.999, 0.99, 0.9, 0.5]
+    labels.gamma: [0.999, 0.99, 0.9, 0.5]
+  - params.agent_types.ci.controller_args.obs_map: [product, combinations]
+    labels.obs_map: [product, combinations]
+  - params.env_args.fixed_network: [true, false]
+    labels.fixed: [true, false]
+
+params:
+  scheduler_args:
+    episodes: 10000
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training: 
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.2
+            ai: 0.2
+          training: 
+            ci: true
+            ai: true
+  agent_types:
+    ci:
+      controller_args:
+        alpha: 0.01
+        cache_size: 1
+        gamma: 0.8
+        obs_map: combinations
+        q_start: 0
+        share_table: false
+      controller_class: tabularq
+    ai:
+      controller_args: 
+        heuristic_name: hai1
+        agent_args: {}
+      controller_class: heuristic
+  writer_args:
+    periods:
+      env: 1000
+      trace: 5
+  env_class: adversial_graph_coloring
+  env_args:
+    ai_obs_mode: neighbors
+    all_agents: 10
+    fixed_agents: 0
+    fixed_length: true
+    fixed_network: true
+    fixed_pos: true
+    fixed_mapping: true
+    graph_args:
+      chromatic_number: 4
+      degree: 4
+      graph_type: random_regular
+    max_steps: 50
+    rewards_args:
+      ai:
+        avg_catch: 1
+        avg_coordination: -1
+        ind_catch: 0
+        ind_coordination: 0
+      ci:
+        avg_catch: -1
+        avg_coordination: 1
+        ind_catch: 0
+        ind_coordination: 0

@@ -47,7 +47,7 @@ def int_to_alphabete(val):
 
 class AdGraphColoring():
     def __init__(
-            self, all_agents, graph_args, max_steps, fixed_length, rewards_args, device,
+            self, all_agents, graph_args, max_steps, fixed_length, fixed_mapping, rewards_args, device,
             fixed_pos, fixed_network, ai_obs_mode='agents_matrix', fixed_agents=0):
         self.steps = 0
         self.max_steps = max_steps
@@ -57,14 +57,14 @@ class AdGraphColoring():
         self.graph_args = graph_args
         self.device = device
         self.fixed_length = fixed_length
-        self.fixed_pos, self.fixed_network = fixed_pos, fixed_network
+        self.fixed_pos, self.fixed_network, self.fixed_mapping = fixed_pos, fixed_network, fixed_mapping
         self.rewards_args = rewards_args
         self.ai_obs_mode = ai_obs_mode
 
         self.traces = {}
 
-        self.new_graph()
-        self.reset(init=True)
+        self._new_graph()
+        self._reset(init=True)
 
     def to_dict(self):
         # agent_pos: [c, a, b], agent c is positioned on node 0
@@ -75,7 +75,7 @@ class AdGraphColoring():
         }
 
 
-    def calc_neighbors(self, random_pos=False):
+    def _calc_neighbors(self, random_pos=False):
         if random_pos:
             self.agent_pos = th.randperm(self.all_agents)
         else:
@@ -94,7 +94,7 @@ class AdGraphColoring():
         self.neighbors = th.stack(neighbors).to(self.device) # n_agents, n_neighbors
 
 
-    def new_graph(self):
+    def _new_graph(self):
         self.graph, n_actions, self.n_neighbors = create_graph(
             n_nodes=self.all_agents, **self.graph_args)
         self.graph_pos = nx.spring_layout(self.graph)
@@ -124,7 +124,13 @@ class AdGraphColoring():
             'ci': n_actions
         }
 
-    def observations(self):
+    def _map_incoming(self, values):
+        return {'ai': values['ai'][self.ai_ci_map], 'ci': values['ci']}
+
+    def _map_outgoing(self, values):
+        return {'ai': values['ai'][self.ci_ai_map], 'ci': values['ci']}
+
+    def _observations(self):
         state_ = self.state['ci'].reshape(1,-1).repeat(self.all_agents,1)
         neighbor_colors = th.gather(state_, 1, self.neighbors)
         observations = th.cat((self.state['ci'].reshape(-1,1), neighbor_colors), dim=1)
@@ -145,7 +151,7 @@ class AdGraphColoring():
             'ci': ci_obs
         }
 
-    def get_rewards(self, observations):
+    def _get_rewards(self, observations):
         conflicts = (observations['ci'][:,[0]] == observations['ci'][:,1:])
 
         ind_coordination = 1 - conflicts.any(dim=1).type(th.float)
@@ -172,11 +178,11 @@ class AdGraphColoring():
         return reward, metrics
 
 
-    def step(self, actions):
+    def _step(self, actions):
         self.state = actions
 
-        observations = self.observations()
-        rewards, info = self.get_rewards(observations)
+        observations = self._observations()
+        rewards, info = self._get_rewards(observations)
         if (self.steps == self.max_steps):
             done = True
         elif self.steps > self.max_steps:
@@ -186,11 +192,17 @@ class AdGraphColoring():
         self.steps += 1
         return observations, rewards, done, info
 
-    def reset(self, init=False):
+    def _reset(self, init=False):
         if not self.fixed_network or init:
-            self.new_graph()
-        if not self.fixed_pos or init:
-            self.calc_neighbors(random_pos=not self.fixed_pos)
+            self._new_graph()
+            self._calc_neighbors(random_pos=not self.fixed_pos)
+        if not self.fixed_pos:
+            self._calc_neighbors(random_pos=not self.fixed_pos)
+        if not self.fixed_mapping:
+            self.ai_ci_map = th.randperm(self.all_agents)
+        elif init:
+            self.ai_ci_map = th.arange(self.all_agents)
+        self.ci_ai_map = th.argsort(self.agent_pos)
 
         self.steps = 0
 
@@ -210,7 +222,20 @@ class AdGraphColoring():
             'ci': ci_start_state,
             'ai': ai_start_state
         }
-        return self.observations()
+        return self._observations()
+
+    def step(self, actions):
+        observations, rewards, done, info = self._step(self._map_incoming(actions))
+        return (
+            self._map_outgoing(observations), 
+            self._map_outgoing(rewards), 
+            done, 
+            info
+        )
+
+    def reset(self):
+        observations = self._reset()
+        return self._map_outgoing(observations)
 
     def close(self):
         pass

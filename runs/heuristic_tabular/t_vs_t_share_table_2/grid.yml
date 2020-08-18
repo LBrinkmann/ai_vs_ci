@@ -3,9 +3,18 @@ exec:
   script_name: cpu
 labels:
   project: ai_vs_ci
-  batch: t_vs_t_schedule_1
+  batch: t_vs_t_share_table_2
 grid:
-  - - params.env_args.rewards_args:
+  - 
+    - params.env_args: 
+        graph_args:
+          graph_type: random_regular
+          degree: 4
+          chromatic_number: 4
+        all_agents: 10
+      labels.networktype: reg10_4_4
+  - 
+    - params.env_args.rewards_args:
         ai:
           ind_coordination: 0
           avg_coordination: -1
@@ -53,16 +62,26 @@ grid:
           ind_catch: 0
           avg_catch: 0
       labels.reward: ai_ind_ci_ind
-  - params.env_args.graph_args.chromatic_number: [3, 4]
-    labels.chromatic_number: [3, 4]
-  - params.env_args.fixed_network: [true, false]
-    labels.fixed_network: [true, false]
-  - params.agent_types.ci.controller_args.obs_map: [product, combinations]
-    params.agent_types.ai.controller_args.obs_map: [product, combinations]
-    labels.obs_map: [product, combinations]
+  - - params.agent_types.ai.controller_args.share_table: true
+      params.agent_types.ci.controller_args.share_table: false
+      labels.share_table: ai_only
+    - params.agent_types.ai.controller_args.share_table: false
+      params.agent_types.ci.controller_args.share_table: false
+      labels.share_table: neither
+    - params.agent_types.ai.controller_args.share_table: true
+      params.agent_types.ci.controller_args.share_table: true
+      labels.share_table: both 
+    - params.agent_types.ai.controller_args.share_table: false
+      params.agent_types.ci.controller_args.share_table: true
+      labels.share_table: ci_only     
   - params.agent_types.ci.controller_args.alpha: [0.01,  0.1]
     params.agent_types.ai.controller_args.alpha: [0.01,  0.1]
     labels.alpha: [0.01, 0.1]
+  - params.env_args.fixed_network: [true, false]
+    labels.fixed_network: [true, false]
+  - params.env_args.fixed_mapping: [true, false]
+    labels.fixed_mapping: [true, false]
+
 params:
   scheduler_args:
     episodes: 10000
@@ -79,85 +98,40 @@ params:
         setting:
           eps:
             ci: 0.2
-            ai: 1.
-          training: 
-            ci: true
-            ai: false
-      - episode: 2000
-        setting:
-          eps:
-            ci: 0.0
             ai: 0.2
           training: 
-            ci: false
-            ai: true
-      - episode: 4000
-        setting:
-          eps:
-            ci: 0.2
-            ai: 0.0
-          training: 
             ci: true
-            ai: false
-      - episode: 6000
-        setting:
-          eps:
-            ci: 0.0
-            ai: 0.2
-          training: 
-            ci: false
             ai: true
-      - episode: 8000
-        setting:
-          eps:
-            ci: 0.2
-            ai: 0.0
-          training: 
-            ci: true
-            ai: false
   agent_types:
-    ai:
-      controller_args:
-        alpha: 0.01
-        cache_size: 1
-        gamma: 0.8
-        obs_map: combinations
-        q_start: 0
-        share_table: true
-      controller_class: tabularq
-      selector_args:
-        eps_decay: 2000
-        eps_end: 0.1
-        eps_start: 0.1
     ci:
       controller_args:
-        alpha: 0.01
-        cache_size: 1
+        alpha: 0.05
         gamma: 0.8
-        obs_map: combinations
         q_start: 0
-        share_table: true
+        obs_map: product
+        cache_size: 1
       controller_class: tabularq
-      selector_args:
-        eps_decay: 2000
-        eps_end: 0.1
-        eps_start: 0.1
+    ai:
+      controller_args:
+        alpha: 0.05
+        gamma: 0.8
+        q_start: 0
+        obs_map: product
+        cache_size: 1
+      controller_class: tabularq
   writer_args:
     periods:
-      # video: 250
       env: 1000
       trace: 5
-      # individual_trace: 100
-      # final: 1
-      # table: 250
   env_class: adversial_graph_coloring
   env_args:
     ai_obs_mode: neighbors
     all_agents: 10
     fixed_agents: 0
     fixed_length: true
-    fixed_network: false
-    fixed_pos: false
+    fixed_network: true
+    fixed_pos: true
+    fixed_mapping: true
     graph_args:
       chromatic_number: 4
       degree: 4

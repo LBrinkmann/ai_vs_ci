@@ -150,6 +150,8 @@ def _single(run_folder, parse_args):
     dfs = []
     for name, files in files_grouped:
         dfs.extend(parse(name, files, parse_args))
+    if len(dfs) == 0:
+        return
     df = pd.concat(dfs)
     df = obj_to_category(df)
     for k, v in labels.items():
@@ -161,6 +163,7 @@ def _main(in_folders, out_file, parse_args):
     pool = Pool(N_JOBS)
     arg_list = list(zip(in_folders, [parse_args]*len(in_folders)))
     dfs = pool.map(single, arg_list)
+    dfs = [df for df in dfs if df is not None]
     df = pd.concat(dfs)
     df.to_parquet(out_file)
 
@@ -180,6 +183,7 @@ def main():
 
     if 'grid' in get_subdirs(run_folder):
         in_folders = get_subdirs(os.path.join(run_folder, 'grid'))
+        in_folders = [os.path.join(run_folder, 'grid', f) for f in in_folders]
     elif 'train' in get_subdirs(run_folder):
         in_folders = [run_folder]
     else:

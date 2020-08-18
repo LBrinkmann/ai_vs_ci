@@ -3,9 +3,10 @@ exec:
   script_name: cpu
 labels:
   project: ai_vs_ci
-  batch: t_vs_t_schedule_1
+  batch: t_vs_t_schedule_3
 grid:
-  - - params.env_args.rewards_args:
+  - 
+    - params.env_args.rewards_args:
         ai:
           ind_coordination: 0
           avg_coordination: -1
@@ -57,6 +58,10 @@ grid:
     labels.chromatic_number: [3, 4]
   - params.env_args.fixed_network: [true, false]
     labels.fixed_network: [true, false]
+  - params.env_args.fixed_pos: [true, false]
+    labels.fixed_pos: [true, false]
+  - params.env_args.fixed_mapping: [true, false]
+    labels.fixed_mapping: [true, false]
   - params.agent_types.ci.controller_args.obs_map: [product, combinations]
     params.agent_types.ai.controller_args.obs_map: [product, combinations]
     labels.obs_map: [product, combinations]

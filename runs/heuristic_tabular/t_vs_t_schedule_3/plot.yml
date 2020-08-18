@@ -1,0 +1,76 @@
+
+clean: true
+plot_args:
+  - 
+    expand: [mode, alpha, chromatic_number, obs_map, reward]
+    selectors:
+      obs_map: product
+      chromatic_number: 4
+      alpha: 0.1
+      reward: ai_ind_ci_ind_zero_sum
+      agents: mean
+      name: [avg_coordination, avg_catch]
+      mode: train
+    grid: [fixed_network, fixed_pos]
+    hue: name
+    style: fixed_mapping
+    name: mean
+  - 
+    # expand: [mode, alpha, chromatic_number, obs_map, reward]
+    selectors:
+      obs_map: product
+      chromatic_number: 4
+      alpha: 0.1
+      reward: ai_ind_ci_ind_zero_sum
+      agents: mean
+      name: [stick_to_color, max_freq]
+      mode: train
+      agent_type: ci
+    grid: [fixed_network, fixed_pos]
+    hue: name
+    style: fixed_mapping
+    name: actions_mean
+  - 
+    expand: [obs_map]
+    selectors:
+      # obs_map: product
+      chromatic_number: 4
+      alpha: 0.1
+      reward: ai_ind_ci_ind_zero_sum
+      agents: mean
+      name: [avg_coordination, avg_catch]
+      mode: train
+    grid: [fixed_network, fixed_pos]
+    hue: name
+    style: fixed_mapping
+    name: product_mean
+  - 
+    expand: [chromatic_number]
+    selectors:
+      obs_map: product
+      # chromatic_number: 4
+      alpha: 0.1
+      reward: ai_ind_ci_ind_zero_sum
+      agents: mean
+      name: [avg_coordination, avg_catch]
+      mode: train
+    grid: [fixed_network, fixed_pos]
+    hue: name
+    style: fixed_mapping
+    name: chromatic_number_mean
+  - 
+    expand: [mode, alpha, chromatic_number, obs_map, reward]
+    selectors:
+      obs_map: product
+      chromatic_number: 4
+      alpha: 0.1
+      reward: ai_ind_ci_ind_zero_sum
+      agents: mean
+      name: [ind_catch, ind_coordination]
+      mode: train
+      agents: [agent_0, agent_1, agent_2]
+      fixed_network: true
+    grid: [fixed_mapping, fixed_pos]
+    hue: agents
+    style: name
+    name: agents
