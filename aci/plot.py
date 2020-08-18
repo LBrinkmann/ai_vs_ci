@@ -50,6 +50,10 @@ def plot(df, output_path, name, selectors, grid=[], hue=None, style=None, folder
     if pd.api.types.is_numeric_dtype(dfs[hue].dtype):
         dfs[hue] = "#" + dfs[hue].astype(str)
 
+    for col, iscat in (dfs.dtypes == 'category').iteritems():
+        if iscat:
+            dfs[col] = dfs[col].cat.remove_unused_categories()
+
     grid.sort(key=lambda l: dfs[l].nunique())
 
     grid = {n: g for g, n in zip(grid[::-1], ['col','row'])}
