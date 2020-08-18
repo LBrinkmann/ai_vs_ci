@@ -6,7 +6,7 @@ import torch as th
 import torch.optim as optim
 import torch.nn.functional as F
 from aci.components.torch_replay_memory import ReplayMemory
-from aci.neural_modules.linear_q_function import LinearFunction
+from aci.neural_modules.linear import LinearFunction
 from aci.neural_modules.medium_conv import MediumConv
 from aci.neural_modules.learning_heuristic import LearningHeuristic
 import torch.nn as nn

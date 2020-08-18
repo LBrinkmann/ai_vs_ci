@@ -24,7 +24,6 @@ import torch as th
 import os
 
 
-
 def run(env, controller, scheduler, writer):
     for episode in scheduler:
         writer.add_meta(_step=episode['episode'], episode=episode['episode'], mode=episode['mode'])
@@ -35,7 +34,6 @@ def run(env, controller, scheduler, writer):
             writer=writer,
             eps=episode['eps'],
             training=episode['training'])
-
 
 
 def run_episode(*, env, controller, eps, training, writer):

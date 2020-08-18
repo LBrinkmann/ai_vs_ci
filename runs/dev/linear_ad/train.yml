@@ -2,6 +2,25 @@ labels:
   project: ai_vs_ci
   batch: dev_linear_ad
 params:
+  scheduler_args:
+    episodes: 100
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training: 
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.2
+            ai: 0.2
+          training: 
+            ci: true
+            ai: true
   run_args:
     num_threads: 1
   agent_types:
@@ -14,7 +33,7 @@ params:
         gamma: 0.999
         cache_size: 2
         model_args:
-          net_type: rnn
+          net_type: linear
           hidden_size: 10
           # multi_type: shared_weights
           multi_type: individual_weights
@@ -34,9 +53,6 @@ params:
         cache_size: 2
         share_table: true
       controller_class: tabularq
-  train_args:
-    eval_period: 10
-    num_episodes: 100
   writer_args:
     periods:
       # video: 250

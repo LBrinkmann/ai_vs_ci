@@ -7,9 +7,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from aci.controller.tabularq import MAPS, get_idx
-
-
-from aci.neural_modules.linear_q_function import LinearFunction
+from aci.neural_modules.linear import LinearFunction
 from aci.neural_modules.rnn import RNN
 from aci.neural_modules.medium_conv import MediumConv
 from aci.neural_modules.learning_heuristic import LearningHeuristic
