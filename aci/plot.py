@@ -17,6 +17,7 @@ from multiprocessing import Manager, Pool
 import matplotlib.pyplot as plt
 import seaborn as sns
 import shutil
+import numpy as np
 
 from aci.utils.io import load_yaml, ensure_dir
 
@@ -81,28 +82,12 @@ def plot(df, output_path, name, selectors, grid=[], hue=None, style=None, folder
     plt.close()
 
 
-def preprocess(df, x, groupby, smooth=None, metrics=None, bins=None):
-
-
-    groupby_reg = re.compile(groupby)
-    groupby_columns = [c for c in df.columns if groupby_reg.search(c)]
-    groupby_columns = [c for c in groupby_columns if df[c].nunique() > 1]
-
-    if bins:
-        df[f'{x}_bin'] = pd.cut(df[x], bins=bins).cat.codes
-        groupby_columns.append(f'{x}_bin')
-    
-    for gc in groupby_columns:
-        values = ', '.join(map(str, df[gc].unique()))
-        print(f'{gc} has the values: {values}')
-
-    print(', '.join(groupby_columns))
-    if smooth:
-        assert df.groupby(groupby_columns, observed=True)[x].count().min() > smooth, 'To few datapoints for smoothing.'
-        df = df.groupby(groupby_columns, observed=True).rolling(on=x, window=smooth)[metrics].mean().reset_index()
-    else:
-        df = df.groupby(groupby_columns + [x], observed=True)[metrics].mean().reset_index()
-    df = df.melt(id_vars=groupby_columns + [x], value_vars=metrics, var_name='metric')
+def preprocess(df, combine):
+    for k, v in combine.items():
+        df[k] = np.nan
+        for name, selectors in v.items():
+            w = selector(df, selectors)
+            df.loc[w, k] = name
     return df
 
 

@@ -1,0 +1,56 @@
+# alpha, networktype, reward, share_table, mode
+clean: true
+
+preprocess_args:
+  combine:
+    fixed:
+      both: 
+        fixed_mapping: true
+        fixed_network: true
+      neither: 
+        fixed_mapping: false
+        fixed_network: false
+      network: 
+        fixed_mapping: false
+        fixed_network: true
+      mapping: 
+        fixed_mapping: true
+        fixed_network: false
+    reward_opt:
+      ai_coll_ci_coll_zero_sum_001:
+        alpha: 0.01
+        reward: ai_coll_ci_coll_zero_sum
+      ai_coll_ci_coll_zero_sum:
+        alpha: 0.1
+        reward: ai_coll_ci_coll_zero_sum
+      ai_coll_ci_coll:
+        alpha: 0.1
+        reward: ai_coll_ci_coll
+      ai_ind_ci_ind:
+        alpha: 0.1
+        reward: ai_ind_ci_ind
+      ai_ind_ci_ind_zero_sum:
+        alpha: 0.1
+        reward: ai_ind_ci_ind_zero_sum
+plot_args:
+  - 
+    # expand: [reward]
+    selectors:
+      mode: train
+      agents: mean
+      name: [avg_coordination, avg_catch]
+    grid: [reward_opt,fixed]
+    hue: share_table
+    style: name
+    name: share_table
+  - 
+    # expand: [reward]
+    selectors:
+      mode: train
+      agents: mean
+      agent_type: ci
+      name: [stick_to_color, max_freq]
+    grid: [reward_opt,fixed]
+    hue: share_table
+    style: name
+    name: share_table_actions
