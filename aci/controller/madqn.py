@@ -13,13 +13,14 @@ from aci.controller.helper import FloatTransformer, SharedWeightModel, FlatObser
 
 
 class GRUAgentWrapper(nn.Module):
-    def __init__(self, observation_shape, n_agents, n_actions, net_type, multi_type, **kwargs):
+    def __init__(self, observation_shape, n_agents, n_actions, net_type, multi_type, device, **kwargs):
         super(GRUAgentWrapper, self).__init__()
         effective_agents = 1 if multi_type == 'shared_weights' else n_agents
         input_shape = reduce((lambda x, y: x * y), observation_shape) * n_actions
-        self.model = GRUAgent(input_shape=input_shape, n_agents=effective_agents, n_actions=n_actions, **kwargs)
+        self.model = GRUAgent(input_shape=input_shape, n_agents=effective_agents, n_actions=n_actions, device=device, **kwargs)
         self.multi_type = multi_type
         self.n_actions = n_actions
+        self.device = device
 
     def forward(self, x):
         """
@@ -29,7 +30,7 @@ class GRUAgentWrapper(nn.Module):
             _x = x.reshape(1, x.shape[0]*x.shape[1], *x.shape[2:])
         else:
             _x = x
-        __x = th.zeros(*_x.shape, self.n_actions)
+        __x = th.zeros(*_x.shape, self.n_actions, device=self.device)
         __x.scatter_(-1, _x.unsqueeze(-1), 1)
         __x = __x.reshape(*__x.shape[:3],-1)
         _q = self.model(__x)
@@ -55,12 +56,13 @@ class MADQN:
             gamma, batch_size, target_update_freq, device):
         self.n_actions = n_actions
         self.device = device
-        self.policy_net = GRUAgentWrapper(observation_shape, n_agents, n_actions, **model_args).to(device)
-        self.target_net = GRUAgentWrapper(observation_shape, n_agents, n_actions, **model_args).to(device)
+        self.policy_net = GRUAgentWrapper(observation_shape, n_agents, n_actions, device=device, **model_args).to(device)
+        self.target_net = GRUAgentWrapper(observation_shape, n_agents, n_actions, device=device, **model_args).to(device)
         self.memory = FixedEpisodeMemory(
             observation_shape=observation_shape,
             n_agents=n_agents,
             n_actions=n_actions,
+            device=device,
             **memory_args)
         self.target_net.eval()
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), **opt_args)
@@ -93,7 +95,7 @@ class MADQN:
 
         policy_state_action_values = self.policy_net(prev_observations).gather(-1, actions.unsqueeze(-1))
 
-        next_state_values = th.zeros_like(rewards)
+        next_state_values = th.zeros_like(rewards, device=self.device)
         next_state_values = self.target_net(observations).max(-1)[0].detach()
 
         # Compute the expected Q values

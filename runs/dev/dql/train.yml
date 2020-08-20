@@ -24,30 +24,30 @@ params:
   agent_types:
     ai:
       controller_args:
-        gamma: 0.999
-        batch_size: 3
-        target_update_freq: 20
+        gamma: 0.80
+        batch_size: 20
+        target_update_freq: 1000
         memory_args: 
-          capacity: 10
+          capacity: 500
           episode_length: 50
         model_args:
           net_type: gru
-          hidden_size: 10
+          hidden_size: 100
           multi_type: individual_weights
         opt_args:
           lr: 0.001
       controller_class: madqn
     ci:
       controller_args:
-        gamma: 0.999
-        batch_size: 3
-        target_update_freq: 20
+        gamma: 0.80
+        batch_size: 20
+        target_update_freq: 1000
         memory_args: 
-          capacity: 10
+          capacity: 500
           episode_length: 50
         model_args:
           net_type: gru
-          hidden_size: 10
+          hidden_size: 100
           multi_type: individual_weights
         opt_args:
           lr: 0.001

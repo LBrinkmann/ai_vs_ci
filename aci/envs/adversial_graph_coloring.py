@@ -214,9 +214,9 @@ class AdGraphColoring():
         else:
             # random starting state
             ci_start_state = th.tensor(
-                np.random.randint(0, self.n_actions['ci'], self.n_agents['ci']), dtype=th.int64)
+                np.random.randint(0, self.n_actions['ci'], self.n_agents['ci']), dtype=th.int64, device=self.device)
             ai_start_state = th.tensor(
-                np.random.randint(0, self.n_actions['ai'], self.n_agents['ai']), dtype=th.int64)
+                np.random.randint(0, self.n_actions['ai'], self.n_agents['ai']), dtype=th.int64, device=self.device)
 
         self.state = {
             'ci': ci_start_state,

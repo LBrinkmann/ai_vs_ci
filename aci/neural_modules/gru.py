@@ -4,7 +4,7 @@ import torch as th
 
 
 class GRUAgent(nn.Module):
-    def __init__(self, input_shape, n_agents, n_actions, hidden_size):
+    def __init__(self, input_shape, n_agents, n_actions, hidden_size, device):
         super(GRUAgent, self).__init__()
         self.linear1 = nn.ModuleList([
             nn.Linear(in_features=input_shape, out_features=hidden_size)
@@ -23,17 +23,18 @@ class GRUAgent(nn.Module):
         self.n_agents = n_agents
         self.n_actions = n_actions
         self.hidden_size = hidden_size
+        self.device = device
 
 
     def reset(self, batch_size):
         self.hidden = [
-            th.zeros(batch_size, self.hidden_size)
+            th.zeros(batch_size, self.hidden_size, device=self.device)
             for i in range(self.n_agents)
         ]
 
 
     def forward(self, inputs):
-        q = th.zeros(*inputs.shape[:3], self.n_actions)
+        q = th.zeros(*inputs.shape[:3], self.n_actions, device=self.device)
         for agent_idx in range(self.n_agents):
             _q = []
             x = F.relu(self.linear1[agent_idx](inputs[agent_idx]))
