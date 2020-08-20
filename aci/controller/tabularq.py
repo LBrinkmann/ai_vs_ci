@@ -104,16 +104,15 @@ class TabularQ:
         self.cache_size = cache_size
         self.share_table = share_table
 
-    def get_q(self, observations=None):
+    def get_q(self, observations, store=False):
         """ Retrieves q values for all possible actions. 
 
         If observations are given, they are used. Otherwise last observations are used.
 
         """
-        if observations is not None:
+        if store:
             historized_obs = self.cache.add_get(observations)
-        else:
-            historized_obs = self.cache.get()
+
         observations_idx = get_idx(historized_obs, self.obs_idx_map)
         q_table_idxs = np.zeros(self.n_agents, dtype=int) if self.share_table else np.arange(self.n_agents)
         q_value = self.q_table[q_table_idxs, observations_idx]

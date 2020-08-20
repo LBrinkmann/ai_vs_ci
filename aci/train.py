@@ -32,11 +32,10 @@ def run(env, controller, scheduler, writer):
             env=env,
             controller=controller,
             writer=writer,
-            eps=episode['eps'],
-            training=episode['training'])
+            **episode)
 
 
-def run_episode(*, env, controller, eps, training, writer):
+def run_episode(*, episode, env, controller, eps, training, writer, **__):
     observations = env.reset()
 
     writer.add_env(env, on='env')
@@ -44,7 +43,7 @@ def run_episode(*, env, controller, eps, training, writer):
     agent_types = controller.keys()
 
     for agent_type in agent_types:
-        controller[agent_type].init_episode(observations[agent_type])
+        controller[agent_type].init_episode(observations[agent_type], episode, training)
 
     for t in count():
         # print(f'Start step {t} with test mode {test_mode}.')
@@ -53,7 +52,7 @@ def run_episode(*, env, controller, eps, training, writer):
         actions = {}
         for agent_type in agent_types:
             # Select and perform an action
-            proposed_action = controller[agent_type].get_q(observations[agent_type] if training[agent_type] else None)
+            proposed_action = controller[agent_type].get_q(observations[agent_type])
             selected_action = select_action(proposed_actions=proposed_action, eps=eps[agent_type])
             actions[agent_type] = selected_action
 
@@ -79,8 +78,9 @@ def _main(*, output_path, agent_types, env_class, env_args, writer_args, meta, r
 
     writer = Writer(output_path, **writer_args, **meta)
     # if gpu is to be used
-    # device = th.device("cuda" if th.cuda.is_available() else "cpu")
-    device = th.device("cpu")
+    device = th.device("cuda" if th.cuda.is_available() else "cpu")
+    print(device)
+    # device = th.device("cpu")
 
 
     env = ENVIRONMENTS[env_class](**env_args, device=device)

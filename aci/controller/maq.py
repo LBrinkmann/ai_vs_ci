@@ -1,5 +1,4 @@
 from collections import namedtuple
-from aci.components.torch_replay_memory import ReplayMemory
 import math
 import random
 import torch as th
@@ -139,7 +138,6 @@ class MapLikeQTable(nn.Module):
     def forward(self, x):
         idx = get_idx(x)
         y = self.model(idx)
-        import ipdb; ipdb.set_trace()
         return y
 
 

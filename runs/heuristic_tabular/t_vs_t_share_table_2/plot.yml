@@ -44,11 +44,11 @@ plot_args:
     style: name
     name: share_table
   - 
-    # expand: [reward]
+    expand: [agent_type]
     selectors:
       mode: train
       agents: mean
-      agent_type: ci
+      # agent_type: ci
       name: [stick_to_color, max_freq]
     grid: [reward_opt,fixed]
     hue: share_table

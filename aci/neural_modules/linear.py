@@ -24,7 +24,6 @@ class LinearFunction(nn.Module):
         x: batch x agents x *observation_shape x n_actions
         returns: batch x agents x actions
         """
-        import ipdb; ipdb.set_trace()
         _x = x.reshape(-1, self.in_channels, 1)
         _q = self.linear(_x)
         q = _q.reshape(-1, self.n_agents, self.n_actions)

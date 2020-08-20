@@ -1,0 +1,87 @@
+labels:
+  project: ai_vs_ci
+  batch: dev_tabular
+params:
+  scheduler_args:
+    episodes: 100
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training: 
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.2
+            ai: 0.2
+          training: 
+            ci: true
+            ai: true
+  agent_types:
+    ai:
+      controller_args:
+        gamma: 0.999
+        batch_size: 3
+        target_update_freq: 20
+        memory_args: 
+          capacity: 10
+          episode_length: 50
+        model_args:
+          net_type: gru
+          hidden_size: 10
+          multi_type: individual_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+    ci:
+      controller_args:
+        gamma: 0.999
+        batch_size: 3
+        target_update_freq: 20
+        memory_args: 
+          capacity: 10
+          episode_length: 50
+        model_args:
+          net_type: gru
+          hidden_size: 10
+          multi_type: individual_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+  writer_args:
+    periods:
+      # video: 250
+      trace: 1
+      env: 10
+      # individual_trace: 100
+      # final: 1
+      # table: 250
+  env_class: adversial_graph_coloring
+  env_args:
+    ai_obs_mode: neighbors
+    all_agents: 10
+    fixed_agents: 0
+    fixed_length: true
+    fixed_network: false
+    fixed_pos: false
+    fixed_mapping: false
+    graph_args:
+      chromatic_number: 4
+      degree: 4
+      graph_type: random_regular
+    max_steps: 49
+    rewards_args:
+      ai:
+        avg_catch: 0
+        avg_coordination: 0
+        ind_catch: 1
+        ind_coordination: 0
+      ci:
+        avg_catch: 0
+        avg_coordination: 0
+        ind_catch: 0
+        ind_coordination: 1
