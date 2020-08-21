@@ -8,18 +8,23 @@ import torch.optim as optim
 import torch.nn.functional as F
 from aci.neural_modules.gru import GRUAgent
 import torch.nn as nn
-from aci.controller.helper import FloatTransformer, SharedWeightModel, FlatObservation, FakeBatch
 
 
 
 class GRUAgentWrapper(nn.Module):
     def __init__(self, observation_shape, n_agents, n_actions, net_type, multi_type, device, **kwargs):
         super(GRUAgentWrapper, self).__init__()
+        assert multi_type in ['shared_weights', 'individual_weights']
+
         effective_agents = 1 if multi_type == 'shared_weights' else n_agents
         input_shape = reduce((lambda x, y: x * y), observation_shape) * n_actions
-        self.model = GRUAgent(input_shape=input_shape, n_agents=effective_agents, n_actions=n_actions, device=device, **kwargs)
+        self.models = nn.ModuleList([
+            GRUAgent(input_shape=input_shape, n_actions=n_actions, device=device, **kwargs)
+            for n in range(effective_agents)
+        ])
         self.multi_type = multi_type
         self.n_actions = n_actions
+        self.n_agents = n_agents
         self.device = device
 
     def forward(self, x):
@@ -27,27 +32,28 @@ class GRUAgentWrapper(nn.Module):
             agents x batch x inputs
         """
         if self.multi_type == 'shared_weights':
-            _x = x.reshape(1, x.shape[0]*x.shape[1], *x.shape[2:])
-        else:
-            _x = x
-        __x = th.zeros(*_x.shape, self.n_actions, device=self.device)
-        __x.scatter_(-1, _x.unsqueeze(-1), 1)
-        __x = __x.reshape(*__x.shape[:3],-1)
-        _q = self.model(__x)
+            o_shape = (*x.shape[:3], self.n_actions)
+            x = x.reshape(1, x.shape[0]*x.shape[1], *x.shape[2:])
+        onehot = th.zeros(*x.shape, self.n_actions, device=self.device)
+        onehot.scatter_(-1, x.unsqueeze(-1), 1)
+        onehot = onehot.reshape(*onehot.shape[:3],-1)
+        q = [
+            m(oh)
+            for m, oh in zip(self.models, onehot)
+        ]
+        q = th.stack(q)
 
         if self.multi_type == 'shared_weights':
-            q = _q.reshape(x.shape[0], x.shape[1])
-        else:
-            q = _q
+            q = q.reshape(o_shape)
 
         return q
 
-
     def log(self, *args, **kwargs):
-        self.model.log(*args, **kwargs)
+        pass
 
-    def reset(self, *args, **kwargs):
-        self.model.reset(*args, **kwargs)
+    def reset(self, batch_size, *args, **kwargs):
+        for m in self.models:
+            m.reset()
 
 
 class MADQN:
@@ -70,7 +76,7 @@ class MADQN:
         self.batch_size = batch_size
         self.target_update_freq = target_update_freq
 
-    def get_q(self, observations=None):
+    def get_q(self, observations=None, training=None):
         with th.no_grad():
             return self.policy_net(observations.unsqueeze(1).unsqueeze(1)).squeeze(1).squeeze(1)
 

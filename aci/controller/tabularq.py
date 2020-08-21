@@ -93,7 +93,7 @@ class TabularQ:
         self.obs_idx_map, self.lookup = MAPS[obs_map](cache_size, observation_shape, n_actions, **map_args)
 
         n_q_tables = 1 if share_table else n_agents
-        self.q_table = th.ones((n_q_tables, len(self.lookup), n_actions)) * q_start
+        self.q_table = th.ones((n_q_tables, len(self.lookup), n_actions), device=device) * q_start
 
         print(f'Created lookup table with {len(self.lookup)} entries for each of {n_agents} agents.')
         print(cache_size)
@@ -104,13 +104,15 @@ class TabularQ:
         self.cache_size = cache_size
         self.share_table = share_table
 
-    def get_q(self, observations, store=False):
+    def get_q(self, observations, training=False):
         """ Retrieves q values for all possible actions. 
 
         If observations are given, they are used. Otherwise last observations are used.
 
         """
-        if store:
+        if training:
+            historized_obs = self.cache.get()
+        else:
             historized_obs = self.cache.add_get(observations)
 
         observations_idx = get_idx(historized_obs, self.obs_idx_map)
@@ -118,7 +120,7 @@ class TabularQ:
         q_value = self.q_table[q_table_idxs, observations_idx]
         return q_value
 
-    def init_episode(self, observations):
+    def init_episode(self, observations, episode, training):
         self.cache = SimpleCache(observations, self.cache_size)
         # self.evalcache = SimpleCache(observations, self.cache_size)
 

@@ -7,7 +7,9 @@ import torch as th
 import numpy as np
 import networkx as nx
 import matplotlib as mpl
+import yaml
 import string
+from itertools import count
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -49,7 +51,6 @@ class AdGraphColoring():
     def __init__(
             self, all_agents, graph_args, max_steps, fixed_length, fixed_mapping, rewards_args, device,
             fixed_pos, fixed_network, ai_obs_mode='agents_matrix', fixed_agents=0):
-        self.steps = 0
         self.max_steps = max_steps
 
         self.fixed_agents = fixed_agents
@@ -68,10 +69,13 @@ class AdGraphColoring():
 
     def to_dict(self):
         # agent_pos: [c, a, b], agent c is positioned on node 0
+        # ci_ai_map: [2, 0, 1], ai agent 0 is ci agent 2
         return {
             'graph': list(nx.to_edgelist(self.graph)),
             'node_of_agent': self.agent_pos.tolist(),
-            'agent_at_node': self.node_agent.tolist()
+            'agent_at_node': self.node_agent.tolist(),
+            'ai_ci_map': self.ai_ci_map.tolist(),
+            'ci_ai_map': self.ci_ai_map.tolist()
         }
 
 
@@ -133,16 +137,14 @@ class AdGraphColoring():
     def _observations(self):
         state_ = self.state['ci'].reshape(1,-1).repeat(self.all_agents,1)
         neighbor_colors = th.gather(state_, 1, self.neighbors)
-        observations = th.cat((self.state['ci'].reshape(-1,1), neighbor_colors), dim=1)
+        ci_obs = th.cat((self.state['ci'].reshape(-1,1), neighbor_colors), dim=1)
 
-        ci_obs = observations[self.agent_pos]
         if self.ai_obs_mode == 'neighbors':
             ai_obs = ci_obs
         elif self.ai_obs_mode == 'agents_only':
             ai_obs = self.state['ci'].unsqueeze(0)
         elif self.ai_obs_mode == 'agents_matrix':
             raise NotImplementedError()
-            # ai_obs = [(self.state['ci'], self.adjacency_matrix)]
         else:
             raise NotImplementedError(f'AI observation mode is not implemented yet.')
 
@@ -179,6 +181,7 @@ class AdGraphColoring():
 
 
     def _step(self, actions):
+        self.steps += 1
         self.state = actions
 
         observations = self._observations()
@@ -189,7 +192,6 @@ class AdGraphColoring():
             raise ValueError('Environment is done already.')
         else:
             done = False
-        self.steps += 1
         return observations, rewards, done, info
 
     def _reset(self, init=False):
@@ -202,7 +204,7 @@ class AdGraphColoring():
             self.ai_ci_map = th.randperm(self.all_agents)
         elif init:
             self.ai_ci_map = th.arange(self.all_agents)
-        self.ci_ai_map = th.argsort(self.agent_pos)
+        self.ci_ai_map = th.argsort(self.ai_ci_map)
 
         self.steps = 0
 
@@ -239,3 +241,142 @@ class AdGraphColoring():
 
     def close(self):
         pass
+
+
+# Tests
+
+
+base_settings = """
+ai_obs_mode: neighbors
+all_agents: 20
+fixed_agents: 0
+fixed_length: true
+fixed_network: true
+fixed_pos: true
+fixed_mapping: true
+graph_args:
+    chromatic_number: 3
+    degree: 4
+    graph_type: random_regular
+max_steps: 50
+rewards_args:
+    ai:
+        avg_catch: 0.5
+        avg_coordination: 0
+        ind_catch: 0.5
+        ind_coordination: 0
+    ci:
+        avg_catch: 0
+        avg_coordination: 0
+        ind_catch: 0
+        ind_coordination: 1
+"""
+base_grid = """
+all_agents: [6, 20]
+fixed_network: [true, false]
+fixed_pos: [true, false]
+fixed_mapping: [true, false]
+"""
+
+def expand(setting, grid):
+    settings = [setting]
+    labels = [{}]
+    for key, values in grid.items():
+        settings = [{**s, key: v} for s in settings for v in values]
+        labels = [{**l, key: v} for l in labels for v in values]
+    return settings, labels
+
+
+def test():
+    setting = yaml.safe_load(base_settings)
+    grid = yaml.safe_load(base_grid)
+    settings, labels = expand(setting, grid)
+    for s, l in zip(settings, labels):
+        print(l)
+        test_setting(s)
+
+
+def test_setting(setting):
+    device = th.device('cpu')
+    env = AdGraphColoring(**setting, device=device)
+
+    # TEST:  correct self observation
+    n_agents = setting['all_agents']
+    n_colors = setting['graph_args']['chromatic_number']
+    ai_color = th.randint(n_colors, size=(n_agents,))
+    ci_color = th.randint(n_colors, size=(n_agents,))
+    observation, rewards, done, info = env.step(
+        {'ai': ai_color, 'ci': ci_color}
+    )
+
+    # AI does not sees its own color, this is correct, but might create problems for the model.
+    assert (observation['ai'][env.ai_ci_map,0] == ci_color).all()
+    assert (observation['ci'][:,0] == ci_color).all()
+
+    # TEST:  correct ci neighbor observations
+
+    test_agent = random.randint(0, n_agents-1)
+
+    test_neighbor_colors_1 = th.sort(observation['ci'][test_agent,1:])[0]
+    test_neighbors = env.neighbors[test_agent]
+    test_neighbor_colors_2 = th.sort(observation['ci'][test_neighbors,0])[0]
+
+    assert (test_neighbor_colors_1 == test_neighbor_colors_2).all(), 'wrong ci neighbor observations'
+
+    # TEST: correct ai neighbor observations
+    test_agent = random.randint(0, n_agents-1)
+
+    test_neighbor_colors_1 = th.sort(observation['ai'][test_agent,1:])[0]
+
+    # mapping agent from ai to ci idx
+    test_agent_ci = env.ci_ai_map[test_agent] # inverse map to because we map indices
+    # getting neighbors using ci idx
+    test_neighbors_ci = env.neighbors[test_agent_ci]
+    # mapping neighbors from ci to ai idx
+    test_neighbors = env.ai_ci_map[test_neighbors_ci] # inverse map to because we map indices
+
+    test_neighbor_colors_2 = th.sort(observation['ai'][test_neighbors,0])[0]
+
+    assert (test_neighbor_colors_1 == test_neighbor_colors_2).all(), 'wrong ai neighbor observations'
+
+    # TEST: ai reward
+    if (setting['all_agents'] == 6):
+        ai_color = th.tensor([0,1,0,1,2,2])[env.ci_ai_map]
+        ci_color = th.tensor([2,2,2,1,2,2])
+        expected_rewards = th.tensor([0.25,0.25,0.25, 0.75,0.75,0.75])[env.ci_ai_map]
+        observation, rewards, done, info = env.step(
+            {'ai': ai_color, 'ci': ci_color}
+        )
+        assert (rewards['ai'] ==  expected_rewards).all()
+
+    # TEST: ci reward
+    test_agent = random.randint(0, n_agents-1)
+    test_neighbors = env.neighbors[test_agent]
+    test_agents = test_neighbors.tolist() + [test_agent]
+    ci_color = th.zeros(n_agents, dtype=th.int64)
+    ci_color[test_agents] = th.randperm(len(test_agents))
+    observation, rewards, done, info = env.step(
+        {'ai': ai_color, 'ci': ci_color}
+    )
+
+    assert rewards['ci'][test_agent] == 1
+
+    # TEST: step
+    env.reset()
+    done = False
+    for i in count():
+        ai_color = th.randint(n_colors, size=(n_agents,))
+        ci_color = th.randint(n_colors, size=(n_agents,))
+        observation, rewards, done, info = env.step(
+            {'ai': ai_color, 'ci': ci_color}
+        )
+        if done:
+            break
+    if setting['fixed_length']:
+        assert i == setting['max_steps'] - 1
+    else:
+        assert i <= setting['max_steps'] - 1
+
+
+if __name__ == "__main__":
+    test()    

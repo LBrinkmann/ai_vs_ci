@@ -1,13 +1,5 @@
 
-input_file: preprocess/metrics.parquet
 clean: true
-# preprocess_args:
-#   metrics: [sum_ai_reward, std_ai_reward, sum_ci_reward, std_ci_reward, avg_coordination, avg_catch]
-#   smooth: 20
-#   x: episode
-#   groupby: label.*|mode
-#   bins: null
-# mode
 plot_args:
   - 
     selectors:
@@ -40,9 +32,3 @@ plot_args:
     hue: name
     # style: name
     name: actions_mean
-  # - 
-  #   selectors:
-  #     metric: [sum_ai_reward, sum_ci_reward]
-  #   grid: [mode]
-  #   hue: metric
-  #   name: reward

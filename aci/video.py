@@ -49,7 +49,7 @@ def load_graph(run_dir, episode, mode):
     graph = nx.from_edgelist(data['graph']) 
     graph_pos = nx.spring_layout(graph)
 
-    return graph, graph_pos, data['agent_pos']
+    return graph, graph_pos, data['agent_at_node']
 
 
 def make_video(arrays, episode, out_dir, mode):

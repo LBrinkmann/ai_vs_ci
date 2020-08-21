@@ -14,7 +14,7 @@ class HeuristicController:
         self.device = device
         self.heuristic = HEURISTICS[heuristic_name](observation_shape, n_actions, **agent_args)
         
-    def get_q(self, observation):
+    def get_q(self, observation, training=None):
         return self.heuristic.get_q(observation)
 
     def init_episode(self, observations, *_, **__):

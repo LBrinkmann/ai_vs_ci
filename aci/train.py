@@ -52,7 +52,7 @@ def run_episode(*, episode, env, controller, eps, training, writer, **__):
         actions = {}
         for agent_type in agent_types:
             # Select and perform an action
-            proposed_action = controller[agent_type].get_q(observations[agent_type])
+            proposed_action = controller[agent_type].get_q(observations[agent_type], training=training)
             selected_action = select_action(proposed_actions=proposed_action, eps=eps[agent_type])
             actions[agent_type] = selected_action
 
@@ -70,7 +70,7 @@ def run_episode(*, episode, env, controller, eps, training, writer, **__):
             break
 
 
-def _main(*, output_path, agent_types, env_class, env_args, writer_args, meta, run_args={}, scheduler_args):
+def _main(*, output_path, agent_types, env_class, env_args, writer_args, meta, run_args={}, scheduler_args, device_name):
     if 'num_threads' in run_args:
         th.set_num_threads(run_args['num_threads'])
 
@@ -78,7 +78,7 @@ def _main(*, output_path, agent_types, env_class, env_args, writer_args, meta, r
 
     writer = Writer(output_path, **writer_args, **meta)
     # if gpu is to be used
-    device = th.device("cuda" if th.cuda.is_available() else "cpu")
+    device = th.device(device_name)
     print(device)
     # device = th.device("cpu")
 
