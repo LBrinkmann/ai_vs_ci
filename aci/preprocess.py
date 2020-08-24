@@ -136,6 +136,7 @@ def single(args):
 
 
 def _single(run_folder, parse_args):
+    print(f'Start with {run_folder}')
     run_yml = os.path.join(run_folder, 'train.yml')
     run_parameter = load_yaml(run_yml)
     labels = run_parameter['labels']
@@ -151,11 +152,13 @@ def _single(run_folder, parse_args):
     for name, files in files_grouped:
         dfs.extend(parse(name, files, parse_args))
     if len(dfs) == 0:
+        print(f'Skip {run_folder}')
         return
     df = pd.concat(dfs)
     df = obj_to_category(df)
     for k, v in labels.items():
         df[k] = pd.Series(v, index=df.index, **({'dtype': 'category'} if isinstance(v, str) else {}))
+    print(f'Finished with {run_folder}')
     return df
 
 
@@ -163,6 +166,9 @@ def _main(in_folders, out_file, parse_args):
     pool = Pool(N_JOBS)
     arg_list = list(zip(in_folders, [parse_args]*len(in_folders)))
     dfs = pool.map(single, arg_list)
+    # dfs = [single(al) for al in arg_list]
+
+    print('Merge and save')
     dfs = [df for df in dfs if df is not None]
     df = pd.concat(dfs)
     df.to_parquet(out_file)

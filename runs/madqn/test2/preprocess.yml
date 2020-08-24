@@ -1,0 +1,16 @@
+parse_args:
+  rewards: 
+    bin_args:
+      bin_size: 
+        train: 50
+        eval: 500
+  actions:
+    bin_args:
+      bin_size: 
+        train: 50
+        eval: 500
+  info:
+    bin_args:
+      bin_size:
+        train: 50
+        eval: 500
