@@ -43,7 +43,7 @@ def run_episode(*, episode, env, controller, eps, training, writer, **__):
     agent_types = controller.keys()
 
     for agent_type in agent_types:
-        controller[agent_type].init_episode(observations[agent_type], episode, training)
+        controller[agent_type].init_episode(observations[agent_type], episode, training[agent_type])
 
     for t in count():
         # print(f'Start step {t} with test mode {test_mode}.')
@@ -52,7 +52,7 @@ def run_episode(*, episode, env, controller, eps, training, writer, **__):
         actions = {}
         for agent_type in agent_types:
             # Select and perform an action
-            proposed_action = controller[agent_type].get_q(observations[agent_type], training=training)
+            proposed_action = controller[agent_type].get_q(observations[agent_type], training=training[agent_type])
             selected_action = select_action(proposed_actions=proposed_action, eps=eps[agent_type])
             actions[agent_type] = selected_action
 
@@ -63,9 +63,9 @@ def run_episode(*, episode, env, controller, eps, training, writer, **__):
         writer.add_metrics2('info', info, on='trace')
 
         for agent_type in agent_types:
-            if training[agent_type]:
-                controller[agent_type].update(
-                    actions[agent_type], observations[agent_type], rewards[agent_type], done, writer=writer)
+            controller[agent_type].update(
+                actions[agent_type], observations[agent_type], rewards[agent_type], done, 
+                writer=writer, training=training[agent_type])
         if done:
             break
 

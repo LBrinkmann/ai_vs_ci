@@ -51,7 +51,7 @@ class GRUAgentWrapper(nn.Module):
     def log(self, *args, **kwargs):
         pass
 
-    def reset(self, batch_size, *args, **kwargs):
+    def reset(self, *args, **kwargs):
         for m in self.models:
             m.reset()
 
@@ -61,6 +61,8 @@ class MADQN:
             self, observation_shape, n_agents, n_actions, model_args, opt_args, memory_args, 
             gamma, batch_size, target_update_freq, device):
         self.n_actions = n_actions
+        self.n_agents = n_agents
+        self.observation_shape = observation_shape
         self.device = device
         self.policy_net = GRUAgentWrapper(observation_shape, n_agents, n_actions, device=device, **model_args).to(device)
         self.target_net = GRUAgentWrapper(observation_shape, n_agents, n_actions, device=device, **model_args).to(device)
@@ -80,22 +82,34 @@ class MADQN:
         with th.no_grad():
             return self.policy_net(observations.unsqueeze(1).unsqueeze(1)).squeeze(1).squeeze(1)
 
-    def update(self, actions, observations, rewards, done, writer=None):
-        self.memory.push(observations, actions, rewards)
-        if done and (len(self.memory) > self.batch_size):
-            self._optimize()
+    def update(self, actions, observations, rewards, done, writer=None, training=None):
+        if training:
+            self.memory.push(observations, actions, rewards)
+            if done and (len(self.memory) > self.batch_size):
+                self._optimize()
 
     def init_episode(self, observations, episode, training):
-        self.policy_net.reset(1)
-        self.memory.init_episode(observations)
+        self.policy_net.reset()
+        if training:
+            self.memory.init_episode(observations)
         if training and (episode % self.target_update_freq == 0):
             self._update_target()
 
     def _optimize(self):
         prev_observations, observations, actions, rewards = self.memory.sample(self.batch_size)
 
-        self.policy_net.reset(self.batch_size)
-        self.target_net.reset(self.batch_size)
+        # prev_observations: agents, batch_size, episode_steps, neighbors + 1
+        # actions: agents, batch_size, episode_steps
+        # rewards: agents, batch_size, episode_steps
+
+        # assert prev_observations.shape[:2] == (self.n_agents, self.batch_size)
+        # assert rewards.shape[:3] == actions.shape[:3] == prev_observations.shape[:3] == observations.shape[:3]
+        # assert (prev_observations[:,:,1:] == observations[:,:,:-1]).all()
+        # # for ci only
+        # assert (observations[:,:,:,0] == actions).all()
+        
+        self.policy_net.reset()
+        self.target_net.reset()
 
         # this will not work with multi yet
 
