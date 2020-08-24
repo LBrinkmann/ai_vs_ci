@@ -1,4 +1,5 @@
 from torch.utils.tensorboard import SummaryWriter
+import collections
 import scipy.misc
 import jsonlines
 import torch as th
@@ -121,11 +122,11 @@ class Writer():
         for scope_name, traces in self.traces.items():
             values = traces.pop('values')
             index = pd.MultiIndex.from_frame(pd.DataFrame(traces))
-            if len(values[0]) > 1:
+            if values[0].size > 1:
                 columns = pd.Series([f'agent_{i}' for i in range(len(values[0]))], name='agents')
+                df = pd.DataFrame(data=values, index=index, columns=columns)
             else:
-                columns = ['mean']
-            df = pd.DataFrame(data=values, index=index, columns=columns)
+                df = pd.DataFrame(data=values, index=index, columns=['value'])
             metrics_file = os.path.join(self.metrics_folder, f"{scope_name}.{self.flush_idx}.parquet")
             df.to_parquet(metrics_file)
         self.traces = {}

@@ -14,3 +14,13 @@ parse_args:
       bin_size:
         train: 20
         eval: 100
+  mean_info:
+    bin_args:
+      bin_size:
+        train: 20
+        eval: 100
+  mean_rewards:
+    bin_args:
+      bin_size:
+        train: 20
+        eval: 100

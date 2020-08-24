@@ -57,7 +57,8 @@ params:
     flush_period: 1000
     periods:
       # video: 250
-      trace: 1
+      trace: 5
+      mean_trace: 1
       env: 100
       # individual_trace: 100
       # final: 1

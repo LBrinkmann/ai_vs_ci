@@ -145,6 +145,7 @@ def _main(*, input_file, clean, preprocess_args=None, plot_args, output_path):
 
     print(f"Make {len(plot_args)} plots.")
 
+
     mgr = Manager()
     ns = mgr.Namespace()
     ns.df = df

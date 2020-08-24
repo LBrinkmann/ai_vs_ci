@@ -92,13 +92,27 @@ def max_freq(df, groupby=['mode', 'name'], bin_by='episode', bin_size=10, values
 
 
 def parse_info(df, bin_args):
-    return [mean_bin(df, bin_args)]
+    df = mean_bin(df, bin_args)
+    return [df]
 
 
 def parse_reward(df, bin_args):
     df = mean_bin(df, bin_args)
     df['agent_type'] = df['name']
     df['name'] = pd.Series('reward', index=df.index, dtype='category')
+    return [df]
+
+
+def parse_mean_info(df, bin_args):
+    df = binby(df, **bin_args, values=df.columns).reset_index()
+    df['name'] = ('mean_' + df['name'].astype(str)).astype('category')
+    return [df]
+
+
+def parse_mean_reward(df, bin_args):
+    df = binby(df, **bin_args, values=df.columns).reset_index()
+    df['agent_type'] = df['name']
+    df['name'] = pd.Series('mean_reward', index=df.index, dtype='category')
     return [df]
 
 
@@ -121,7 +135,9 @@ def parse_actions(df, bin_args):
 parser = {
     'info': parse_info,
     'rewards': parse_reward,
-    'actions': parse_actions
+    'actions': parse_actions,
+    'mean_info': parse_mean_info,
+    'mean_rewards': parse_mean_reward
 }
 
 
@@ -165,8 +181,8 @@ def _single(run_folder, parse_args):
 def _main(in_folders, out_file, parse_args):
     pool = Pool(N_JOBS)
     arg_list = list(zip(in_folders, [parse_args]*len(in_folders)))
-    dfs = pool.map(single, arg_list)
-    # dfs = [single(al) for al in arg_list]
+    # dfs = pool.map(single, arg_list)
+    dfs = [single(al) for al in arg_list]
 
     print('Merge and save')
     dfs = [df for df in dfs if df is not None]
