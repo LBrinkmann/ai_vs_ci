@@ -1,5 +1,17 @@
 
 clean: true
+
+# mode has the values: train, eval
+# name has the values: stick_to_color, max_freq, reward, avg_catch, avg_coordination, ind_catch, ind_coordination
+# agent_type has the values: ai, ci, nan
+# batch has the values: madqn_test_2
+# batch_size has the values: 10, 50
+# fixed has the values: False, True
+# hidden_size has the values: 1000, 10
+# lr has the values: 0.01, 0.001, 0.0001
+# project has the values: ai_vs_ci
+# reward has the values: ai_ind_ci_ind, ai_coll_ci_coll, ai_ind_ci_ind_zero_sum, ai_coll_ci_coll_zero_sum
+
 plot_args:
   - 
     expand: [reward, fixed]
@@ -7,7 +19,7 @@ plot_args:
       agents: mean
       mode: train
       name: [avg_coordination, avg_catch]
-    grid: [batch_size, batch_size]
+    grid: [batch_size, hidden_size]
     hue: name
     style: lr
     name: mean
