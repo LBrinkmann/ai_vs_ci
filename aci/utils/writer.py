@@ -47,7 +47,7 @@ def selector(func):
     return wrapper
 
 class Writer():
-    def __init__(self, output_folder, periods, use_tb=False, **meta):
+    def __init__(self, output_folder, periods, flush_period, use_tb=False, **meta):
         self.meta = meta
         ensure_dir(output_folder)
         self.metric_rows = {}
@@ -70,6 +70,7 @@ class Writer():
         self.frames = {}
         self.traces = {}
         self.flush_idx = 0
+        self.flush_period = flush_period
 
     def add_meta(self, **meta):
         self.meta = {**self.meta, **meta}
@@ -113,14 +114,20 @@ class Writer():
             self.traces[scope]['name'].append(k)
             self.traces[scope]['values'].append(v)
 
-    def metrics2_flush(self, flush_idx):
+        if len(self.traces[scope]['values']) > self.flush_period:
+            self.metrics2_flush()
+
+    def metrics2_flush(self):
         for scope_name, traces in self.traces.items():
             values = traces.pop('values')
             index = pd.MultiIndex.from_frame(pd.DataFrame(traces))
             agents_names = pd.Series([f'agent_{i}' for i in range(len(values[0]))], name='agents')
             df = pd.DataFrame(data=values, index=index, columns=agents_names)
-            metrics_file = os.path.join(self.metrics_folder, f"{scope_name}.{flush_idx}.parquet")
+            metrics_file = os.path.join(self.metrics_folder, f"{scope_name}.{self.flush_idx}.parquet")
             df.to_parquet(metrics_file)
+        self.traces = {}
+
+        self.flush_idx += 1
 
     @selector
     def add_metrics(self, name, metrics, meta, tf=[]):
@@ -185,7 +192,7 @@ class Writer():
 
     def flush(self):
         self.rows_flush()
-        self.metrics2_flush(self.flush_idx)
+        self.metrics2_flush()
         self.flush_idx += 1
 
     def __del__(self):

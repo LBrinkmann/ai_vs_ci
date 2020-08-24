@@ -54,6 +54,7 @@ params:
           lr: 0.001
       controller_class: madqn
   writer_args:
+    flush_period: 1000
     periods:
       # video: 250
       trace: 1

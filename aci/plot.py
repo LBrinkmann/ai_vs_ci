@@ -150,9 +150,6 @@ def _main(*, input_file, clean, preprocess_args=None, plot_args, output_path):
     ns.df = df
     pool = Pool(20)
     data_args = list(zip(plot_args, [ns]*len(plot_args)))
-
-    # print(data_args)
-
     pool.map(_plot, data_args)
 
     # for p in plot_args:
