@@ -35,6 +35,10 @@ def run(env, controller, scheduler, writer):
             **episode)
 
 
+def average(d):
+    return {k: v.mean() for k, v in d.items()}
+
+
 def run_episode(*, episode, env, controller, eps, training, writer, **__):
     observations = env.reset()
 
@@ -61,6 +65,8 @@ def run_episode(*, episode, env, controller, eps, training, writer, **__):
         writer.add_metrics2('actions', actions, on='trace')
         writer.add_metrics2('rewards', rewards, on='trace')
         writer.add_metrics2('info', info, on='trace')
+        writer.add_metrics2('mean_rewards', average(rewards), on='mean_trace')
+        writer.add_metrics2('mean_info', average(info), on='mean_trace')
 
         for agent_type in agent_types:
             controller[agent_type].update(
