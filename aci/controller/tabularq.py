@@ -124,8 +124,9 @@ class TabularQ:
         self.cache = SimpleCache(observations, self.cache_size)
         # self.evalcache = SimpleCache(observations, self.cache_size)
 
-    def update(self, actions, observations, rewards, done, writer=None):
-
+    def update(self, actions, observations, rewards, done, training, writer=None):
+        if not training:
+            return
         prev_observations_idx = get_idx(self.cache.get(), self.obs_idx_map)
         observations_idx = get_idx(self.cache.add_get(observations), self.obs_idx_map)
 

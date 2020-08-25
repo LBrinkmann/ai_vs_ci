@@ -2,6 +2,7 @@ labels:
   project: ai_vs_ci
   batch: dev_tabular
 params:
+  device_name: cuda
   scheduler_args:
     episodes: 100
     eval_period: 10
@@ -73,10 +74,12 @@ params:
         share_table: true
       controller_class: tabularq
   writer_args:
+    flush_period: 20000
     periods:
       # video: 250
-      trace: 1
-      env: 10
+      trace: 10
+      mean_trace: 1
+      env: 1000
       # individual_trace: 100
       # final: 1
       # table: 250

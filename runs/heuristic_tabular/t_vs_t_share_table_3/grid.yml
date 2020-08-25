@@ -1,6 +1,6 @@
 exec:
   command: train
-  script_name: cpu
+  script_name: local
 labels:
   project: ai_vs_ci
   batch: t_vs_t_share_table_2
@@ -83,6 +83,7 @@ grid:
     labels.fixed_mapping: [true, false]
 
 params:
+  device_name: cpu
   scheduler_args:
     episodes: 10000
     eval_period: 10
@@ -120,9 +121,11 @@ params:
         cache_size: 1
       controller_class: tabularq
   writer_args:
+    flush_period: 100000
     periods:
+      trace: 10
+      mean_trace: 1
       env: 1000
-      trace: 5
   env_class: adversial_graph_coloring
   env_args:
     ai_obs_mode: neighbors
