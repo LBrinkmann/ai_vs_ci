@@ -1,75 +1,40 @@
 
 clean: true
-
-# mode has the values: train, eval
-# name has the values: stick_to_color, max_freq, reward, avg_catch, avg_coordination, ind_catch, ind_coordination
-# agent_type has the values: ai, ci, nan
-# batch has the values: madqn_test_2
-# batch_size has the values: 10, 50
-# fixed has the values: False, True
-# hidden_size has the values: 1000, 10
-# lr has the values: 0.01, 0.001, 0.0001
-# project has the values: ai_vs_ci
-# reward has the values: ai_ind_ci_ind, ai_coll_ci_coll, ai_ind_ci_ind_zero_sum, ai_coll_ci_coll_zero_sum
-
+preprocess_args:
+  combine:
+    metric:
+      coordination: 
+        name: mean_avg_coordination
+      catch: 
+        name: mean_avg_catch
+      diff: 
+        name: mean_reward
+        agent_type: ci
 plot_args:
   - 
-    expand: [reward, fixed]
     selectors:
-      # agents: mean
       mode: train
-      name: [mean_avg_coordination, mean_avg_catch]
-    grid: [batch_size, hidden_size]
-    hue: name
+      reward: [ai_coll_ci_coll_zero_sum, ai_coll_ci_ind_zero_sum, ai_ind_ci_coll_zero_sum, ai_ind_ci_ind_zero_sum]
+    grid: [reward, shared_weights]
+    hue: metric
     style: lr
     name: mean
   - 
-    expand: [reward, fixed]
     selectors:
-      agents: [agent_0, agent_1, agent_2]
+      agents: [agent_0, agent_1, agent_2, agent_3, agent_4]
       name: [ind_coordination]
-    grid: [batch_size, hidden_size]
+      reward: [ai_coll_ci_coll_zero_sum, ai_coll_ci_ind_zero_sum, ai_ind_ci_coll_zero_sum, ai_ind_ci_ind_zero_sum]
+    grid: [reward, shared_weights]
     hue: lr
     style: agents
     name: agents
   - 
-    expand: [reward, fixed]
     selectors:
       agents: mean
       mode: train
       name: [stick_to_color, max_freq]
-    grid: [batch_size, hidden_size]
+      reward: [ai_coll_ci_coll_zero_sum, ai_coll_ci_ind_zero_sum, ai_ind_ci_coll_zero_sum, ai_ind_ci_ind_zero_sum]
+    grid: [reward, shared_weights]
     hue: name
     style: lr
     name: actions_mean
-  - 
-    selectors:
-      hidden_size: 10
-      batch_size: 10
-      mode: train
-      name: [mean_avg_coordination, mean_avg_catch]
-    grid: [reward, fixed]
-    hue: name
-    style: lr
-    name: mean_sel
-  - 
-    selectors:
-      hidden_size: 10
-      batch_size: 10
-      agents: [agent_0, agent_1, agent_2]
-      name: [ind_coordination]
-    grid: [reward, fixed]
-    hue: lr
-    style: agents
-    name: agents_sel
-  - 
-    selectors:
-      hidden_size: 10
-      batch_size: 10
-      agents: mean
-      mode: train
-      name: [stick_to_color, max_freq]
-    grid: [reward, fixed]
-    hue: name
-    style: lr
-    name: actions_mean_sel

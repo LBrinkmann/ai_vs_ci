@@ -18,9 +18,12 @@ grid:
           ind_catch: 0
           avg_catch: -1
       labels.reward: ai_coll_ci_coll_zero_sum
-  - params.agent_types.ci.controller_args.memory_args.capacity: [10, 100, 1000]
-    params.agent_types.ai.controller_args.memory_args.capacity: [10, 100, 1000]
-    labels.capacity: [10, 100, 1000]
+  - params.agent_types.ci.controller_args.memory_args.capacity: [10]
+    params.agent_types.ai.controller_args.memory_args.capacity: [10]
+    labels.capacity: [10]
+  # - params.agent_types.ci.controller_args.memory_args.capacity: [10, 100, 1000]
+  #   params.agent_types.ai.controller_args.memory_args.capacity: [10, 100, 1000]
+  #   labels.capacity: [10, 100, 1000]
   - params.agent_types.ci.controller_args.target_update_freq: [10, 100, 1000]
     params.agent_types.ai.controller_args.target_update_freq: [10, 100, 1000]
     labels.target_update_freq: [10, 100, 1000]

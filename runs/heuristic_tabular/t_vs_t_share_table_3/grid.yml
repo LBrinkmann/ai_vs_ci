@@ -1,0 +1,150 @@
+exec:
+  command: train
+  script_name: cpu
+labels:
+  project: ai_vs_ci
+  batch: t_vs_t_share_table_2
+grid:
+  - 
+    - params.env_args: 
+        graph_args:
+          graph_type: random_regular
+          degree: 4
+          chromatic_number: 4
+        all_agents: 10
+      labels.networktype: reg10_4_4
+  - 
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: -1
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: -1
+      labels.reward: ai_coll_ci_coll_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: -1
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: -1
+          avg_catch: 0
+      labels.reward: ai_ind_ci_ind_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_coll_ci_coll
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_ind_ci_ind
+  - - params.agent_types.ai.controller_args.share_table: true
+      params.agent_types.ci.controller_args.share_table: false
+      labels.share_table: ai_only
+    - params.agent_types.ai.controller_args.share_table: false
+      params.agent_types.ci.controller_args.share_table: false
+      labels.share_table: neither
+    - params.agent_types.ai.controller_args.share_table: true
+      params.agent_types.ci.controller_args.share_table: true
+      labels.share_table: both 
+    - params.agent_types.ai.controller_args.share_table: false
+      params.agent_types.ci.controller_args.share_table: true
+      labels.share_table: ci_only     
+  - params.agent_types.ci.controller_args.alpha: [0.01,  0.1]
+    params.agent_types.ai.controller_args.alpha: [0.01,  0.1]
+    labels.alpha: [0.01, 0.1]
+  - params.env_args.fixed_network: [true, false]
+    labels.fixed_network: [true, false]
+  - params.env_args.fixed_mapping: [true, false]
+    labels.fixed_mapping: [true, false]
+
+params:
+  scheduler_args:
+    episodes: 10000
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training: 
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.2
+            ai: 0.2
+          training: 
+            ci: true
+            ai: true
+  agent_types:
+    ci:
+      controller_args:
+        alpha: 0.05
+        gamma: 0.8
+        q_start: 0
+        obs_map: product
+        cache_size: 1
+      controller_class: tabularq
+    ai:
+      controller_args:
+        alpha: 0.05
+        gamma: 0.8
+        q_start: 0
+        obs_map: product
+        cache_size: 1
+      controller_class: tabularq
+  writer_args:
+    periods:
+      env: 1000
+      trace: 5
+  env_class: adversial_graph_coloring
+  env_args:
+    ai_obs_mode: neighbors
+    all_agents: 10
+    fixed_agents: 0
+    fixed_length: true
+    fixed_network: true
+    fixed_pos: true
+    fixed_mapping: true
+    graph_args:
+      chromatic_number: 4
+      degree: 4
+      graph_type: random_regular
+    max_steps: 50
+    rewards_args:
+      ai:
+        avg_catch: 1
+        avg_coordination: -1
+        ind_catch: 0
+        ind_coordination: 0
+      ci:
+        avg_catch: -1
+        avg_coordination: 1
+        ind_catch: 0
+        ind_coordination: 0

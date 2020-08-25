@@ -85,7 +85,7 @@ class MADQN:
     def update(self, actions, observations, rewards, done, writer=None, training=None):
         if training:
             self.memory.push(observations, actions, rewards)
-            if done and (len(self.memory) > self.batch_size):
+            if done and (len(self.memory) >= self.batch_size):
                 self._optimize()
 
     def init_episode(self, observations, episode, training):
