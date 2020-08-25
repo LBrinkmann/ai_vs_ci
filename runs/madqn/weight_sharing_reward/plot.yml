@@ -13,68 +13,63 @@ clean: true
 # reward has the values: ai_ind_ci_ind, ai_coll_ci_coll, ai_ind_ci_ind_zero_sum, ai_coll_ci_coll_zero_sum
 
 plot_args:
-  # - 
-  #   expand: [reward, fixed]
-  #   selectors:
-  #     # agents: mean
-  #     mode: train
-  #     name: [mean_avg_coordination, mean_avg_catch]
-  #   grid: [batch_size, hidden_size]
-  #   hue: name
-  #   style: lr
-  #   name: mean
-  # - 
-  #   expand: [reward, fixed]
-  #   selectors:
-  #     agents: [agent_0, agent_1, agent_2]
-  #     name: [ind_coordination]
-  #   grid: [batch_size, hidden_size]
-  #   hue: lr
-  #   style: agents
-  #   name: agents
-  # - 
-  #   expand: [reward, fixed]
-  #   selectors:
-  #     agents: mean
-  #     mode: train
-  #     agent_type: ci
-  #     name: [stick_to_color, max_freq]
-  #   grid: [batch_size, hidden_size]
-  #   hue: name
-  #   style: lr
-  #   name: actions_mean
+  - 
+    expand: [reward, fixed]
+    selectors:
+      # agents: mean
+      mode: train
+      name: [mean_avg_coordination, mean_avg_catch]
+    grid: [batch_size, hidden_size]
+    hue: name
+    style: lr
+    name: mean
+  - 
+    expand: [reward, fixed]
+    selectors:
+      agents: [agent_0, agent_1, agent_2]
+      name: [ind_coordination]
+    grid: [batch_size, hidden_size]
+    hue: lr
+    style: agents
+    name: agents
+  - 
+    expand: [reward, fixed]
+    selectors:
+      agents: mean
+      mode: train
+      name: [stick_to_color, max_freq]
+    grid: [batch_size, hidden_size]
+    hue: name
+    style: lr
+    name: actions_mean
   - 
     selectors:
-      hidden_size: 1000
+      hidden_size: 10
       batch_size: 10
-      lr: [0.001, 0.0001]
       mode: train
       name: [mean_avg_coordination, mean_avg_catch]
     grid: [reward, fixed]
     hue: name
     style: lr
-    name: mean
+    name: mean_sel
   - 
     selectors:
-      hidden_size: 1000
+      hidden_size: 10
       batch_size: 10
-      lr: [0.001, 0.0001]
       agents: [agent_0, agent_1, agent_2]
       name: [ind_coordination]
     grid: [reward, fixed]
     hue: lr
     style: agents
-    name: agents
+    name: agents_sel
   - 
     selectors:
-      hidden_size: 1000
+      hidden_size: 10
       batch_size: 10
-      lr: [0.001, 0.0001]
       agents: mean
       mode: train
-      agent_type: ci
       name: [stick_to_color, max_freq]
     grid: [reward, fixed]
     hue: name
     style: lr
-    name: actions_mean
+    name: actions_mean_sel

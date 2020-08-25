@@ -71,11 +71,13 @@ def mean_bin(df, bin_args):
     return df
 
 
-def max_freq(df, groupby=['mode', 'name'], bin_by='episode', bin_size=10, values='value'):
-    assert bin_size % 2 == 0, 'episode_bin need to be an even number.'
+def max_freq(df, bin_by='episode', bin_size={}):
     index_col = list(df.index.names)
     df = df.reset_index()
-    df[bin_by] = (df[bin_by] // bin_size) * bin_size + bin_size // 2
+    for mode, bs in bin_size.items():
+        assert bs % 2 == 0, 'episode_bin need to be an even number.'
+        w = df['mode'] == mode
+        df.loc[w,bin_by] = (df.loc[w,bin_by] // bs) * bs + bs // 2
     df = df.set_index(index_col)
     sr = df.stack()
     sr.name = 'color'
@@ -126,7 +128,7 @@ def parse_actions(df, bin_args):
     df_same['agent_type'] = df_same['name']
     df_same['name'] = pd.Series('stick_to_color', index=df_same.index, dtype='category')
 
-    df_max_count = max_freq(df, bin_args)
+    df_max_count = max_freq(df, **bin_args)
     df_max_count['agent_type'] = df_max_count['name']
     df_max_count['name'] = pd.Series('max_freq', index=df_max_count.index, dtype='category')
 
@@ -181,8 +183,8 @@ def _single(run_folder, parse_args):
 def _main(in_folders, out_file, parse_args):
     pool = Pool(N_JOBS)
     arg_list = list(zip(in_folders, [parse_args]*len(in_folders)))
-    # dfs = pool.map(single, arg_list)
-    dfs = [single(al) for al in arg_list]
+    dfs = pool.map(single, arg_list)
+    # dfs = [single(al) for al in arg_list]
 
     print('Merge and save')
     dfs = [df for df in dfs if df is not None]

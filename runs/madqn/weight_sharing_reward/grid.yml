@@ -1,0 +1,206 @@
+exec:
+  command: train
+  script_name: gpu
+labels:
+  project: ai_vs_ci
+  batch: madqn_weight_sharing_reward
+grid:
+  - 
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: -1
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: -1
+          avg_catch: 0
+      labels.reward: ai_coll_ci_ind_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: -1
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: -1
+      labels.reward: ai_coll_ci_coll_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: -1
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: -1
+          avg_catch: 0
+      labels.reward: ai_ind_ci_ind_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: -1
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: -1
+      labels.reward: ai_ind_ci_coll_zero_sum
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_coll_ci_ind
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_coll_ci_coll
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 1
+          avg_coordination: 0
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_ind_ci_ind
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: 0
+          ind_catch: 1
+          avg_catch: 0
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: 0
+      labels.reward: ai_ind_ci_coll
+  - - params.agent_types.ai.controller_args.model_args.multi_type: shared_weights
+      params.agent_types.ci.controller_args.model_args.multi_type: individual_weights
+      labels.shared_weights: ai_only
+    - params.agent_types.ai.controller_args.model_args.multi_type: individual_weights
+      params.agent_types.ci.controller_args.model_args.multi_type: individual_weights
+      labels.shared_weights: neither
+    - params.agent_types.ai.controller_args.model_args.multi_type: shared_weights
+      params.agent_types.ci.controller_args.model_args.multi_type: shared_weights
+      labels.shared_weights: both 
+    - params.agent_types.ai.controller_args.model_args.multi_type: individual_weights
+      params.agent_types.ci.controller_args.model_args.multi_type: shared_weights
+      labels.shared_weights: ci_only  
+  - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0001]
+    params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+params:
+  device_name: cuda
+  scheduler_args:
+    episodes: 10000
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training: 
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: true
+            ai: true
+  agent_types:
+    ai:
+      controller_args:
+        gamma: 0.80
+        batch_size: 10
+        target_update_freq: 500
+        memory_args: 
+          capacity: 500
+          episode_length: 50
+        model_args:
+          net_type: gru
+          hidden_size: 100
+          multi_type: individual_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+    ci:
+      controller_args:
+        gamma: 0.80
+        batch_size: 20
+        target_update_freq: 500
+        memory_args: 
+          capacity: 500
+          episode_length: 50
+        model_args:
+          net_type: gru
+          hidden_size: 100
+          multi_type: individual_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+  writer_args:
+    flush_period: 20000
+    periods:
+      # video: 250
+      trace: 10
+      mean_trace: 1
+      env: 1000
+      # individual_trace: 100
+      # final: 1
+      # table: 250
+  env_class: adversial_graph_coloring
+  env_args:
+    ai_obs_mode: neighbors
+    all_agents: 20
+    fixed_agents: 0
+    fixed_length: true
+    fixed_network: false
+    fixed_pos: false
+    fixed_mapping: false
+    graph_args:
+      chromatic_number: 4
+      degree: 4
+      graph_type: random_regular
+    max_steps: 50
+    rewards_args:
+      ai:
+        avg_catch: 0
+        avg_coordination: 0
+        ind_catch: 1
+        ind_coordination: 0
+      ci:
+        avg_catch: 0
+        avg_coordination: 0
+        ind_catch: 0
+        ind_coordination: 1

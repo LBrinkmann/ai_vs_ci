@@ -2,8 +2,8 @@ parse_args:
   rewards: 
     bin_args:
       bin_size: 
-        train: 500
-        eval: 500
+        train: 100
+        eval: 100
   actions:
     bin_args:
       bin_size: 
@@ -12,8 +12,8 @@ parse_args:
   info:
     bin_args:
       bin_size:
-        train: 500
-        eval: 500
+        train: 100
+        eval: 100
   mean_info:
     bin_args:
       bin_size:
