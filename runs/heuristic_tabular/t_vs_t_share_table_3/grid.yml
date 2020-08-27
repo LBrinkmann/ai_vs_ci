@@ -1,9 +1,9 @@
 exec:
   command: train
-  script_name: local
+  script_name: cpu
 labels:
   project: ai_vs_ci
-  batch: t_vs_t_share_table_2
+  batch: t_vs_t_share_table_3
 grid:
   - 
     - params.env_args: 

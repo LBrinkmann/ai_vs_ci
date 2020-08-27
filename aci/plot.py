@@ -125,11 +125,16 @@ def expand(df, plots):
             yield p
 
 
-def _main(*, input_file, clean, preprocess_args=None, plot_args, output_path):
+def get_subfolders(d):
+    return [o for o in os.listdir(d) if os.path.isdir(os.path.join(d,o))]
+
+
+def _main(*, input_files, clean, preprocess_args=None, plot_args, output_path):
     if clean:
         shutil.rmtree(output_path, ignore_errors=True)
     ensure_directory(output_path)
-    df = pd.read_parquet(input_file.format(**os.environ))
+    dfs = [pd.read_parquet(f.format(**os.environ)) for f in input_files]
+    df = pd.concat(dfs)
     if preprocess_args:
         df = preprocess(df, **preprocess_args)
 
@@ -166,9 +171,17 @@ def main():
     ensure_dir(out_folder)
     parameter = load_yaml(parameter_file)
 
-    input_file = os.path.join(run_folder, 'preprocess', 'metrics.parquet')
+    if os.path.isdir(os.path.join(run_folder, 'preprocess')):
+        input_files = [os.path.join(run_folder, 'preprocess', 'metrics.parquet')]
+    else:
+        subfolders = get_subfolders(run_folder)
+        input_files = [
+            os.path.join(run_folder, sf, 'preprocess', 'metrics.parquet') 
+            for sf in subfolders 
+            if os.path.isdir(os.path.join(run_folder, sf, 'preprocess'))
+        ]
 
-    _main(output_path=out_folder, input_file=input_file, **parameter)
+    _main(output_path=out_folder, input_files=input_files, **parameter)
 
 
 if __name__ == "__main__":

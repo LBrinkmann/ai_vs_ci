@@ -1,0 +1,49 @@
+
+clean: true
+
+# mode has the values: train, eval
+# name has the values: stick_to_color, max_freq, reward, avg_catch, avg_coordination, ind_catch, ind_coordination
+# agent_type has the values: ai, ci, nan
+# batch has the values: madqn_test_2
+# batch_size has the values: 10, 50
+# fixed has the values: False, True
+# hidden_size has the values: 1000, 10
+# lr has the values: 0.01, 0.001, 0.0001
+# project has the values: ai_vs_ci
+# reward has the values: ai_ind_ci_ind, ai_coll_ci_coll, ai_ind_ci_ind_zero_sum, ai_coll_ci_coll_zero_sum
+
+preprocess_args:
+  combine:
+    metric:
+      coordination: 
+        name: mean_avg_coordination
+      catch: 
+        name: mean_avg_catch
+      diff: 
+        name: mean_reward
+        agent_type: ci
+    ind_metric:
+      coordination: 
+        name: ind_coordination
+      catch: 
+        name: ind_catch
+      diff: 
+        name: reward
+        agent_type: ci
+plot_args:
+  - 
+    selectors:
+      mode: train
+    grid: [deep_agent_type, metric]
+    hue: alpha
+    style: lr
+    name: mean
+  - 
+    selectors:
+      agents: mean
+      mode: train
+      name: [stick_to_color, max_freq]
+    grid: [deep_agent_type, name]
+    hue: alpha
+    style: lr
+    name: actions_mean
