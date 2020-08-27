@@ -61,33 +61,33 @@ def make_video(arrays, episode, out_dir, mode):
 
 
 
-def make_frame(df_step_actions, df_step_reward, out_dir, graph, graph_pos, agent_pos):
+def make_frame(df_step_actions, df_step_info, out_dir, graph, graph_pos, agent_pos):
     # import ipdb; ipdb.set_trace()
 
     episode, episode_step, mode, _ = df_step_actions.index[0]
 
     fig = plt.figure()
 
-    ci_reward = df_step_reward.loc[(episode, episode_step, mode, 'ci')]
-    ai_reward = df_step_reward.loc[(episode, episode_step, mode, 'ci')]
     ci_action = df_step_actions.loc[(episode, episode_step, mode, 'ci')]
-    ai_action = df_step_actions.loc[(episode, episode_step, mode, 'ci')]
-
-    labels = {
-        i: f"{ci:.2f}:{ai:.2f}" for i, (ci,ai) in enumerate(zip(ci_reward, ai_reward)) }
-    
-    # import ipdb; ipdb.set_trace()
+    ai_action = df_step_actions.loc[(episode, episode_step, mode, 'ai')]
 
     node_color_ci = [ci_action[i] for i in graph.nodes()]        
-    node_color_ai = [ai_action[i] for i in graph.nodes()]
+    node_color_ai = ['black' if ai_action[i] == ci_action[i] else 'white' for i in graph.nodes()]
+
+    is_coordination = df_step_info.loc['ind_coordination'].values
+    coordination_color = ['green' if is_coordination[i] == 1 else 'red' for i in graph.nodes()]
+
     nx.draw(graph, graph_pos, node_color=node_color_ai, node_size=500)
 
-    nx.draw(
-        graph, graph_pos, node_color=node_color_ci, 
-        labels=labels, node_size=200, edgelist=[], font_size=20, font_color='magenta')
+    nx.draw(graph, graph_pos, node_color=node_color_ci, node_size=300, edgelist=[])
+
+    nx.draw(graph, graph_pos, node_color=coordination_color, node_size=30, edgelist=[])
+
+    coordination = df_step_info.loc['avg_coordination'].sum()
+    catches = df_step_info.loc['avg_catch'].sum()
 
     plt.text(
-        100, 100, f"{episode_step} CI:AI {sum(ci_reward)}:{sum(ai_reward)}", 
+        100, 100, f"{episode_step} CI:AI {coordination}:{catches}", 
         fontsize=20, color='black'
     )
     fig.canvas.draw()
@@ -104,21 +104,27 @@ def make_frame(df_step_actions, df_step_reward, out_dir, graph, graph_pos, agent
 
 def _main(out_dir, run_dir, period):
     action_files = find_files_with_match(run_dir, "actions.*parquet")
-    reward_files = find_files_with_match(run_dir, "reward.*parquet")
-    info_files = find_files_with_match(run_dir, "info.*parquet")
+    reward_files = find_files_with_match(run_dir, "^rewards.*parquet")
+    info_files = find_files_with_match(run_dir, "^info.*parquet")
     df_actions = pd.concat(pd.read_parquet(p) for p in action_files)
     df_reward = pd.concat(pd.read_parquet(p) for p in reward_files)
     df_info = pd.concat(pd.read_parquet(p) for p in info_files)
+
     df_index = df_actions.index.to_frame()
     for mode, e_period in period.items():
         dfs = df_actions[(df_index['mode'] == mode) & (df_index['episode'] % e_period == 0)]
         for episode, df_eps_actions in dfs.groupby('episode'):
+            print(f'Start with episode {episode} and mode {mode}.')
             frames = []
             graph, graph_pos, agent_pos = load_graph(run_dir, episode, mode)
 
             for episode_step, df_step_actions in df_eps_actions.groupby('episode_step'):
-                df_step_reward = df_reward.loc[df_step_actions.index]
-                frames.append(make_frame(df_step_actions, df_step_reward, out_dir, graph, graph_pos, agent_pos))
+                df_step_info = df_info.loc[df_step_actions.iloc[0].name[0:3]]
+                # coordination = df_step_info.sum(1)['avg_coordination']
+                # catch = df_step_info.sum(1)['avg_catch']
+                # ind_coordination = df_step_info.loc['avg_coordination'].values
+                # info = {'coordination': coordination, 'catch': catch, 'ind_coordination': ind_coordination}
+                frames.append(make_frame(df_step_actions, df_step_info, out_dir, graph, graph_pos, agent_pos))
             make_video(frames, episode=episode, mode=mode, out_dir=out_dir)
 
 
