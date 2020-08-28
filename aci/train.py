@@ -24,10 +24,11 @@ import torch as th
 import os
 
 
-def run(env, controller, scheduler, writer):
+def run(envs, controller, scheduler, writer):
     for episode in scheduler:
         writer.add_meta(_step=episode['episode'], episode=episode['episode'], mode=episode['mode'])
         print(f'Start episode {episode["episode"]}.')
+        env = envs[episode['mode']]
         run_episode(
             env=env,
             controller=controller,
@@ -40,14 +41,13 @@ def average(d):
 
 
 def run_episode(*, episode, env, controller, eps, training, writer, **__):
-    observations = env.reset()
-
+    env.init_episode()
     writer.add_env(env, on='env')
 
     agent_types = controller.keys()
 
     for agent_type in agent_types:
-        controller[agent_type].init_episode(observations[agent_type], episode, training[agent_type])
+        controller[agent_type].init_episode(episode, training[agent_type])
 
     for t in count():
         # print(f'Start step {t} with test mode {test_mode}.')
@@ -56,11 +56,12 @@ def run_episode(*, episode, env, controller, eps, training, writer, **__):
         actions = {}
         for agent_type in agent_types:
             # Select and perform an action
-            proposed_action = controller[agent_type].get_q(observations[agent_type], training=training[agent_type])
+            obs = env.observe(mode=controller[agent_type].observation_mode, agent_type=agent_type)
+            proposed_action = controller[agent_type].get_q(obs, training=training[agent_type])
             selected_action = select_action(proposed_actions=proposed_action, eps=eps[agent_type])
             actions[agent_type] = selected_action
 
-        observations, rewards, done, info = env.step(actions)
+        rewards, done, info = env.step(actions)
 
         writer.add_metrics2('actions', actions, on='trace')
         writer.add_metrics2('rewards', rewards, on='trace')
@@ -69,9 +70,7 @@ def run_episode(*, episode, env, controller, eps, training, writer, **__):
         writer.add_metrics2('mean_info', average(info), on='mean_trace')
 
         for agent_type in agent_types:
-            controller[agent_type].update(
-                actions[agent_type], observations[agent_type], rewards[agent_type], done, 
-                writer=writer, training=training[agent_type])
+            controller[agent_type].update(done, env.sample, writer=writer, training=training[agent_type])
         if done:
             break
 
@@ -88,23 +87,25 @@ def _main(*, output_path, agent_types, env_class, env_args, writer_args, meta, r
     print(device)
     # device = th.device("cpu")
 
-
-    env = ENVIRONMENTS[env_class](**env_args, device=device)
-    env.reset()
+    envs = {
+        tm: ENVIRONMENTS[env_class](**env_args, device=device)
+        for tm in ['train', 'eval']
+    }
 
     scheduler = Scheduler(**scheduler_args)
 
     controller = {
         name: CONTROLLERS[args['controller_class']](
-        observation_shape=env.observation_shape[name],
-        n_actions=env.n_actions[name],
-        n_agents=env.n_agents[name],
+        observation_shapes=envs['train'].get_observation_shapes(),
+        n_actions=envs['train'].n_actions,
+        agent_type=name,
+        n_agents=envs['train'].n_agents,
         **args['controller_args'],
         device=device)
         for name, args in agent_types.items()
     }
 
-    run(env, controller, scheduler, writer)
+    run(envs, controller, scheduler, writer)
 
 
 def main():

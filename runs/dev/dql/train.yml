@@ -26,15 +26,15 @@ params:
     ai:
       controller_args:
         gamma: 0.80
-        batch_size: 20
+        batch_size: 7
         target_update_freq: 100
-        memory_args: 
-          capacity: 100
-          episode_length: 50
+        sample_args: 
+          horizon: 100
         model_args:
-          net_type: gru
+          net_type: attention_gru
           hidden_size: 100
-          multi_type: shared_weights
+          num_heads: 5
+          multi_type: individual_weights
         opt_args:
           lr: 0.001
       controller_class: madqn
@@ -43,9 +43,8 @@ params:
         gamma: 0.80
         batch_size: 3
         target_update_freq: 100
-        memory_args: 
-          capacity: 100
-          episode_length: 50
+        sample_args: 
+          horizon: 100
         model_args:
           net_type: gru
           hidden_size: 100
@@ -56,35 +55,32 @@ params:
   writer_args:
     flush_period: 1000
     periods:
-      # video: 250
       trace: 5
       mean_trace: 1
       env: 100
-      # individual_trace: 100
-      # final: 1
-      # table: 250
-  env_class: adversial_graph_coloring
+  env_class: adversial_graph_coloring_historized
   env_args:
-    ai_obs_mode: neighbors
-    all_agents: 10
-    fixed_agents: 0
-    fixed_length: true
-    fixed_network: false
-    fixed_pos: false
-    fixed_mapping: false
+    n_agents: 20
+    n_actions: 3
+    network_period: 1
+    mapping_period: 1
+    max_history: 50
     graph_args:
-      chromatic_number: 4
-      degree: 4
-      graph_type: random_regular
-    max_steps: 50
+        constrains: 
+            max_max_degree: 8
+            connected: True
+        graph_args:
+          p: 0.2
+        graph_type: erdos_renyi
+    episode_length: 50
     rewards_args:
-      ai:
-        avg_catch: 1
-        avg_coordination: -1
-        ind_catch: 0
-        ind_coordination: 0
-      ci:
-        avg_catch: -1
-        avg_coordination: 1
-        ind_catch: 0
-        ind_coordination: 0
+        ai:
+            avg_catch: 0.5
+            avg_coordination: 0
+            ind_catch: 0.5
+            ind_coordination: 0
+        ci:
+            avg_catch: 0
+            avg_coordination: 0
+            ind_catch: 0
+            ind_coordination: 1
