@@ -34,10 +34,11 @@ class GRUAgentWrapper(nn.Module):
             o_shape = (*x.shape[:3], self.n_actions)
             x = x.reshape(1, x.shape[0]*x.shape[1], *x.shape[2:])
             m = m.reshape(1, x.shape[0]*x.shape[1], *x.shape[2:])
-        onehot = th.zeros(*x.shape, self.n_actions, device=self.device)
+        onehot = th.zeros(*x.shape, self.n_actions, dtype=th.float32, device=self.device)
 
         x_ = x.clone()
-        x_[m] = 0      
+        x_[m] = 0
+        # print(x_)
         onehot.scatter_(-1, x_.unsqueeze(-1), 1)
         onehot[m] = 0
 

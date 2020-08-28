@@ -20,8 +20,6 @@ class AttentionGRUAgent(nn.Module):
         batch_size, seq_length, input_shape, n_actions = inputs.shape
         inputs_ = inputs.permute(0,2,1,3) # batch, input_shape, seq_length, n_actions
         inputs_ = inputs_.reshape(batch_size*input_shape,seq_length,n_actions) # batch*input_shape, seq_length, n_actions
-        if inputs_.shape[1] > 1:
-            import ipdb; ipdb.set_trace()
 
         # lin1_out = F.relu(self.linear1(inputs_))
         rnn1_out, self.hidden = self.rnn1(inputs_, self.hidden1)
@@ -34,7 +32,6 @@ class AttentionGRUAgent(nn.Module):
         mask_ = mask.reshape(batch_size * seq_length, input_shape)
 
         attn_out, attn_out_w = self.attn(rnn1_out_[[0]], rnn1_out_, rnn1_out_, mask_)
-
         attn_out_ = attn_out.reshape(batch_size,seq_length,attn_out.shape[-1])
 
         rnn2_out, self.hidden2 = self.rnn2(attn_out_, self.hidden2)
