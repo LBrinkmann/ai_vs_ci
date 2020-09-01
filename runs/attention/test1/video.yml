@@ -1,0 +1,3 @@
+period:
+  eval: 10000
+  train: 1000

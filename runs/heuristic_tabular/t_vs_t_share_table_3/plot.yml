@@ -49,16 +49,28 @@ preprocess_args:
         alpha: 0.1
         reward: ai_ind_ci_ind_zero_sum
 plot_args:
+  # - 
+  #   expand: [alpha]
+  #   selectors:
+  #     mode: train
+  #     # agents: mean
+  #     # fixed: both
+  #   grid: [fixed,reward]
+  #   style: metric
+  #   hue: share_table
+  #   name: share_table_sel
   - 
-    expand: [alpha]
+    expand: [metric]
     selectors:
       mode: train
       # agents: mean
-      # fixed: both
+      reward: [ai_ind_ci_ind_zero_sum, ai_coll_ci_coll_zero_sum]
+      fixed: [both, neither]
+      share_table: [both, neither]
     grid: [fixed,reward]
-    style: metric
+    style: alpha
     hue: share_table
-    name: share_table_sel
+    name: share_table_sel2
   # - 
   #   selectors:
   #     mode: train
