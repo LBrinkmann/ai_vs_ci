@@ -31,7 +31,7 @@ params:
         sample_args: 
           horizon: 100
         model_args:
-          net_type: attention_gru
+          net_type: pooling_gru
           hidden_size: 100
           num_heads: 5
           multi_type: individual_weights
