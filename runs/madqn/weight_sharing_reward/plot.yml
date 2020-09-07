@@ -10,31 +10,79 @@ preprocess_args:
       diff: 
         name: mean_reward
         agent_type: ci
+    coordination_weights:
+      shared:
+        shared_weights: [ci_only, both]
+      individual:
+        shared_weights: [ai_only, neither]
+    catch_weights:
+      shared:
+        shared_weights: [ai_only, both]
+      individual:
+        shared_weights: [ci_only, neither]
+    shared_weight:
+      catch:
+        shared_weights: ai_only
+      coordination:
+        shared_weights: ci_only
+      both:
+        shared_weights: both
+      neither:
+        shared_weights: neither
+    coll_coordination:
+      a_rewards_weights: 
+        shared_weights: [both, ci_only]
+        reward: [ai_coll_ci_coll_zero_sum, ai_ind_ci_coll_zero_sum]
+      b_rewards: 
+        shared_weights: [ai_only, neither]
+        reward: [ai_coll_ci_coll_zero_sum, ai_ind_ci_coll_zero_sum]
+      c_weights: 
+        shared_weights: [both, ci_only]
+        reward: [ai_coll_ci_ind_zero_sum, ai_ind_ci_ind_zero_sum]
+      d_none: 
+        shared_weights: [ai_only, neither]
+        reward: [ai_coll_ci_ind_zero_sum, ai_ind_ci_ind_zero_sum]
+    coll_catch:
+      a_rewards_weights: 
+        shared_weights: [both, ai_only]
+        reward: [ai_coll_ci_coll_zero_sum, ai_coll_ci_ind_zero_sum]
+      b_rewards: 
+        shared_weights: [ci_only, neither]
+        reward: [ai_coll_ci_coll_zero_sum, ai_coll_ci_ind_zero_sum]
+      c_weights: 
+        shared_weights: [both, ai_only]
+        reward: [ai_ind_ci_coll_zero_sum, ai_ind_ci_ind_zero_sum]
+      d_none: 
+        shared_weights: [ci_only, neither]
+        reward: [ai_ind_ci_coll_zero_sum, ai_ind_ci_ind_zero_sum]
+
 plot_args:
   - 
     selectors:
       mode: train
-      reward: [ai_coll_ci_coll_zero_sum, ai_coll_ci_ind_zero_sum, ai_ind_ci_coll_zero_sum, ai_ind_ci_ind_zero_sum]
-    grid: [reward, shared_weights]
+      metric: [coordination, catch]
+      reward: [ai_coll_ci_coll_zero_sum]
+    grid: [coordination_weights, catch_weights]
+    style: lr
     hue: metric
-    style: lr
-    name: mean
+    name: weights_objectives
   - 
     selectors:
-      agents: [agent_0, agent_1, agent_2, agent_3, agent_4]
-      name: [ind_coordination]
-      reward: [ai_coll_ci_coll_zero_sum, ai_coll_ci_ind_zero_sum, ai_ind_ci_coll_zero_sum, ai_ind_ci_ind_zero_sum]
-    grid: [reward, shared_weights]
-    hue: lr
-    style: agents
-    name: agents
-  - 
-    selectors:
-      agents: mean
       mode: train
+      # agent_type: ci
+      lr: 0.0001
+      agents: mean
       name: [stick_to_color, max_freq]
-      reward: [ai_coll_ci_coll_zero_sum, ai_coll_ci_ind_zero_sum, ai_ind_ci_coll_zero_sum, ai_ind_ci_ind_zero_sum]
-    grid: [reward, shared_weights]
+      reward: [ai_coll_ci_coll_zero_sum]
+    grid: [coordination_weights, catch_weights]
+    style: agent_type
     hue: name
+    name: weights_actions
+  - 
+    selectors:
+      mode: train
+      metric: [coordination, catch]
+    grid: [coll_catch, coll_coordination]
     style: lr
-    name: actions_mean
+    hue: metric
+    name: all_objectives

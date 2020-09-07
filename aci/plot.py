@@ -48,22 +48,40 @@ def plot(df, output_path, name, selectors, grid=[], hue=None, style=None, folder
     print(f'start plotting {name}')
 
     dfs = df[w].copy()
-    if pd.api.types.is_numeric_dtype(dfs[hue].dtype):
+
+    if (hue is not None) and pd.api.types.is_numeric_dtype(dfs[hue].dtype):
         dfs[hue] = "#" + dfs[hue].astype(str)
 
     for col, iscat in (dfs.dtypes == 'category').iteritems():
         if iscat:
             dfs[col] = dfs[col].cat.remove_unused_categories()
 
+    # assert indiviuallity
+    groupby = [c for c in (grid + [hue,style, 'episode']) if c is not None]
+
+    dfs = dfs.dropna(subset=groupby)
+
+    df_dup = dfs.duplicated(subset=groupby)
+    if df_dup.any():
+        print(dfs[df_dup].sort_values(groupby)[groupby])
+        raise ValueError('There are doublicates.')
+
     grid.sort(key=lambda l: dfs[l].nunique())
 
     grid = {n: g for g, n in zip(grid[::-1], ['col','row'])}
+
+    grid_order = {
+        f'{k}_order': sorted([n for n in dfs[v].unique() if not pd.isnull(n)])
+        for k, v in grid.items()
+    }
+
 
     g = sns.relplot(
         data=dfs, 
         x='episode', 
         y='value', 
         **grid,
+        **grid_order,
         hue=hue,
         style=style,
         kind="line",
@@ -114,7 +132,7 @@ def check_selector(selectors, new_selectors):
 def expand(df, plots):
     for p in plots:
         if 'expand' in p:
-            grid_dims = [[{e: f} for f in df[e].unique()] for e in p['expand']]
+            grid_dims = [[{e: f} for f in df[e].unique() if not pd.isnull(f)] for e in p['expand']]
             grid = list(product(*grid_dims))
             grid = list(map(merge_dicts, grid))
             _p = {k:v for k,v in p.items() if k != 'expand'}
@@ -135,6 +153,7 @@ def _main(*, input_files, clean, preprocess_args=None, plot_args, output_path):
     ensure_directory(output_path)
     dfs = [pd.read_parquet(f.format(**os.environ)) for f in input_files]
     df = pd.concat(dfs)
+
     if preprocess_args:
         df = preprocess(df, **preprocess_args)
 
@@ -143,6 +162,8 @@ def _main(*, input_files, clean, preprocess_args=None, plot_args, output_path):
         if df[col].nunique() < 20:
             values = ', '.join(map(str, df[col].unique()))
             print(f'{col} has the values: {values}')
+
+
 
 
     plot_args = list(expand(df, plot_args))

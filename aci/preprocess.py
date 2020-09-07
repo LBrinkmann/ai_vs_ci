@@ -163,7 +163,7 @@ def _single(run_folder, parse_args):
     files_g = find_files_with_extension(exp_dir, ".parquet")
 
     files_g = list(files_g)
-
+    files_g = sorted(files_g, key=lambda f: f[0].split('.')[0])
     files_grouped = groupby(files_g, lambda f: f[0].split('.')[0])
 
     dfs = []
@@ -172,8 +172,13 @@ def _single(run_folder, parse_args):
     if len(dfs) == 0:
         print(f'Skip {run_folder}')
         return
+
     df = pd.concat(dfs)
     df = obj_to_category(df)
+    dup = df.duplicated(subset=[c for c in df.columns if c != 'value'])
+
+    assert not df.duplicated(subset=[c for c in df.columns if c != 'value']).any()
+
     for k, v in labels.items():
         df[k] = pd.Series(v, index=df.index, **({'dtype': 'category'} if isinstance(v, str) else {}))
     print(f'Finished with {run_folder}')

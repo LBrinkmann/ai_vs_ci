@@ -49,7 +49,7 @@ def load_graph(run_dir, episode, mode):
     graph = nx.from_edgelist(data['graph']) 
     graph_pos = nx.spring_layout(graph)
 
-    return graph, graph_pos, data['agent_at_node']
+    return graph, graph_pos
 
 
 def make_video(arrays, episode, out_dir, mode):
@@ -61,7 +61,7 @@ def make_video(arrays, episode, out_dir, mode):
 
 
 
-def make_frame(df_step_actions, df_step_info, out_dir, graph, graph_pos, agent_pos):
+def make_frame(df_step_actions, df_step_info, out_dir, graph, graph_pos):
     # import ipdb; ipdb.set_trace()
 
     episode, episode_step, mode, _ = df_step_actions.index[0]
@@ -91,7 +91,7 @@ def make_frame(df_step_actions, df_step_info, out_dir, graph, graph_pos, agent_p
         fontsize=20, color='black'
     )
     fig.canvas.draw()
-    plt.savefig('temp.png')
+    plt.savefig(f'tmp/{mode}.{episode}.{episode_step}.png')
     data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
@@ -116,7 +116,7 @@ def _main(out_dir, run_dir, period):
         for episode, df_eps_actions in dfs.groupby('episode'):
             print(f'Start with episode {episode} and mode {mode}.')
             frames = []
-            graph, graph_pos, agent_pos = load_graph(run_dir, episode, mode)
+            graph, graph_pos = load_graph(run_dir, episode, mode)
 
             for episode_step, df_step_actions in df_eps_actions.groupby('episode_step'):
                 df_step_info = df_info.loc[df_step_actions.iloc[0].name[0:3]]
@@ -124,7 +124,7 @@ def _main(out_dir, run_dir, period):
                 # catch = df_step_info.sum(1)['avg_catch']
                 # ind_coordination = df_step_info.loc['avg_coordination'].values
                 # info = {'coordination': coordination, 'catch': catch, 'ind_coordination': ind_coordination}
-                frames.append(make_frame(df_step_actions, df_step_info, out_dir, graph, graph_pos, agent_pos))
+                frames.append(make_frame(df_step_actions, df_step_info, out_dir, graph, graph_pos))
             make_video(frames, episode=episode, mode=mode, out_dir=out_dir)
 
 

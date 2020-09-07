@@ -4,6 +4,7 @@
 *.egg-info
 *.log
 .env
+temp.png
 
 logs
 tmp
