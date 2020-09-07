@@ -30,6 +30,7 @@ class GRUAgentWrapper(nn.Module):
         """
             agents x batch x inputs
         """
+
         if self.multi_type == 'shared_weights':
             o_shape = (*x.shape[:3], self.n_actions)
             x = x.reshape(1, x.shape[0]*x.shape[1], *x.shape[2:])
@@ -38,7 +39,6 @@ class GRUAgentWrapper(nn.Module):
 
         x_ = x.clone()
         x_[m] = 0
-        # print(x_)
         onehot.scatter_(-1, x_.unsqueeze(-1), 1)
         onehot[m] = 0
 

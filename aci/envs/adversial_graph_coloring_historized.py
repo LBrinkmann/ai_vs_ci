@@ -73,7 +73,7 @@ class AdGraphColoringHist():
 
         # add to history
         self.history_queue.appendleft(self.current_hist_idx)
-        self.state_history[:, :, self.current_hist_idx, self.episode_step] = self.state
+        self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
         self.adjacency_matrix_history[:, self.current_hist_idx] = self.adjacency_matrix
         self.neighbors_history[:, self.current_hist_idx] = self.neighbors
         self.neighbors_mask_history[:, self.current_hist_idx] = self.neighbors_mask
@@ -177,6 +177,11 @@ class AdGraphColoringHist():
                 .repeat(1,1,self.episode_length)
             actions = th.gather(actions, 0, _ci_ai_map_history)
             rewards = th.gather(rewards, 0, _ci_ai_map_history)
+
+        assert prev_observations.max() <= self.n_actions - 1
+        assert observations.max() <= self.n_actions - 1
+        assert actions.max() <= self.n_actions - 1
+
         if mode == 'neighbors_with_mask':
             return (prev_observations, prev_mask), (observations, mask), actions, rewards
         elif mode == 'neighbors': 
@@ -220,6 +225,10 @@ class AdGraphColoringHist():
         self.episode_step += 1
         assert actions['ci'].max() <= self.n_actions - 1
         assert actions['ai'].max() <= self.n_actions - 1
+        assert actions['ai'].dtype == th.int64
+        assert actions['ci'].dtype == th.int64
+
+
         if (self.episode_step + 1 == self.episode_length):
             done = True
         elif self.episode_step >= self.episode_length:

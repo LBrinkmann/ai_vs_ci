@@ -22,12 +22,13 @@ class AttentionGRUAgent(nn.Module):
         inputs_ = inputs_.reshape(batch_size*input_shape,seq_length,n_actions) # batch*input_shape, seq_length, n_actions
 
         # lin1_out = F.relu(self.linear1(inputs_))
-        rnn1_out, self.hidden = self.rnn1(inputs_, self.hidden1)
+        rnn1_out, self.hidden = self.rnn1(inputs_, self.hidden1)  # batch*input_shape, seq_length, n_hidden
 
-        rnn1_out_ = rnn1_out.reshape(batch_size,input_shape,seq_length,rnn1_out.shape[-1])
-        rnn1_out_ = rnn1_out_.permute(1,0,2,3)  # input_shape, batch_size, seq_length, n_actions
-        rnn1_out_ = rnn1_out_.reshape(input_shape,batch_size*seq_length,rnn1_out.shape[-1])  # input_shape, batch * seq_length, n_actions
+        n_hidden = rnn1_out.shape[-1]
 
+        rnn1_out_ = rnn1_out.reshape(batch_size,input_shape,seq_length,n_hidden)
+        rnn1_out_ = rnn1_out_.permute(1,0,2,3)  # input_shape, batch_size, seq_length, n_hidden
+        rnn1_out_ = rnn1_out_.reshape(input_shape,batch_size*seq_length,n_hidden)  # input_shape, batch * seq_length, n_hidden
 
         mask_ = mask.reshape(batch_size * seq_length, input_shape)
 
