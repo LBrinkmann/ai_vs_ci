@@ -86,7 +86,7 @@ class MADQN:
             return self.policy_net(obs.unsqueeze(1).unsqueeze(1), mask.unsqueeze(1).unsqueeze(1)).squeeze(1).squeeze(1)
 
     def update(self, done, sampler, writer=None, training=None):
-        if done:
+        if training and done:
             sample = sampler(agent_type=self.agent_type, batch_size=self.batch_size, mode=self.observation_mode, **self.sample_args)
             if sample is not None:
                 self._optimize(*sample)

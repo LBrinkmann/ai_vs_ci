@@ -1,0 +1,37 @@
+
+clean: true
+preprocess_args:
+  combine:
+    metric:
+      coordination: 
+        name: mean_avg_coordination
+      catch: 
+        name: mean_avg_catch
+      diff: 
+        name: mean_reward
+        agent_type: ci
+plot_args:
+  - 
+    selectors:
+      mode: train
+    grid: [metric]
+    hue: network
+    style: lr
+    name: mean
+  - 
+    selectors:
+      agents: [agent_0, agent_1, agent_2, agent_3, agent_4]
+      name: [ind_coordination]
+    grid: [network]
+    hue: lr
+    style: agents
+    name: agents
+  - 
+    selectors:
+      agents: mean
+      mode: train
+      name: [stick_to_color, max_freq]
+    grid: [network]
+    hue: name
+    style: lr
+    name: actions_mean

@@ -26,14 +26,14 @@ params:
     ai:
       controller_args:
         gamma: 0.80
-        batch_size: 7
+        batch_size: 3
         target_update_freq: 100
         sample_args: 
           horizon: 100
         model_args:
           net_type: pooling_gru
           hidden_size: 100
-          num_heads: 5
+          pooling_type: avg
           multi_type: individual_weights
         opt_args:
           lr: 0.001
@@ -41,7 +41,7 @@ params:
     ci:
       controller_args:
         gamma: 0.80
-        batch_size: 3
+        batch_size: 20
         target_update_freq: 100
         sample_args: 
           horizon: 100
