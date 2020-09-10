@@ -14,27 +14,17 @@ plot_args:
   - 
     selectors:
       mode: train
-    grid: [metric]
-    hue: network
+    grid: [metric, network]
+    hue: pooling_type
     style: lr
     name: mean
-  - 
-    selectors:
-      # agent_type: ci
-      mode: train
-      agents: [agent_0, agent_1, agent_2, agent_3, agent_4]
-      name: [ind_coordination]
-    grid: [network]
-    hue: lr
-    style: agents
-    name: agents
   - 
     selectors:
       agent_type: ci
       agents: mean
       mode: train
       name: [stick_to_color, max_freq]
-    grid: [network]
+    grid: [network, pooling_type]
     hue: name
     style: lr
     name: actions_mean

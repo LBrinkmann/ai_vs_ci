@@ -33,7 +33,7 @@ params:
         model_args:
           net_type: pooling_gru
           hidden_size: 100
-          pooling_type: avgmaxsum
+          pooling_type: [avg, sum]
           multi_type: individual_weights
         opt_args:
           lr: 0.001
