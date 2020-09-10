@@ -31,6 +31,10 @@ params:
         sample_args: 
           horizon: 100
         model_args:
+          linear1: false
+          rnn1: false
+          linear2: false
+          rnn2: false
           net_type: pooling_gru
           hidden_size: 100
           pooling_types: [avg, sum]

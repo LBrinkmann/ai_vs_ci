@@ -1,6 +1,3 @@
-# derived from https://github.com/oxwhirl/pymarl/blob/master/src/components/action_selectors.py
-
-
 import torch as th
 from torch.distributions import Categorical
 import math
@@ -45,25 +42,3 @@ class MultiActionSelector():
 
     def log(self, writer, step, details):
         writer.add_scalar('actionSelector.eps', self.eps, step)
-
-
-class ActionSelector():
-    def __init__(self, device, **args):
-        self.args = args
-        self.steps_done = 0
-        self.device = device
-
-    @staticmethod
-    def calc_eps(eps_end, eps_start, eps_decay, steps_done):
-        eps_threshold = eps_end + (eps_start - eps_end) * \
-            math.exp(-1. * steps_done / eps_decay)
-        return eps_threshold
-
-    def select_action(self, proposed_action):
-        eps = ActionSelector.calc_eps(steps_done=self.steps_done, **self.args)
-        self.steps_done += 1
-        self.last_eps = eps
-        if random.random() > eps:
-            return proposed_action
-        else:
-            return th.tensor([[random.randrange(len(proposed_action))]], device=self.device, dtype=th.long)
