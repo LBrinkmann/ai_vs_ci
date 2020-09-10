@@ -24,6 +24,11 @@ class PoolingGRUAgent(nn.Module):
         # pooling
         next_in = next_in*(len(pooling_types) + 1)
         
+        if linear2:
+            self.linear2 = nn.Linear(in_features=next_in, out_features=hidden_size)
+            next_in = hidden_size
+        else:
+            self.linear2 = None
         if rnn2:
             self.rnn2 = nn.GRU(
                 input_size=next_in, batch_first=True, 
@@ -32,12 +37,6 @@ class PoolingGRUAgent(nn.Module):
         else:
             self.rnn2 = None
 
-        if linear2:
-            self.linear2 = nn.Linear(in_features=next_in, out_features=hidden_size)
-            next_in = hidden_size
-        else:
-            self.linear2 = None
-            next_in = hidden_size
         self.linear3 = nn.Linear(in_features=next_in, out_features=n_actions)
 
     def reset(self):
@@ -72,7 +71,7 @@ class PoolingGRUAgent(nn.Module):
         x = th.cat(pooled, axis=-1)
 
         if self.linear2:
-            x = F.relu(self.linear1(x))
+            x = F.relu(self.linear2(x))
         if self.rnn2:
             x, self.hidden2 = self.rnn2(x, self.hidden2)
         q = self.linear3(x)
