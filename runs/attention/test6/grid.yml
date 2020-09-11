@@ -3,21 +3,44 @@ exec:
   script_name: gpu
 labels:
   project: ai_vs_ci
-  batch: pooling_test4
+  batch: pooling_test6
 grid:
-  - params.agent_types.ci.controller_args.model_args.pooling_types: [['avg'], ['max'], ['sum'], ['avg', 'max'], ['avg', 'max', 'sum']]
-    params.agent_types.ai.controller_args.model_args.pooling_types: [['avg'], ['max'], ['sum'], ['avg', 'max'], ['avg', 'max', 'sum']]
-    labels.pooling_types: ['avg', 'max', 'sum', 'avgmax', 'avgmaxsum']
+  - params.agent_types.ci.controller_args.model_args.pooling_types: [['sum']]
+    params.agent_types.ai.controller_args.model_args.pooling_types: [['sum']]
+    labels.pooling_types: ['sum']
+  - params.agent_types.ci.controller_args.model_args.linear1: [true, false]
+    params.agent_types.ai.controller_args.model_args.linear1: [true, false]
+    labels.linear1: [true, false]
+  # - params.agent_types.ci.controller_args.model_args.rnn1: [true, false]
+  #   params.agent_types.ai.controller_args.model_args.rnn1: [true, false]
+  #   labels.rnn1: [true, false]
+  - params.agent_types.ci.controller_args.model_args.rnn1: [true]
+    params.agent_types.ai.controller_args.model_args.rnn1: [true]
+    labels.rnn1: [true]
+  - params.agent_types.ci.controller_args.model_args.linear2: [true, false]
+    params.agent_types.ai.controller_args.model_args.linear2: [true, false]
+    labels.linear2: [true, false]
+  - params.agent_types.ci.controller_args.model_args.rnn2: [true, false]
+    params.agent_types.ai.controller_args.model_args.rnn2: [true, false]
+    labels.rnn2: [true, false]
   - 
-    - params.env_args.graph_args:
-        constrains: 
-            max_chromatic_number: 4
-            min_chromatic_number: 4
-            connected: True
-        graph_args:
-          d: 4
-        graph_type: random_regular
-      labels.network: random_regular_4_chrom_fix
+    # - params.env_args.graph_args:
+    #     constrains: 
+    #         max_chromatic_number: 4
+    #         min_chromatic_number: 4
+    #         connected: True
+    #     graph_args:
+    #       d: 4
+    #     graph_type: random_regular
+    #   labels.network: random_regular_4_chrom_fix
+    # - params.env_args.graph_args:
+    #     constrains: 
+    #         max_max_degree: 4
+    #         connected: True
+    #     graph_args:
+    #       p: 0.2
+    #     graph_type: erdos_renyi
+    #   labels.network: erdos_renyi_4
     - params.env_args.graph_args:
         constrains: 
             max_max_degree: 8
@@ -103,11 +126,7 @@ params:
         target_update_freq: 100
         sample_args: 
           horizon: 100
-        model_args:        
-          linear1: true
-          rnn1: true
-          linear2: true
-          rnn2: true
+        model_args:
           net_type: pooling_gru
           hidden_size: 100
           multi_type: shared_weights
@@ -121,11 +140,7 @@ params:
         target_update_freq: 100
         sample_args: 
           horizon: 100
-        model_args:          
-          linear1: true
-          rnn1: true
-          linear2: true
-          rnn2: true
+        model_args:
           net_type: pooling_gru
           hidden_size: 100
           multi_type: individual_weights

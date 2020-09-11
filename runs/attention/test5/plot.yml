@@ -12,11 +12,12 @@ preprocess_args:
         agent_type: ci
 plot_args:
   - 
+    expand: [network]
     selectors:
       mode: train
-    grid: [metric, network]
-    hue: pooling_type
-    style: lr
+    grid: [metric, lr]
+    hue: pooling_types
+    # style: lr
     name: mean
   - 
     selectors:
@@ -24,7 +25,7 @@ plot_args:
       agents: mean
       mode: train
       name: [stick_to_color, max_freq]
-    grid: [network, pooling_type]
+    grid: [network, pooling_types]
     hue: name
     style: lr
     name: actions_mean

@@ -53,9 +53,8 @@ class PoolingGRUAgent(nn.Module):
 
         if self.rnn1:
             x = x.reshape(batch_size*input_shape,seq_length,-1) # batch*input_shape, seq_length, n_actions
-            x, self.hidden = self.rnn1(x, self.hidden1) # batch*input_shape, seq_length, hidden_size
+            x, self.hidden1 = self.rnn1(x, self.hidden1) # batch*input_shape, seq_length, hidden_size
             x = x.reshape(batch_size,input_shape,seq_length,-1) # batch, input_shape, seq_length, hidden_size
-        
 
         x_self = x[:, 0]
         x_others = x[:, 1:] * mask[:, 1:]
