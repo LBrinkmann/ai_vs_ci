@@ -8,15 +8,19 @@ class OneHotTransformer(nn.Module):
         self.model = model
         self.onehot = th.FloatTensor(batch_size, n_agents, *observation_shape, n_actions)
 
-    def forward(self, x):
+    def forward(self, x, *args):
            # In your for loop
         self.onehot.zero_()
         self.onehot.scatter_(-1, x.unsqueeze(-1), 1)
-        y = self.model(self.onehot)
+        y = self.model(self.onehot, *args)
         return y
     
     def log(self, *args, **kwargs):
         self.model.log(*args, **kwargs)
+
+    def reset(self):
+        if getattr(self.model, "reset", False):
+            self.model.reset()
 
 
 class FloatTransformer(nn.Module):

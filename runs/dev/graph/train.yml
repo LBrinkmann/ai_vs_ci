@@ -1,0 +1,84 @@
+labels:
+  project: ai_vs_ci
+  batch: dev_dql
+params:
+  device_name: cpu
+  scheduler_args:
+    episodes: 1000
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training: 
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: true
+            ai: true
+  agent_types:
+    ai:
+      controller_args:
+        gamma: 0.80
+        batch_size: 5
+        target_update_freq: 100
+        sample_args: 
+          horizon: 100
+        model_args:
+          net_type: gcn
+          hidden_size: 100
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+    ci:
+      controller_args:
+        gamma: 0.80
+        batch_size: 3
+        target_update_freq: 100
+        sample_args: 
+          horizon: 100
+        model_args:
+          net_type: gru
+          hidden_size: 100
+          multi_type: individual_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+  writer_args:
+    flush_period: 1000
+    periods:
+      trace: 5
+      mean_trace: 1
+      env: 100
+  env_class: adversial_graph_coloring_historized
+  env_args:
+    n_agents: 20
+    n_actions: 3
+    network_period: 1
+    mapping_period: 0
+    max_history: 50
+    graph_args:
+        constrains: 
+            max_max_degree: 8
+            connected: True
+        graph_args:
+          p: 0.2
+        graph_type: erdos_renyi
+    episode_length: 50
+    rewards_args:
+        ai:
+            avg_catch: 0.5
+            avg_coordination: 0
+            ind_catch: 0.5
+            ind_coordination: 0
+        ci:
+            avg_catch: 0
+            avg_coordination: 0
+            ind_catch: 0
+            ind_coordination: 1
