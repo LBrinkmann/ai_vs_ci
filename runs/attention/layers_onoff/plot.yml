@@ -1,0 +1,137 @@
+
+clean: true
+preprocess_args:
+  combine:
+    metric:
+      coordination: 
+        name: mean_avg_coordination
+      catch: 
+        name: mean_avg_catch
+      diff: 
+        name: mean_reward
+        agent_type: ci
+    one_on:
+      none:
+        linear1: false
+        rnn1: false
+        linear2: false
+        rnn2: false
+      linear1:
+        linear1: true
+        rnn1: false
+        linear2: false
+        rnn2: false
+      rnn1:
+        linear1: false
+        rnn1: true
+        linear2: false
+        rnn2: false
+      linear2:
+        linear1: false
+        rnn1: false
+        linear2: true
+        rnn2: false
+      rnn2:
+        linear1: false
+        rnn1: false
+        linear2: false
+        rnn2: true
+    one_off:
+      none: 
+        linear1: true
+        rnn1: true
+        linear2: true
+        rnn2: true        
+      linear1:
+        linear1: false
+        rnn1: true
+        linear2: true
+        rnn2: true
+      rnn1:
+        linear1: true
+        rnn1: false
+        linear2: true
+        rnn2: true
+      linear2:
+        linear1: true
+        rnn1: true
+        linear2: false
+        rnn2: true
+      rnn2:
+        linear1: true
+        rnn1: true
+        linear2: true
+        rnn2: false
+    two_off:
+      linear1:
+        linear1: false
+        rnn1: false
+        linear2: true
+        rnn2: true
+      # rnn1:
+      #   linear1: true
+      #   rnn1: false
+      #   linear2: true
+      #   rnn2: true
+      linear2:
+        linear1: true
+        rnn1: false
+        linear2: false
+        rnn2: true
+      rnn2:
+        linear1: true
+        rnn1: false
+        linear2: true
+        rnn2: false
+plot_args:
+  - 
+    selectors:
+      mode: train
+    grid: [metric, network]
+    hue: one_off
+    style: lr
+    name: one_off
+  - 
+    selectors:
+      mode: train
+    grid: [metric, network]
+    hue: one_on
+    style: lr
+    name: one_on
+  - 
+    selectors:
+      mode: train
+    grid: [metric, network]
+    hue: two_off
+    style: lr
+    name: two_off
+  - 
+    selectors:
+      agent_type: ci
+      agents: mean
+      mode: train
+      name: [stick_to_color, max_freq]
+    grid: [name, network]
+    hue: one_off
+    style: lr
+    name: one_off_actions
+  - 
+    selectors:
+      agent_type: ci
+      agents: mean
+      mode: train
+      name: [stick_to_color, max_freq]
+    grid: [name, network]
+    hue: one_on
+    style: lr
+    name: one_on_actions
+  - 
+    selectors:
+      agent_type: ci
+      agents: mean
+      mode: train
+      name: [stick_to_color, max_freq]
+    grid: [name, network]
+    hue: two_off
+    style: lr
+    name: two_off_actions
