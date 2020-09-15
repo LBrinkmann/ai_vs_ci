@@ -29,24 +29,14 @@ grid:
       labels.architecture: graph_conv_max
     - params.agent_types.ai.controller_args.model_args.layer_args:
         class_name: GCNConv
-        add_self_loop: true
+        add_self_loops: true
         normalize: true
       labels.architecture: gcn_conv_self_norm
     - params.agent_types.ai.controller_args.model_args.layer_args:
         class_name: GCNConv
-        add_self_loop: false
+        add_self_loops: false
         normalize: true
       labels.architecture: gcn_conv_norm
-    - params.agent_types.ai.controller_args.model_args.layer_args:
-        class_name: GCNConv
-        add_self_loop: true
-        normalize: false
-      labels.architecture: gcn_conv_self
-    - params.agent_types.ai.controller_args.model_args.layer_args:
-        class_name: GCNConv
-        add_self_loop: false
-        normalize: false
-      labels.architecture: gcn_conv
   - 
     - params.env_args.rewards_args:
         ai:
@@ -125,10 +115,6 @@ params:
         sample_args: 
           horizon: 100
         model_args:
-          layer_args:
-            class_name: GraphConv
-            aggr: sum
-
           net_type: gcn
           hidden_size: 100
         opt_args:
@@ -159,7 +145,7 @@ params:
     n_agents: 20
     n_actions: 4
     network_period: 1
-    mapping_period: 1
+    mapping_period: 0
     max_history: 50
     graph_args:
         constrains: 

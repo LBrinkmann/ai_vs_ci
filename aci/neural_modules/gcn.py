@@ -9,7 +9,7 @@ def get_graph_layer(in_channels, out_channels, class_name, **kwargs):
         layer_class = GraphConv
     elif class_name == 'GCNConv':
         layer_class = GCNConv
-    return layer_class(n_actions, hidden_size, **kwargs)
+    return layer_class(in_channels, out_channels, **kwargs)
 
 
 class GCNModel(nn.Module):

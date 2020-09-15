@@ -73,7 +73,7 @@ class OneHotTransformer(nn.Module):
 
         shift_end = seq_length * batch_size * n_agents
 
-        shift = th.arange(start=0, end=shift_end, step=n_agents)
+        shift = th.arange(start=0, end=shift_end, step=n_agents, device=self.device)
         shift = shift.reshape(batch_size, seq_length).unsqueeze(0).repeat(n_agents, 1, 1)
 
         edge_index = links + shift.unsqueeze(-1).unsqueeze(-1)
