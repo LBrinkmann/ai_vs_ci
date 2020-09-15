@@ -1,0 +1,182 @@
+exec:
+  command: train
+  script_name: gpu
+labels:
+  project: ai_vs_ci
+  batch: gnn_test1
+grid:
+  - 
+    - params.env_args.graph_args:
+        constrains: 
+            max_max_degree: 8
+            connected: True
+        graph_args:
+          p: 0.2
+        graph_type: erdos_renyi
+      labels.network: erdos_renyi_8
+  - 
+    - params.agent_types.ai.controller_args.model_args.layer_args:
+        class_name: GraphConv
+        aggr: add
+      labels.architecture: graph_conv_add
+    - params.agent_types.ai.controller_args.model_args.layer_args:
+        class_name: GraphConv
+        aggr: mean
+      labels.architecture: graph_conv_mean    
+    - params.agent_types.ai.controller_args.model_args.layer_args:
+        class_name: GraphConv
+        aggr: max
+      labels.architecture: graph_conv_max
+    - params.agent_types.ai.controller_args.model_args.layer_args:
+        class_name: GCNConv
+        add_self_loop: true
+        normalize: true
+      labels.architecture: gcn_conv_self_norm
+    - params.agent_types.ai.controller_args.model_args.layer_args:
+        class_name: GCNConv
+        add_self_loop: false
+        normalize: true
+      labels.architecture: gcn_conv_norm
+    - params.agent_types.ai.controller_args.model_args.layer_args:
+        class_name: GCNConv
+        add_self_loop: true
+        normalize: false
+      labels.architecture: gcn_conv_self
+    - params.agent_types.ai.controller_args.model_args.layer_args:
+        class_name: GCNConv
+        add_self_loop: false
+        normalize: false
+      labels.architecture: gcn_conv
+  - 
+    - params.env_args.rewards_args:
+        ai:
+          ind_coordination: 0
+          avg_coordination: -1
+          ind_catch: 0
+          avg_catch: 1
+        ci:
+          ind_coordination: 0
+          avg_coordination: 1
+          ind_catch: 0
+          avg_catch: -1
+      labels.reward: ai_coll_ci_coll_zero_sum
+  - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0001]
+    params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+params:
+  device_name: cuda
+  scheduler_args:
+    episodes: 30000
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training: 
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: true
+            ai: false
+      - episode: 5000
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: false
+            ai: true
+      - episode: 10000
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: true
+            ai: false
+      - episode: 15000
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: false
+            ai: true
+      - episode: 20000
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: true
+            ai: true
+  agent_types:
+    ai:
+      controller_args:
+        gamma: 0.80
+        batch_size: 5
+        target_update_freq: 100
+        sample_args: 
+          horizon: 100
+        model_args:
+          layer_args:
+            class_name: GraphConv
+            aggr: sum
+
+          net_type: gcn
+          hidden_size: 100
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+    ci:
+      controller_args:
+        gamma: 0.80
+        batch_size: 20
+        target_update_freq: 100
+        sample_args: 
+          horizon: 100
+        model_args:
+          net_type: gru
+          hidden_size: 100
+          multi_type: individual_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+  writer_args:
+    flush_period: 100000
+    periods:
+      trace: 10
+      mean_trace: 1
+      env: 1000
+  env_class: adversial_graph_coloring_historized
+  env_args:
+    n_agents: 20
+    n_actions: 4
+    network_period: 1
+    mapping_period: 1
+    max_history: 50
+    graph_args:
+        constrains: 
+            # max_max_degree: 8
+            connected: True
+        graph_args:
+          d: 4
+        graph_type: random_regular
+    episode_length: 50
+    rewards_args:
+        ai:
+            avg_catch: 0.5
+            avg_coordination: 0
+            ind_catch: 0.5
+            ind_coordination: 0
+        ci:
+            avg_catch: 0
+            avg_coordination: 0
+            ind_catch: 0
+            ind_coordination: 1

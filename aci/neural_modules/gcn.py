@@ -1,15 +1,23 @@
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, GraphConv
 import torch.nn as nn
 import torch.nn.functional as F
 import torch as th
 
 
+def get_graph_layer(in_channels, out_channels, class_name, **kwargs):
+    if class_name == 'GraphConv':
+        layer_class = GraphConv
+    elif class_name == 'GCNConv':
+        layer_class = GCNConv
+    return layer_class(n_actions, hidden_size, **kwargs)
+
+
 class GCNModel(nn.Module):
-    def __init__(self, n_actions, hidden_size, device):
+    def __init__(self, n_actions, hidden_size, layer_args, device):
         super(GCNModel, self).__init__()
 
-        self.conv1 = GCNConv(n_actions, hidden_size, add_self_loops=False)
-        self.conv2 = GCNConv(hidden_size, n_actions, add_self_loops=False)
+        self.conv1 = get_graph_layer(n_actions, hidden_size, **layer_args)
+        self.conv2 = get_graph_layer(hidden_size, n_actions, **layer_args)
 
     def reset(self):
         pass
