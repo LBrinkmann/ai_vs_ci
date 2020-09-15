@@ -12,8 +12,9 @@ preprocess_args:
         agent_type: ci
 plot_args:
   - 
-    expand: [network]
+    # expand: [network]
     selectors:
+      network: erdos_renyi_8
       mode: train
     grid: [metric, lr]
     hue: pooling_types
