@@ -6,19 +6,39 @@ import torch as th
 import numpy as np
 import collections
 from .utils.graph import create_graph, determine_max_degree, pad_neighbors
-    
+
+
+def get_secrets(n_agents, n_seeds, correlated, device):
+    if correlated:
+        return th.randint(high=n_seeds, size=(1,), device=device).repeat(n_agents)
+    else:
+        return th.randint(high=n_seeds, size=(n_agents,), device=device)
+
+
+def get_secrets_maxval(n_seeds, correlated):
+    return n_seeds - 1
+
+
+def get_envstate(episode_step, period):
+    return th.tensor(episode_step % period == 0, dtype=th.int64).unsqueeze(0)
+
+
+def get_envstate_maxval(period):
+    return 1
+
 
 class AdGraphColoringHist():
     def __init__(
             self, n_agents, n_actions, graph_args, episode_length, max_history, mapping_period, 
-            network_period, rewards_args, device):
+            network_period, rewards_args, device, secrete_args=None, envstate_args=None, ):
         self.episode_length = episode_length
         self.mapping_period = mapping_period
         self.network_period = network_period
         self.max_history = max_history
         self.graph_args = graph_args
-        self.device = device
         self.rewards_args = rewards_args
+        self.secrete_args = secrete_args
+        self.envstate_args = envstate_args
         self.agent_types = ['ci', 'ai']
         self.agent_types_idx = {'ci': 0, 'ai': 1}
         self.n_agents = n_agents
@@ -26,7 +46,20 @@ class AdGraphColoringHist():
         self.episode = -1
         self.max_degree = determine_max_degree(n_nodes=n_agents, **graph_args)
 
+        self.device = device
         self.init_history()
+
+    def _get_secrets(self):
+        if self.secrete_args is not None:
+            return get_secrets(**self.secrete_args, n_agents=self.n_agents, device=self.device)
+        else:
+            return None
+
+    def _get_envstate(self):
+        if self.envstate_args is not None:
+            return get_envstate(episode_step=self.episode_step, **self.envstate_args)
+        else:
+            return None
 
     def init_history(self):
         self.history_queue = collections.deque([], maxlen=self.max_history)
@@ -39,8 +72,13 @@ class AdGraphColoringHist():
 
         self.neighbors_history = th.empty((self.n_agents, self.max_history, self.max_degree + 1), dtype=th.int64, device=self.device)
         self.neighbors_mask_history = th.empty((self.n_agents, self.max_history, self.max_degree + 1), dtype=th.bool, device=self.device)
-
         self.ci_ai_map_history = th.empty((self.n_agents, self.max_history), dtype=th.int64, device=self.device)
+
+        if self.envstate_args:
+            self.envstate_history = th.empty((1, self.max_history, self.episode_length + 1), dtype=th.int64, device=self.device)
+        if self.secrete_args:
+            self.secretes_history = th.empty((self.n_agents, self.max_history), dtype=th.int64, device=self.device)
+
 
     def init_episode(self):
         self.episode += 1
@@ -71,6 +109,8 @@ class AdGraphColoringHist():
         # init state
         self.state = th.tensor(
                 np.random.randint(0, self.n_actions, (2, self.n_agents)), dtype=th.int64, device=self.device)
+        self.secretes = self._get_secrets()
+        self.envstate = self._get_envstate()
 
         # add to history
         self.history_queue.appendleft(self.current_hist_idx)
@@ -78,6 +118,12 @@ class AdGraphColoringHist():
         # self.adjacency_matrix_history[self.current_hist_idx] = self.adjacency_matrix
         self.neighbors_history[:, self.current_hist_idx] = self.neighbors
         self.neighbors_mask_history[:, self.current_hist_idx] = self.neighbors_mask
+
+        if self.secrete_args:
+            self.secretes_history[:, self.current_hist_idx] = self.secretes
+        if self.envstate_args:
+            self.envstate_history[:, self.current_hist_idx, self.episode_step + 1] = self.envstate
+
         self.ci_ai_map_history[:, self.current_hist_idx] = self.ci_ai_map
 
         self.info = {
@@ -172,9 +218,9 @@ class AdGraphColoringHist():
             neighbors[:, :, 1:]
         ], dim=-1)
 
-        links = links.unsqueeze(2).repeat(1,1,50,1,1)
+        links = links.unsqueeze(2).repeat(1,1,self.episode_length,1,1)
 
-        mask = mask[:, :, 1:].unsqueeze(2).repeat(1,1,50,1)
+        mask = mask[:, :, 1:].unsqueeze(2).repeat(1,1,self.episode_length,1)
         
         prev_states = ci_state[:,:,:-1]
         this_states = ci_state[:,:,1:]
@@ -186,13 +232,22 @@ class AdGraphColoringHist():
         return {
             'neighbors_with_mask': ((self.n_agents, self.max_degree + 1), (self.n_agents, self.max_degree + 1)),
             'neighbors': (self.n_agents, self.max_degree + 1),
-            'matrix': ((self.n_agents,), (self.n_agents, self.n_agents))
+            'matrix': ((self.n_agents,), (self.n_agents, self.n_agents)),
+            'neighbors_mask_secret_envstate': (
+                {'shape': (self.n_agents, self.max_degree + 1), 'maxval': self.n_actions},
+                {'shape': (self.n_agents, self.max_degree + 1), 'maxval': 1},
+                {'shape': (self.n_agents,), 'maxval': None if self.secrete_args is None else get_secrets_maxval(**self.secrete_args)},
+                {'shape': (1, 1,), 'maxval': None if self.envstate_args is None else get_envstate_maxval(**self.envstate_args)},
+            ),
         }
 
 
     def observe(self, mode, **kwarg):
         if mode == 'neighbors_with_mask':
             return self._observe_neighbors(**kwarg)
+        elif mode == 'neighbors_mask_secret_envstate':
+            obs, mask = self._observe_neighbors(**kwarg)
+            return obs, mask, self.secretes, self.envstate
         elif mode == 'neighbors': 
             return self._observe_neighbors(**kwarg)[0]
         elif mode == 'matrix': 
@@ -213,12 +268,26 @@ class AdGraphColoringHist():
 
         episode_idx = th.tensor([self.history_queue[pidx] for pidx in pos_idx], dtype=th.int64)
 
-        if mode in ['neighbors_with_mask', 'neighbors']:
+        if mode in ['neighbors_with_mask', 'neighbors', 'neighbors_mask_secret_envstate']:
             prev_obs, obs = self._batch_neighbors(
                 episode_idx=episode_idx, agent_type=agent_type, **kwarg)
             if mode == 'neighbors':
                 prev_obs = prev_obs[0]
                 obs = obs[0]
+            elif mode == 'neighbors_mask_secret_envstate':
+                if self.envstate_args:
+                    all_env_state = self.envstate_history[:,episode_idx]
+                    prev_env_state = all_env_state[:,:,:-1]
+                    env_state = all_env_state[:,:,1:]
+                    print(prev_env_state.shape, env_state.shape)
+                else:
+                    prev_env_state, env_state = None, None
+                if self.secrete_args:
+                    secrets = self.secretes_history[:, episode_idx].unsqueeze(2).repeat(1,1,self.episode_length)
+                else:
+                    secrets = None
+                obs = (*obs, secrets, env_state)
+                prev_obs = (*prev_obs, secrets, prev_env_state)
         elif mode == 'matrix':
             prev_obs, obs = self._batch_matrix(
                 episode_idx=episode_idx, agent_type=agent_type, **kwarg)
@@ -246,32 +315,40 @@ class AdGraphColoringHist():
         return {'ai': values['ai'][self.ci_ai_map], 'ci': values['ci']}
 
     def _get_rewards(self):
-        ci_state = self.state[self.agent_types_idx['ci']]
-        ai_state = self.state[self.agent_types_idx['ai']]
+        if (self.envstate_args is None) or (self.envstate == 1):
+            ci_state = self.state[self.agent_types_idx['ci']]
+            ai_state = self.state[self.agent_types_idx['ai']]
 
-        ci_state_shifted = (ci_state + 1)
-        ci_state_shifted_mapped = self.adjacency_matrix * (ci_state + 1) # [a,:] neighbors of agent a 
+            ci_state_shifted = (ci_state + 1)
+            ci_state_shifted_mapped = self.adjacency_matrix * (ci_state + 1) # [a,:] neighbors of agent a 
 
-        conflicts = (ci_state_shifted[:, np.newaxis] == ci_state_shifted_mapped)
+            conflicts = (ci_state_shifted[:, np.newaxis] == ci_state_shifted_mapped)
 
-        ind_coordination = 1 - conflicts.any(dim=0).type(th.float)
-        ind_catch = (ai_state == ci_state).type(th.float)
+            ind_coordination = 1 - conflicts.any(dim=0).type(th.float)
+            ind_catch = (ai_state == ci_state).type(th.float)
 
-        metrics = {
-            'ind_coordination': ind_coordination,
-            'avg_coordination': ind_coordination.mean(0, keepdim=True).expand(self.n_agents),
-            'ind_catch': ind_catch,
-            'avg_catch': ind_catch.mean(0, keepdim=True).expand(self.n_agents),
-        }
+            metrics = {
+                'ind_coordination': ind_coordination,
+                'avg_coordination': ind_coordination.mean(0, keepdim=True).expand(self.n_agents),
+                'ind_catch': ind_catch,
+                'avg_catch': ind_catch.mean(0, keepdim=True).expand(self.n_agents),
+            }
 
-        ci_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ci'].items()]).sum(0)
-        ai_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ai'].items()]).sum(0)
+            ci_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ci'].items()]).sum(0)
+            ai_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ai'].items()]).sum(0)
+
+        else:
+            ci_reward = th.zeros(self.n_agents, dtype=th.float)
+            ai_reward = th.zeros(self.n_agents, dtype=th.float)
+            metrics = {}
 
         return ci_reward, ai_reward, metrics
 
 
     def step(self, actions):
         self.episode_step += 1
+        self.envstate = self._get_envstate()
+
         assert actions['ci'].max() <= self.n_actions - 1
         assert actions['ai'].max() <= self.n_actions - 1
         assert actions['ai'].dtype == th.int64
@@ -294,9 +371,9 @@ class AdGraphColoringHist():
         self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
         self.reward_history[self.agent_types_idx['ci'], :, self.current_hist_idx, self.episode_step] = ci_reward
         self.reward_history[self.agent_types_idx['ai'], :, self.current_hist_idx, self.episode_step] = ai_reward
-
-
-        
+        if self.envstate_args:
+            self.envstate_history[:,self.current_hist_idx, self.episode_step + 1] = self.envstate
+ 
         rewards = {
             'ai': ai_reward[self.ci_ai_map],
             'ci': ci_reward
