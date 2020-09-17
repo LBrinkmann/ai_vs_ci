@@ -11,14 +11,35 @@ from aci.neural_modules import NETS
 
 
 
+
+def binary(x, bits):
+    mask = 2**th.arange(bits).to(x.device, x.dtype)
+    return x.unsqueeze(-1).bitwise_and(mask).ne(0).byte()
+
+
 class GRUAgentWrapper(nn.Module):
-    def __init__(self, observation_shape, n_agents, n_actions, net_type, multi_type, device, **kwargs):
+    def __init__(self, 
+            observation_shapes, n_agents, n_actions, net_type, 
+            multi_type, device, **kwargs):
         super(GRUAgentWrapper, self).__init__()
         assert multi_type in ['shared_weights', 'individual_weights']
-        input_shape = observation_shape[0][1]
+
+        if observation_shapes[2]['maxval'] is None:
+            self.secrete_size = 0
+        else:
+            secrete_maxval = observation_shapes[2]['maxval']
+            assert np.log2(secrete_maxval + 1) == int(np.log2(secrete_maxval + 1))
+            self.secrete_size = int(np.log2(secrete_maxval + 1))
+
+        n_inputs = observation_shapes[0]['shape'][1]
+        self.input_size = n_actions + 1
+
         effective_agents = 1 if multi_type == 'shared_weights' else n_agents
+
         self.models = nn.ModuleList([
-            NETS[net_type](input_shape=input_shape, n_actions=n_actions, device=device, **kwargs)
+            NETS[net_type](
+                n_inputs=n_inputs, input_size=self.input_size, n_actions=n_actions, device=device, 
+                secrete_size=self.secrete_size, **kwargs)
             for n in range(effective_agents)
         ])
         self.multi_type = multi_type
@@ -26,7 +47,7 @@ class GRUAgentWrapper(nn.Module):
         self.n_agents = n_agents
         self.device = device
 
-    def forward(self, x, m):
+    def forward(self, x, m, s=None, e=None):
         """
             agents x batch x inputs
         """
@@ -35,16 +56,32 @@ class GRUAgentWrapper(nn.Module):
             o_shape = (*x.shape[:3], self.n_actions)
             x = x.reshape(1, x.shape[0]*x.shape[1], *x.shape[2:])
             m = m.reshape(1, x.shape[0]*x.shape[1], *x.shape[2:])
-        onehot = th.zeros(*x.shape, self.n_actions, dtype=th.float32, device=self.device)
+            if e is not None:
+                e = e.unsqueeze(-1).repeat(self.n_agents,1,1,1)
+                e = e.reshape(1, e.shape[0]*e.shape[1], *e.shape[2:])
+            if s is not None:
+                s = s.reshape(1, s.shape[0]*s.shape[1], *s.shape[2:])
+        else:
+            if e is not None:
+                e = e.unsqueeze(-1)
 
+        onehot = th.zeros(*x.shape, self.input_size, dtype=th.float32, device=self.device)
         x_ = x.clone()
         x_[m] = 0
         onehot.scatter_(-1, x_.unsqueeze(-1), 1)
+        if e is not None:
+            onehot[:,:,:,-1] = e
         onehot[m] = 0
 
+        if s is not None:
+            binary_secrets = binary(s, self.secrete_size).type(th.float)
+            data = onehot, m, binary_secrets
+        else:
+            data = onehot, m
+
         q = [
-            model(oh, mm)
-            for model, oh, mm in zip(self.models, onehot, m)
+            model(*d)
+            for model, *d in zip(self.models, *data)
         ]
         q = th.stack(q)
 
@@ -106,10 +143,10 @@ class MADQN:
         self.n_agents = n_agents
         self.device = device
         if model_args['net_type'] != 'gcn':
-            self.observation_mode = 'neighbors_with_mask'
-            observation_shape = observation_shapes[self.observation_mode]
-            self.policy_net = GRUAgentWrapper(observation_shape, n_agents, n_actions, device=device, **model_args).to(device)
-            self.target_net = GRUAgentWrapper(observation_shape, n_agents, n_actions, device=device, **model_args).to(device)
+            self.observation_mode = 'neighbors_mask_secret_envstate'
+            observation_shapes = observation_shapes[self.observation_mode]
+            self.policy_net = GRUAgentWrapper(observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
+            self.target_net = GRUAgentWrapper(observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
         else:
             self.observation_mode = 'matrix'
             model_args.pop('net_type')
@@ -128,7 +165,7 @@ class MADQN:
 
     def get_q(self, input, training=None):
         with th.no_grad():
-            return self.policy_net(*(i.unsqueeze(1).unsqueeze(1) for i in input)).squeeze(1).squeeze(1)
+            return self.policy_net(*(i.unsqueeze(1).unsqueeze(1) if i is not None else None for i in input)).squeeze(1).squeeze(1)
 
     def update(self, done, sampler, writer=None, training=None):
         if training and done:
