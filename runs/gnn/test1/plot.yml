@@ -15,26 +15,16 @@ plot_args:
     selectors:
       mode: train
     grid: [metric]
-    hue: network
+    hue: architecture
     style: lr
     name: mean
-  - 
-    selectors:
-      # agent_type: ci
-      mode: train
-      agents: [agent_0, agent_1, agent_2, agent_3, agent_4]
-      name: [ind_coordination]
-    grid: [network]
-    hue: lr
-    style: agents
-    name: agents
   - 
     selectors:
       agent_type: ci
       agents: mean
       mode: train
       name: [stick_to_color, max_freq]
-    grid: [network]
+    grid: [architecture]
     hue: name
     style: lr
     name: actions_mean
