@@ -34,8 +34,8 @@ class AdGraphColoringHist():
             (len(self.agent_types), self.n_agents, self.max_history, self.episode_length + 1), dtype=th.int64, device=self.device)
         self.reward_history = th.empty(
             (len(self.agent_types), self.n_agents, self.max_history, self.episode_length), dtype=th.float32, device=self.device)
-        self.adjacency_matrix_history = th.empty(
-            (self.n_agents, self.max_history, self.n_agents), dtype=th.bool, device=self.device)
+        # self.adjacency_matrix_history = th.sparse.empty(
+        #     (self.max_history, self.n_agents, self.n_agents), dtype=th.bool, device=self.device)
 
         self.neighbors_history = th.empty((self.n_agents, self.max_history, self.max_degree + 1), dtype=th.int64, device=self.device)
         self.neighbors_mask_history = th.empty((self.n_agents, self.max_history, self.max_degree + 1), dtype=th.bool, device=self.device)
@@ -55,7 +55,8 @@ class AdGraphColoringHist():
             padded_neighbors, neighbors_mask = pad_neighbors(neighbors, self.max_degree)
             self.neighbors = th.tensor(padded_neighbors, dtype=th.int64, device=self.device)
             self.neighbors_mask = th.tensor(neighbors_mask, dtype=th.bool, device=self.device)
-            self.adjacency_matrix = th.tensor(adjacency_matrix, dtype=th.bool, device=self.device)
+            self.adjacency_matrix = th.tensor(
+                adjacency_matrix, dtype=th.bool, device=self.device)
             
             
         # mapping between ai agents and ci agents (outward: ci_ai_map, incoming: ai_ci_map)
@@ -74,7 +75,7 @@ class AdGraphColoringHist():
         # add to history
         self.history_queue.appendleft(self.current_hist_idx)
         self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
-        self.adjacency_matrix_history[:, self.current_hist_idx] = self.adjacency_matrix
+        # self.adjacency_matrix_history[self.current_hist_idx] = self.adjacency_matrix
         self.neighbors_history[:, self.current_hist_idx] = self.neighbors
         self.neighbors_mask_history[:, self.current_hist_idx] = self.neighbors_mask
         self.ci_ai_map_history[:, self.current_hist_idx] = self.ci_ai_map
@@ -88,9 +89,6 @@ class AdGraphColoringHist():
 
     def to_dict(self):
         return self.info
-
-    def _observe_historized_neighbors(self, agent_type, history_size):
-        pass
 
     def _observe_neighbors(self, agent_type):
         ci_state = self.state[self.agent_types_idx['ci']]
@@ -122,22 +120,73 @@ class AdGraphColoringHist():
         obs = th.gather(_ci_state, -1, _neighbors)
         obs[_mask] = -1
         if agent_type == 'ci':
-            return obs, _mask
+            pass
         elif agent_type == 'ai':
             _ci_ai_map_history = self.ci_ai_map_history[:, episode_idx] \
                 .unsqueeze(-1) \
                 .unsqueeze(-1) \
                 .repeat(1,1,obs.shape[2],obs.shape[3])
-            return th.gather(obs, 0, _ci_ai_map_history), th.gather(_mask, 0, _ci_ai_map_history)
-
+            obs = th.gather(obs, 0, _ci_ai_map_history)
+            _mask = th.gather(_mask, 0, _ci_ai_map_history)
         else:
             raise ValueError(f'Unkown agent_type {agent_type}')
+
+        prev_observations = obs[:,:,:-1]
+        observations = obs[:,:,1:]
+        prev_mask = _mask[:,:,:-1]
+        mask = _mask[:,:,1:]
+
+        assert prev_observations.max() <= self.n_actions - 1
+        assert observations.max() <= self.n_actions - 1
+
+        return (prev_observations, prev_mask), (observations, mask)
+
+
+    def _observe_matrix(self, agent_type):
+        ci_state = self.state[self.agent_types_idx['ci']]
+
+        if (agent_type == 'ai') and (self.mapping_period > 0):
+            raise NotImplementedError("Matrix observation only implemented with fixed mapping")
+
+        links = th.stack([
+            self.neighbors[:, [0]].repeat(1, self.neighbors.shape[-1] - 1),
+            self.neighbors[:, 1:]
+        ], dim=-1)
+
+        # edge_index = links[:, ~self.neighbors_mask[:, 1:]]
+
+
+        return ci_state, links, self.neighbors_mask[:, 1:]
+
+
+    def _batch_matrix(self, episode_idx, agent_type):
+        if (agent_type == 'ai') and (self.mapping_period > 0):
+            raise NotImplementedError("Matrix observation only implemented with fixed mapping")
+
+        ci_state = self.state_history[self.agent_types_idx['ci'], :, episode_idx]
+        mask = self.neighbors_mask_history[:, episode_idx]
+        neighbors = self.neighbors_history[:, episode_idx]
+
+        links = th.stack([
+            neighbors[:, :, [0]].repeat(1, 1, neighbors.shape[-1] - 1),
+            neighbors[:, :, 1:]
+        ], dim=-1)
+
+        links = links.unsqueeze(2).repeat(1,1,50,1,1)
+
+        mask = mask[:, :, 1:].unsqueeze(2).repeat(1,1,50,1)
+        
+        prev_states = ci_state[:,:,:-1]
+        this_states = ci_state[:,:,1:]
+
+        return (prev_states, links, mask), (this_states, links, mask) 
 
 
     def get_observation_shapes(self):
         return {
             'neighbors_with_mask': ((self.n_agents, self.max_degree + 1), (self.n_agents, self.max_degree + 1)),
-            'neighbors': (self.n_agents, self.max_degree + 1)
+            'neighbors': (self.n_agents, self.max_degree + 1),
+            'matrix': ((self.n_agents,), (self.n_agents, self.n_agents))
         }
 
 
@@ -146,6 +195,8 @@ class AdGraphColoringHist():
             return self._observe_neighbors(**kwarg)
         elif mode == 'neighbors': 
             return self._observe_neighbors(**kwarg)[0]
+        elif mode == 'matrix': 
+            return self._observe_matrix(**kwarg)
         else:
             raise NotImplementedError(f'Mode {mode} is not implemented.')
 
@@ -161,13 +212,19 @@ class AdGraphColoringHist():
             pos_idx = np.arange(batch_size)
 
         episode_idx = th.tensor([self.history_queue[pidx] for pidx in pos_idx], dtype=th.int64)
-        all_observations, all_mask = self._batch_neighbors(
-            episode_idx=episode_idx, agent_type=agent_type, **kwarg)
 
-        prev_observations = all_observations[:,:,:-1]
-        observations = all_observations[:,:,1:]
-        prev_mask = all_mask[:,:,:-1]
-        mask = all_mask[:,:,1:]            
+        if mode in ['neighbors_with_mask', 'neighbors']:
+            prev_obs, obs = self._batch_neighbors(
+                episode_idx=episode_idx, agent_type=agent_type, **kwarg)
+            if mode == 'neighbors':
+                prev_obs = prev_obs[0]
+                obs = obs[0]
+        elif mode == 'matrix':
+            prev_obs, obs = self._batch_matrix(
+                episode_idx=episode_idx, agent_type=agent_type, **kwarg)
+        else:
+            raise NotImplementedError(f'Mode {mode} is not implemented.')
+
 
         actions = self.state_history[self.agent_types_idx[agent_type],:,episode_idx, 1:]
         rewards = self.reward_history[self.agent_types_idx[agent_type],:,episode_idx]
@@ -178,16 +235,8 @@ class AdGraphColoringHist():
             actions = th.gather(actions, 0, _ci_ai_map_history)
             rewards = th.gather(rewards, 0, _ci_ai_map_history)
 
-        assert prev_observations.max() <= self.n_actions - 1
-        assert observations.max() <= self.n_actions - 1
         assert actions.max() <= self.n_actions - 1
-
-        if mode == 'neighbors_with_mask':
-            return (prev_observations, prev_mask), (observations, mask), actions, rewards
-        elif mode == 'neighbors': 
-            return prev_observations, observations, actions, rewards
-        else:
-            raise NotImplementedError(f'Mode {mode} is not implemented.')
+        return prev_obs, obs, actions, rewards
 
 
     def _map_incoming(self, values):
