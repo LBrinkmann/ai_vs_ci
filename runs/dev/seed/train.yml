@@ -70,9 +70,10 @@ params:
     network_period: 1
     mapping_period: 1
     max_history: 50
-    # secrete_args:
-    #   n_seeds: 16
-    #   correlated: false
+    secrete_args:
+      n_seeds: 16
+      correlated: false
+      agent_types: [ci]
     # envstate_args:
     #   period: 2
     graph_args:

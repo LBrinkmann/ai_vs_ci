@@ -96,7 +96,7 @@ def _main(*, output_path, agent_types, env_class, env_args, writer_args, meta, r
 
     controller = {
         name: CONTROLLERS[args['controller_class']](
-        observation_shapes=envs['train'].get_observation_shapes(),
+        observation_shapes=envs['train'].get_observation_shapes(agent_type=name),
         n_actions=envs['train'].n_actions,
         agent_type=name,
         n_agents=envs['train'].n_agents,

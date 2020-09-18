@@ -3,31 +3,12 @@ exec:
   script_name: gpu
 labels:
   project: ai_vs_ci
-  batch: cheap_talk_test1
+  batch: seed_test1
 grid:
-  -
-    - 
-      params.env_args:
-        envstate_args:
-          period: 2
-        episode_length: 50
-      labels.envstate: p2_l50
-    - 
-      params.env_args:
-        envstate_args:
-          period: 1
-        episode_length: 50
-      labels.envstate: p1_l50
-    - 
-      params.env_args:
-        envstate_args:
-          period: 2
-        episode_length: 100
-      labels.envstate: p2_l100
-    - 
-      params.env_args:
-        episode_length: 50
-      labels.envstate: "off"
+  - params.env_args.secrete_args.n_seeds: [None, 2, 8, 64]
+    labels.n_seeds: [0, 2, 8, 64]
+  - params.env_args.secrete_args.correlated: [true, false]
+    labels.correlated: [true, false]
   - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0001]
     params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0001]
     labels.lr: [0.001, 0.0001]
@@ -99,7 +80,7 @@ params:
           rnn2: true
           net_type: pooling_gru
           hidden_size: 100
-          pooling_types: [avg, sum]
+          pooling_types: [max, sum]
           # multi_type: individual_weights
           multi_type: individual_weights
         opt_args:
@@ -119,7 +100,7 @@ params:
           rnn2: true
           net_type: pooling_gru
           hidden_size: 100
-          pooling_types: [avg, sum]
+          pooling_types: [max, sum]
           # multi_type: individual_weights
           multi_type: individual_weights
         opt_args:
@@ -145,9 +126,11 @@ params:
       graph_args:
         p: 0.2
       graph_type: erdos_renyi
-    # envstate_args:
-    #   period: 2
-    # episode_length: 50
+    secrete_args:
+      n_seeds: 16
+      correlated: false
+      agent_types: [ci]
+    episode_length: 50
     rewards_args:
       ai:
         ind_coordination: 0
