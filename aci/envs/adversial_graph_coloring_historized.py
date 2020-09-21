@@ -32,18 +32,24 @@ def get_secrets_maxval(n_seeds=None, agent_type=None, agent_types=None, **kwargs
         return None
 
 
-def get_envstate(episode_step, period):
-    return th.tensor(episode_step % period == 0, dtype=th.int64).unsqueeze(0)
+def get_envstate(episode_step=None, period=None):
+    if period is None:
+        return None
+    else:
+        return th.tensor(episode_step % period == 0, dtype=th.int64).unsqueeze(0)
 
 
-def get_envstate_maxval(period):
-    return 1
+def get_envstate_maxval(period=None):
+    if period is None:
+        return None
+    else:
+        return 1
 
 
 class AdGraphColoringHist():
     def __init__(
             self, n_agents, n_actions, graph_args, episode_length, max_history, mapping_period, 
-            network_period, rewards_args, device, secrete_args=None, envstate_args=None, ):
+            network_period, rewards_args, device, secrete_args={}, envstate_args={}, ):
         self.episode_length = episode_length
         self.mapping_period = mapping_period
         self.network_period = network_period
@@ -66,10 +72,7 @@ class AdGraphColoringHist():
         return get_secrets(**self.secrete_args, n_agents=self.n_agents, device=self.device)
 
     def _get_envstate(self):
-        if self.envstate_args is not None:
-            return get_envstate(episode_step=self.episode_step, **self.envstate_args)
-        else:
-            return None
+        return get_envstate(episode_step=self.episode_step, **self.envstate_args)
 
     def init_history(self):
         self.history_queue = collections.deque([], maxlen=self.max_history)
@@ -84,11 +87,15 @@ class AdGraphColoringHist():
         self.neighbors_mask_history = th.empty((self.n_agents, self.max_history, self.max_degree + 1), dtype=th.bool, device=self.device)
         self.ci_ai_map_history = th.empty((self.n_agents, self.max_history), dtype=th.int64, device=self.device)
 
-        if self.envstate_args:
+        if get_envstate_maxval(**self.envstate_args) is not None:
             self.envstate_history = th.empty((1, self.max_history, self.episode_length + 1), dtype=th.int64, device=self.device)
+        else:
+            self.envstate_history = None
+
         if get_secrets_maxval(**self.secrete_args) is not None:
             self.secretes_history = th.empty((self.n_agents, self.max_history), dtype=th.int64, device=self.device)
-
+        else:
+            self.secretes_history = None
 
     def init_episode(self):
         self.episode += 1
@@ -129,9 +136,9 @@ class AdGraphColoringHist():
         self.neighbors_history[:, self.current_hist_idx] = self.neighbors
         self.neighbors_mask_history[:, self.current_hist_idx] = self.neighbors_mask
 
-        if self.secretes is not None:
+        if self.secretes_history is not None:
             self.secretes_history[:, self.current_hist_idx] = self.secretes
-        if self.envstate is not None:
+        if self.envstate_history is not None:
             self.envstate_history[:, self.current_hist_idx, self.episode_step + 1] = self.envstate
 
         self.ci_ai_map_history[:, self.current_hist_idx] = self.ci_ai_map
@@ -244,7 +251,7 @@ class AdGraphColoringHist():
                 {'shape': (self.n_agents, self.max_degree + 1), 'maxval': self.n_actions},
                 {'shape': (self.n_agents, self.max_degree + 1), 'maxval': 1},
                 {'shape': (self.n_agents,), 'maxval': get_secrets_maxval(agent_type=agent_type, **self.secrete_args)},
-                {'shape': (1, 1,), 'maxval': None if self.envstate_args is None else get_envstate_maxval(**self.envstate_args)},
+                {'shape': (1, 1,), 'maxval': get_envstate_maxval(**self.envstate_args)},
             ),
         }
 
@@ -286,13 +293,13 @@ class AdGraphColoringHist():
                 prev_obs = prev_obs[0]
                 obs = obs[0]
             elif mode == 'neighbors_mask_secret_envstate':
-                if self.envstate_args:
+                if self.envstate_history is not None:
                     all_env_state = self.envstate_history[:,episode_idx]
                     prev_env_state = all_env_state[:,:,:-1]
                     env_state = all_env_state[:,:,1:]
                 else:
                     prev_env_state, env_state = None, None
-                if self.secrete_args and show_agent_type_secrets(agent_type=agent_type, **self.secrete_args):
+                if show_agent_type_secrets(agent_type=agent_type, **self.secrete_args):
                     secrets = self.secretes_history[:, episode_idx].unsqueeze(2).repeat(1,1,self.episode_length)
                 else:
                     secrets = None
@@ -325,7 +332,7 @@ class AdGraphColoringHist():
         return {'ai': values['ai'][self.ci_ai_map], 'ci': values['ci']}
 
     def _get_rewards(self):
-        if (self.envstate_args is None) or (self.envstate == 1):
+        if (self.envstate is None) or (self.envstate == 1):
             ci_state = self.state[self.agent_types_idx['ci']]
             ai_state = self.state[self.agent_types_idx['ai']]
 
@@ -381,7 +388,7 @@ class AdGraphColoringHist():
         self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
         self.reward_history[self.agent_types_idx['ci'], :, self.current_hist_idx, self.episode_step] = ci_reward
         self.reward_history[self.agent_types_idx['ai'], :, self.current_hist_idx, self.episode_step] = ai_reward
-        if self.envstate_args:
+        if self.envstate_history is not None:
             self.envstate_history[:,self.current_hist_idx, self.episode_step + 1] = self.envstate
  
         rewards = {

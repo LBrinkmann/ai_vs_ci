@@ -41,11 +41,18 @@ rewards_args:
         ind_catch: 0
         ind_coordination: 1
 """
+
 base_grid = """
 n_agents: [6, 20]
 network_period: [0, 1, 2]
 mapping_period: [0, 1, 2]
 """
+
+block_grid = """
+
+
+"""
+
 
 def expand(setting, grid):
     settings = [setting]
@@ -69,9 +76,9 @@ def test_neighbors(setting, agent_type, device):
     )
 
     correct = ci_color if agent_type == 'ci' else ci_color[env.ci_ai_map]
-    assert (env.observe(agent_type=agent_type, mode='neighbors', with_mask=False)[:,0] == correct).all()
+    assert (env.observe(agent_type=agent_type, mode='neighbors')[:,0] == correct).all()
 
-    obs, mask = env.observe(agent_type=agent_type, mode='neighbors', with_mask=True)
+    obs, mask = env.observe(agent_type=agent_type, mode='neighbors_with_mask')
 
     test_agent = random.randint(0, n_agents-1)
 
@@ -184,7 +191,7 @@ def test_sampling(setting, agent_type, device):
             ci_color = th.randint(n_actions, size=(n_agents,))
             actions = {'ai': ai_color, 'ci': ci_color}
             rewards, done, info = env.step(actions)
-            obs, mask = env.observe(agent_type=agent_type, mode='neighbors', with_mask=True)
+            obs, mask = env.observe(agent_type=agent_type, mode='neighbors_with_mask')
             test_observations[:,2-i,j] = obs
             test_mask[:,2-i,j] = mask
             test_actions[:,2-i,j] = actions[agent_type]
@@ -194,8 +201,8 @@ def test_sampling(setting, agent_type, device):
                 break
 
     (
-        prev_observations, observations, prev_mask, mask, actions, rewards
-    ) = env.sample(agent_type=agent_type, mode='neighbors', batch_size=batch_size, last=True, with_mask=True)
+        (prev_observations, prev_mask), (observations, mask), actions, rewards
+    ) = env.sample(agent_type=agent_type, mode='neighbors_with_mask', batch_size=batch_size, last=True)
 
     assert prev_observations.shape[:2] == (env.n_agents, batch_size)
     assert (
