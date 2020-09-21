@@ -24,7 +24,7 @@ class GRUAgentWrapper(nn.Module):
         super(GRUAgentWrapper, self).__init__()
         assert multi_type in ['shared_weights', 'individual_weights']
 
-        if observation_shapes[2]['maxval'] is None:
+        if observation_shapes[2] is None:
             self.secrete_size = 0
         else:
             secrete_maxval = observation_shapes[2]['maxval']

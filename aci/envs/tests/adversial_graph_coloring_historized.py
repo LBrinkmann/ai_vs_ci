@@ -228,6 +228,36 @@ def test_sampling(setting, agent_type, device):
 
 
 
+def test_obs_shape(setting, agent_type, device):
+    env = AdGraphColoringHist(**setting, device=device)
+    env.init_episode()
+    rewards, done, info = random_step(env)
+    obs_shapes = env.get_observation_shapes(agent_type=agent_type)
+
+    # TODO: matrix seems to need more work
+    obs_shapes.pop('matrix')
+
+    for mode, shapes in obs_shapes.items():
+        obs = env.observe(agent_type=agent_type, mode=mode)
+        
+        if not isinstance(obs, tuple):
+            obs = (obs,)
+            shapes = (shapes,)
+        assert len(obs) == len(shapes), f'test_obs_shape, {mode} {agent_type}'
+        for shape, o in zip(shapes,obs):
+            # print(mode, agent_type, o.shape, shape, shapes)
+            if isinstance(shape, dict):
+                assert o.shape == shape['shape']
+                assert o.max() <= shape['maxval']
+            elif shape is None:
+                assert o is None
+            else:
+                assert o.shape == shape
+
+# TODO: shape test for sampleing
+
+
+
 def test_sampling2(setting, agent_type, device):
     # TEST sampling:
     env = AdGraphColoringHist(**setting, device=device)
@@ -270,6 +300,10 @@ def test_sampling2(setting, agent_type, device):
 
 def test_observations(setting):
     device = th.device('cpu')
+    test_obs_shape(setting, agent_type='ci', device=device)
+    test_obs_shape(setting, agent_type='ai', device=device)
+
+
     test_neighbors(setting, agent_type='ci', device=device)
     test_neighbors(setting, agent_type='ai', device=device)
     test_sampling(setting, agent_type='ci', device=device)
@@ -280,6 +314,9 @@ def test_observations(setting):
         test_neighbors2(setting, agent_type='ai', device=device)
         test_sampling2(setting, agent_type='ci', device=device)
         test_sampling2(setting, agent_type='ai', device=device)
+
+
+
 
 
 def test_setting(setting):

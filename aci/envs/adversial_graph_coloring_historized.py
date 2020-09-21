@@ -25,15 +25,22 @@ def get_secrets(n_agents=None, n_seeds=None, correlated=None, device=None, **kwa
         return th.randint(high=n_seeds, size=(n_agents,), device=device)
 
 
-def get_secrets_maxval(n_seeds=None, agent_type=None, agent_types=None, **kwargs):
+def get_secrets_shape(n_agents, n_seeds=None, agent_type=None, agent_types=None, **kwargs):
     if (n_seeds is not None) and (agent_type in agent_types):
-        return n_seeds - 1
+        return {'shape': (n_agents,), 'maxval': n_seeds - 1}
     else:
         return None
 
 
 def gen_secrets(n_seeds=None, **kwargs):
     if (n_seeds is not None):
+        return True
+    else:
+        return False
+
+
+def add_envstate(period=None, **kwargs):
+    if (period is not None):
         return True
     else:
         return False
@@ -46,11 +53,11 @@ def get_envstate(episode_step=None, period=None):
         return th.tensor(episode_step % period == 0, dtype=th.int64).unsqueeze(0)
 
 
-def get_envstate_maxval(period=None):
+def get_envstate_shape(period=None):
     if period is None:
         return None
     else:
-        return 1
+        return {'shape': (1, 1,), 'maxval': 1}
 
 
 class AdGraphColoringHist():
@@ -94,7 +101,7 @@ class AdGraphColoringHist():
         self.neighbors_mask_history = th.empty((self.n_agents, self.max_history, self.max_degree + 1), dtype=th.bool, device=self.device)
         self.ci_ai_map_history = th.empty((self.n_agents, self.max_history), dtype=th.int64, device=self.device)
 
-        if get_envstate_maxval(**self.envstate_args) is not None:
+        if add_envstate(**self.envstate_args):
             self.envstate_history = th.empty((1, self.max_history, self.episode_length + 1), dtype=th.int64, device=self.device)
         else:
             self.envstate_history = None
@@ -253,15 +260,14 @@ class AdGraphColoringHist():
         return {
             'neighbors_with_mask': ((self.n_agents, self.max_degree + 1), (self.n_agents, self.max_degree + 1)),
             'neighbors': (self.n_agents, self.max_degree + 1),
-            'matrix': ((self.n_agents,), (self.n_agents, self.n_agents)),
+            'matrix': ((self.n_agents,), (self.n_agents, self.max_degree, 2)),
             'neighbors_mask_secret_envstate': (
                 {'shape': (self.n_agents, self.max_degree + 1), 'maxval': self.n_actions},
                 {'shape': (self.n_agents, self.max_degree + 1), 'maxval': 1},
-                {'shape': (self.n_agents,), 'maxval': get_secrets_maxval(agent_type=agent_type, **self.secrete_args)},
-                {'shape': (1, 1,), 'maxval': get_envstate_maxval(**self.envstate_args)},
+                get_secrets_shape(n_agents=self.n_agents, agent_type=agent_type, **self.secrete_args),
+                get_envstate_shape(**self.envstate_args),
             ),
         }
-
 
     def observe(self, mode, **kwarg):
         if mode == 'neighbors_with_mask':
@@ -274,7 +280,7 @@ class AdGraphColoringHist():
             else:
                 secretes = None
             return obs, mask, secretes, self.envstate
-        elif mode == 'neighbors': 
+        elif mode == 'neighbors':
             return self._observe_neighbors(**kwarg)[0]
         elif mode == 'matrix': 
             return self._observe_matrix(**kwarg)
