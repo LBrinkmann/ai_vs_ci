@@ -12,58 +12,6 @@ from itertools import count
 from aci.envs.adversial_graph_coloring_historized import AdGraphColoringHist
 
 
-# Tests
-
-
-base_settings = """
-n_agents: 6
-n_actions: 3
-network_period: 1
-mapping_period: 1
-max_history: 50
-graph_args:
-    constrains: 
-        max_max_degree: 4
-        connected: True
-    graph_args:
-        p: 0.2
-    graph_type: erdos_renyi
-episode_length: 50
-rewards_args:
-    ai:
-        avg_catch: 0.5
-        avg_coordination: 0
-        ind_catch: 0.5
-        ind_coordination: 0
-    ci:
-        avg_catch: 0
-        avg_coordination: 0
-        ind_catch: 0
-        ind_coordination: 1
-"""
-
-base_grid = """
-n_agents: [6, 20]
-network_period: [0, 1, 2]
-mapping_period: [0, 1, 2]
-"""
-
-block_grid = """
-
-
-"""
-
-
-def expand(setting, grid):
-    settings = [setting]
-    labels = [{}]
-    for key, values in grid.items():
-        settings = [{**s, key: v} for s in settings for v in values]
-        labels = [{**l, key: v} for l in labels for v in values]
-    return settings, labels
-
-
-
 def test_neighbors(setting, agent_type, device):
     env = AdGraphColoringHist(**setting, device=device)
     n_agents = env.n_agents
@@ -97,6 +45,62 @@ def test_neighbors(setting, agent_type, device):
     test_neighbor_colors_2 = th.sort(obs[test_neighbors_ai,0])[0]
 
     assert (test_neighbor_colors_1 == test_neighbor_colors_2).all(), 'wrong neighbor observations'
+
+
+def random_step(env):
+    n_agents = env.n_agents
+    n_actions = env.n_actions
+    ai_color = th.randint(n_actions, size=(n_agents,))
+    ci_color = th.randint(n_actions, size=(n_agents,))
+    rewards, done, info = env.step(
+        {'ai': ai_color, 'ci': ci_color}
+    )
+    return rewards, done, info
+
+
+def test_neighbors2(setting, agent_type, device):
+    env = AdGraphColoringHist(**setting, device=device)
+
+    # test agent_types
+    if (agent_type in setting['secrete_args']['agent_types']) and setting['secrete_args']['n_seeds']:
+        # test correlated
+        if setting['secrete_args']['correlated']:
+            env.init_episode()
+            rewards, done, info = random_step(env)
+            obs, mask, secrets, envstate = env.observe(
+                agent_type=agent_type, mode='neighbors_mask_secret_envstate')
+            assert len(set(secrets.tolist())) == 1, 'all secrets need to be the same'
+
+        else:
+            test = False
+            for i in range(1000):
+                env.init_episode()
+                rewards, done, info = random_step(env)
+                obs, mask, secrets, envstate = env.observe(
+                    agent_type=agent_type, mode='neighbors_mask_secret_envstate')
+                if len(set(secrets.tolist())) > 1:
+                    test = True
+                    break
+            assert test, 'secrets should differ'
+
+        # test n_seeds
+        all_secrets = []
+        for i in range(1000):
+            env.init_episode()
+            rewards, done, info = random_step(env)
+            obs, mask, secrets, envstate = env.observe(
+                agent_type=agent_type, mode='neighbors_mask_secret_envstate')
+            all_secrets.extend(secrets.tolist())
+        nunique = len(set(all_secrets))
+        assert nunique <= setting['secrete_args']['n_seeds']
+        if setting['secrete_args']['n_seeds'] <= 10:
+            assert nunique == setting['secrete_args']['n_seeds']
+    else:
+        env.init_episode()
+        rewards, done, info = random_step(env)
+        obs, mask, secrets, envstate = env.observe(
+            agent_type=agent_type, mode='neighbors_mask_secret_envstate')
+        assert secrets is None, 'for this agent type, secrets should be None'
 
 
 def test_general(setting):
@@ -224,14 +228,58 @@ def test_sampling(setting, agent_type, device):
 
 
 
+def test_sampling2(setting, agent_type, device):
+    # TEST sampling:
+    env = AdGraphColoringHist(**setting, device=device)
+    env.init_episode()
+
+    batch_size = 3
+
+    test_secrets = th.zeros((env.n_agents, batch_size, env.episode_length), dtype=th.int64)
+
+    assert test_secrets.max() == 0
+
+    for i in range(batch_size):
+        env.init_episode()
+        for j in count():
+            rewards, done, info = random_step(env)
+            obs, mask, secrets, envstate = env.observe(agent_type=agent_type, mode='neighbors_mask_secret_envstate')
+            
+            if secrets is not None:
+                test_secrets[:,batch_size-i-1,j] = secrets
+
+
+            if done:
+                break
+
+    (
+        (prev_observations, prev_mask, prev_secrets, prev_envstate), 
+        (observations, mask, secrets, envstate), actions, rewards
+    ) = env.sample(agent_type=agent_type, mode='neighbors_mask_secret_envstate', batch_size=batch_size, last=True)
+
+
+    if (agent_type in setting['secrete_args']['agent_types']) and setting['secrete_args']['n_seeds'] is not None:
+        assert (prev_secrets[:,:,1:] == secrets[:,:,:-1]).all()
+        assert (test_secrets == secrets).all()
+    else:
+        print(agent_type)
+        assert test_secrets.max() == 0
+        assert prev_secrets is None
+        assert secrets is None
+
+
 def test_observations(setting):
     device = th.device('cpu')
     test_neighbors(setting, agent_type='ci', device=device)
     test_neighbors(setting, agent_type='ai', device=device)
-
     test_sampling(setting, agent_type='ci', device=device)
     test_sampling(setting, agent_type='ai', device=device)
 
+    if 'secrete_args' in setting:
+        test_neighbors2(setting, agent_type='ci', device=device)
+        test_neighbors2(setting, agent_type='ai', device=device)
+        test_sampling2(setting, agent_type='ci', device=device)
+        test_sampling2(setting, agent_type='ai', device=device)
 
 
 def test_setting(setting):
@@ -239,17 +287,22 @@ def test_setting(setting):
     test_observations(setting)
 
 
-
 def test():
-    setting = yaml.safe_load(base_settings)
-    grid = yaml.safe_load(base_grid)
-    settings, labels = expand(setting, grid)
-    for s, l in zip(settings, labels):
-        print(l)
-        test_setting(s)
+    print('test')
+
+    arguments = docopt(__doc__)
+    run_folder = arguments['RUN_FOLDER']
+
+    parameter_file = os.path.join(run_folder, 'test.yml')
+    out_dir = os.path.join(run_folder, 'test')
 
 
-    # test_setting(setting)
+    setting = yaml.safe_load(parameter_file)
+    # grid = yaml.safe_load(base_grid)
+    # settings, labels = expand(setting, grid)
+    # for s, l in zip(settings, labels):
+    #     print(l)
+    test_setting(setting)
 
 
 

@@ -32,6 +32,13 @@ def get_secrets_maxval(n_seeds=None, agent_type=None, agent_types=None, **kwargs
         return None
 
 
+def gen_secrets(n_seeds=None, **kwargs):
+    if (n_seeds is not None):
+        return True
+    else:
+        return False
+
+
 def get_envstate(episode_step=None, period=None):
     if period is None:
         return None
@@ -92,7 +99,7 @@ class AdGraphColoringHist():
         else:
             self.envstate_history = None
 
-        if get_secrets_maxval(**self.secrete_args) is not None:
+        if gen_secrets(**self.secrete_args):
             self.secretes_history = th.empty((self.n_agents, self.max_history), dtype=th.int64, device=self.device)
         else:
             self.secretes_history = None
@@ -262,6 +269,7 @@ class AdGraphColoringHist():
         elif mode == 'neighbors_mask_secret_envstate':
             obs, mask = self._observe_neighbors(**kwarg)
             if show_agent_type_secrets(**self.secrete_args, **kwarg):
+                assert (kwarg['agent_type'] == 'ci') or (self.mapping_period <= 0), 'Secrets cannot be mapped.'
                 secretes = self.secretes
             else:
                 secretes = None

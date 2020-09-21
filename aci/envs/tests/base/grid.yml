@@ -1,0 +1,39 @@
+exec:
+  command: runtest
+  script_name: local
+labels:
+  project: ai_vs_ci
+  batch: t_vs_t_cache_size
+grid:
+    -  params.env_args.n_agents: [6, 20]
+       labels.n_agents: [6, 20]
+    -  params.env_args.network_period: [0, 1, 2]
+       labels.network_period: [0, 1, 2]
+    -  params.env_args.mapping_period: [0, 1, 2]
+       labels.mapping_period: [0, 1, 2]
+params:
+    env_args:
+        n_agents: 6
+        n_actions: 3
+        network_period: 1
+        mapping_period: 1
+        max_history: 50
+        graph_args:
+            constrains: 
+                max_max_degree: 4
+                connected: True
+            graph_args:
+                p: 0.2
+            graph_type: erdos_renyi
+        episode_length: 50
+        rewards_args:
+            ai:
+                avg_catch: 0.5
+                avg_coordination: 0
+                ind_catch: 0.5
+                ind_coordination: 0
+            ci:
+                avg_catch: 0
+                avg_coordination: 0
+                ind_catch: 0
+                ind_coordination: 1
