@@ -8,7 +8,7 @@ import collections
 from .utils.graph import create_graph, determine_max_degree, pad_neighbors
 
 
-def show_agent_type_secrets(agent_type, agent_types, n_seeds, **kwargs):
+def show_agent_type_secrets(agent_type=None, agent_types=None, n_seeds=None, **kwargs):
     if (n_seeds is not None) and (agent_type is not None) and (agent_type in agent_types):
         return True
     else:
