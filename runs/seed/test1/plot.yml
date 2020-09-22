@@ -14,17 +14,18 @@ plot_args:
   - 
     selectors:
       mode: train
-    grid: [metric]
-    hue: architecture
-    style: lr
+      lr: 0.0001
+    grid: [metric, n_seeds]
+    hue: correlated
+    # style: correlated
     name: mean
-  - 
-    selectors:
-      agent_type: ci
-      agents: mean
-      mode: train
-      name: [stick_to_color, max_freq]
-    grid: [architecture]
-    hue: name
-    style: lr
-    name: actions_mean
+  # - 
+  #   selectors:
+  #     agent_type: ci
+  #     agents: mean
+  #     mode: train
+  #     name: [stick_to_color, max_freq]
+  #   grid: [architecture]
+  #   hue: name
+  #   style: lr
+  #   name: actions_mean

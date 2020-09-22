@@ -14,17 +14,22 @@ plot_args:
   - 
     selectors:
       mode: train
-    grid: [hidden_size_ci, hidden_size_ai]
+    grid: [lr_ai, lr_ci]
     hue: metric
-    style: lr
     name: mean
+  - 
+    selectors:
+      mode: train
+      metric: diff
+    grid: [lr_ai, lr_ci]
+    # hue: metric
+    name: diff
   - 
     selectors:
       # agent_type: ci
       agents: mean
       mode: train
       name: stick_to_color
-    grid: [hidden_size_ci, hidden_size_ai]
+    grid: [lr_ai, lr_ci]
     hue: agent_type
-    style: lr
     name: mean_action

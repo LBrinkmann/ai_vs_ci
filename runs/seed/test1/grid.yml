@@ -5,8 +5,10 @@ labels:
   project: ai_vs_ci
   batch: seed_test1
 grid:
-  - params.env_args.secrete_args.n_seeds: [None, 2, 8, 64]
-    labels.n_seeds: [0, 2, 8, 64]
+  # - params.env_args.secrete_args.n_seeds: [None, 2, 8, 64]
+  #   labels.n_seeds: [0, 2, 8, 64]
+  - params.env_args.secrete_args.n_seeds: [None]
+    labels.n_seeds: [0]
   - params.env_args.secrete_args.correlated: [true, false]
     labels.correlated: [true, false]
   - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0001]
@@ -80,7 +82,7 @@ params:
           rnn2: true
           net_type: pooling_gru
           hidden_size: 100
-          pooling_types: [max, sum]
+          pooling_types: [avg, max, sum]
           # multi_type: individual_weights
           multi_type: individual_weights
         opt_args:
@@ -100,7 +102,7 @@ params:
           rnn2: true
           net_type: pooling_gru
           hidden_size: 100
-          pooling_types: [max, sum]
+          pooling_types: [avg, max, sum]
           # multi_type: individual_weights
           multi_type: individual_weights
         opt_args:
@@ -127,8 +129,8 @@ params:
         p: 0.2
       graph_type: erdos_renyi
     secrete_args:
-      n_seeds: 16
-      correlated: false
+      # n_seeds: 16
+      # correlated: false
       agent_types: [ci]
     episode_length: 50
     rewards_args:
