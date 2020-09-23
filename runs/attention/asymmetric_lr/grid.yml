@@ -5,10 +5,14 @@ labels:
   project: ai_vs_ci
   batch: asymmetric_learning_rate
 grid:
-  - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0003, 0.0001]
-    labels.lr_ci: [0.001, 0.0003, 0.0001]
+  # - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0003, 0.0001]
+  #   labels.lr_ci: [0.001, 0.0003, 0.0001]
   - params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0003, 0.0001]
     labels.lr_ai: [0.001, 0.0003, 0.0001]
+  - params.agent_types.ci.controller_args.opt_args.lr: [0.01, 0.003]
+    labels.lr_ci: [0.01, 0.003]
+  # - params.agent_types.ai.controller_args.opt_args.lr: [0.01, 0.003]
+  #   labels.lr_ai: [0.01, 0.003]
 params:
   device_name: cuda
   scheduler_args:

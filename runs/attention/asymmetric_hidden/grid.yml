@@ -5,10 +5,14 @@ labels:
   project: ai_vs_ci
   batch: asymmetric_hidden_size
 grid:
-  - params.agent_types.ci.controller_args.model_args.hidden_size: [10, 100]
-    labels.hidden_size_ci: [10, 100]
-  - params.agent_types.ai.controller_args.model_args.hidden_size: [10, 100]
-    labels.hidden_size_ai: [10, 100]
+  # - params.agent_types.ci.controller_args.model_args.hidden_size: [10, 100]
+  #   labels.hidden_size_ci: [10, 100]
+  # - params.agent_types.ai.controller_args.model_args.hidden_size: [10, 100]
+  #   labels.hidden_size_ai: [10, 100]
+  - params.agent_types.ci.controller_args.model_args.hidden_size: [10, 25, 50, 100]
+    labels.hidden_size_ci: [10, 25, 50, 100]
+  - params.agent_types.ai.controller_args.model_args.hidden_size: [10, 25, 50, 100]
+    labels.hidden_size_ai: [10, 25, 50, 100]
   - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0001]
     params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0001]
     labels.lr: [0.001, 0.0001]
