@@ -18,33 +18,41 @@ def test_neighbors(setting, agent_type, device):
     n_actions = env.n_actions
     ai_color = th.randint(n_actions, size=(n_agents,))
     ci_color = th.randint(n_actions, size=(n_agents,))
-    env.init_episode()
-    rewards, done, info = env.step(
-        {'ai': ai_color, 'ci': ci_color}
-    )
+    colors = {'ai': ai_color, 'ci': ci_color}
 
-    correct = ci_color if agent_type == 'ci' else ci_color[env.ci_ai_map]
+    env.init_episode()
+    rewards, done, info = env.step(colors)
+
+
+    inv_mapped_colors = {'ai': ai_color[env.ai_ci_map], 'ci': ci_color}
+
+    both_colors = th.stack([inv_mapped_colors[at] for at in env.agent_types], dim=1)
+
+    correct = both_colors if agent_type == 'ci' else both_colors[env.ci_ai_map]
+    assert (both_colors == env.state.T).all()
     assert (env.observe(agent_type=agent_type, mode='neighbors')[:,0] == correct).all()
 
     obs, mask = env.observe(agent_type=agent_type, mode='neighbors_with_mask')
 
     test_agent = random.randint(0, n_agents-1)
 
-    test_neighbor_colors_1 = th.masked_select(obs[test_agent,1:], ~mask[test_agent,1:])
-    test_neighbor_colors_1 = th.sort(test_neighbor_colors_1)[0]
-    
-    # mapping agent from ai to ci idx
-    test_agent_ci = test_agent if agent_type == 'ci' else env.ci_ai_map[test_agent]  # inverse map to because we map indices
+    for agent_type_idx in env.agent_types_idx.values():
 
-    # getting neighbors using ci idx
-    test_neighbors_ci = env.neighbors[test_agent_ci, 1:]
-    test_neighbors_ci = [t.item() for t in test_neighbors_ci if t >= 0]
+        test_neighbor_colors_1 = th.masked_select(obs[test_agent,1:, agent_type_idx], ~mask[test_agent,1:])
+        test_neighbor_colors_1 = th.sort(test_neighbor_colors_1)[0]
+        
+        # mapping agent from ai to ci idx
+        test_agent_ci = test_agent if agent_type == 'ci' else env.ci_ai_map[test_agent]  # inverse map to because we map indices
 
-    test_neighbors_ai = test_neighbors_ci if agent_type == 'ci' else env.ai_ci_map[test_neighbors_ci] # inverse map to because we map indices
+        # getting neighbors using ci idx
+        test_neighbors_ci = env.neighbors[test_agent_ci, 1:]
+        test_neighbors_ci = [t.item() for t in test_neighbors_ci if t >= 0]
 
-    test_neighbor_colors_2 = th.sort(obs[test_neighbors_ai,0])[0]
+        test_neighbors = test_neighbors_ci if agent_type == 'ci' else env.ai_ci_map[test_neighbors_ci] # inverse map to because we map indices
 
-    assert (test_neighbor_colors_1 == test_neighbor_colors_2).all(), 'wrong neighbor observations'
+        test_neighbor_colors_2 = th.sort(obs[test_neighbors,0,agent_type_idx])[0]
+
+        assert (test_neighbor_colors_1 == test_neighbor_colors_2).all(), 'wrong neighbor observations'
 
 
 def random_step(env):
@@ -67,8 +75,8 @@ def test_neighbors2(setting, agent_type, device):
         if setting['secrete_args']['correlated']:
             env.init_episode()
             rewards, done, info = random_step(env)
-            obs, mask, secrets, envstate = env.observe(
-                agent_type=agent_type, mode='neighbors_mask_secret_envstate')
+            obs, mask, secrets, envinfo = env.observe(
+                agent_type=agent_type, mode='neighbors_mask_secret_envinfo')
             assert len(set(secrets.tolist())) == 1, 'all secrets need to be the same'
 
         else:
@@ -76,8 +84,8 @@ def test_neighbors2(setting, agent_type, device):
             for i in range(1000):
                 env.init_episode()
                 rewards, done, info = random_step(env)
-                obs, mask, secrets, envstate = env.observe(
-                    agent_type=agent_type, mode='neighbors_mask_secret_envstate')
+                obs, mask, secrets, envinfo = env.observe(
+                    agent_type=agent_type, mode='neighbors_mask_secret_envinfo')
                 if len(set(secrets.tolist())) > 1:
                     test = True
                     break
@@ -88,8 +96,8 @@ def test_neighbors2(setting, agent_type, device):
         for i in range(1000):
             env.init_episode()
             rewards, done, info = random_step(env)
-            obs, mask, secrets, envstate = env.observe(
-                agent_type=agent_type, mode='neighbors_mask_secret_envstate')
+            obs, mask, secrets, envinfo = env.observe(
+                agent_type=agent_type, mode='neighbors_mask_secret_envinfo')
             all_secrets.extend(secrets.tolist())
         nunique = len(set(all_secrets))
         assert nunique <= setting['secrete_args']['n_seeds']
@@ -98,8 +106,8 @@ def test_neighbors2(setting, agent_type, device):
     else:
         env.init_episode()
         rewards, done, info = random_step(env)
-        obs, mask, secrets, envstate = env.observe(
-            agent_type=agent_type, mode='neighbors_mask_secret_envstate')
+        obs, mask, secrets, envinfo = env.observe(
+            agent_type=agent_type, mode='neighbors_mask_secret_envinfo')
         assert secrets is None, 'for this agent type, secrets should be None'
 
 
@@ -183,7 +191,7 @@ def test_sampling(setting, agent_type, device):
 
     batch_size = 3
 
-    test_observations = th.empty((env.n_agents, batch_size, env.episode_length, env.max_degree + 1), dtype=th.int64)
+    test_observations = th.empty((env.n_agents, batch_size, env.episode_length, env.max_degree + 1, 2), dtype=th.int64)
     test_mask = th.empty((env.n_agents, batch_size, env.episode_length, env.max_degree + 1), dtype=th.int64)
     test_actions = th.empty((env.n_agents, batch_size, env.episode_length), dtype=th.int64)
     test_rewards = th.empty((env.n_agents, batch_size, env.episode_length), dtype=th.float32)
@@ -217,9 +225,7 @@ def test_sampling(setting, agent_type, device):
     assert (prev_observations[:,:,1:] == observations[:,:,:-1]).all()
     assert (prev_mask[:,:,1:] == mask[:,:,:-1]).all()
 
-    # for ci only
-    if agent_type == 'ci':
-        assert (observations[:,:,:,0] == actions).all()
+    assert (observations[:,:,:,0,env.agent_types_idx[agent_type]] == actions).all()
 
     assert (test_observations == observations).all()
     assert (test_rewards == rewards).all()
@@ -265,6 +271,12 @@ def test_sampling2(setting, agent_type, device):
 
     batch_size = 3
 
+    obs_shapes = env.get_observation_shapes(agent_type=agent_type)['neighbors_mask_secret_envinfo']
+    has_envinfo = obs_shapes[3] is not None
+    if has_envinfo:
+        envinfo_shape = obs_shapes[3]['shape'][1]
+        test_envinfo = th.zeros((env.n_agents, batch_size, env.episode_length, envinfo_shape), dtype=th.float)
+
     test_secrets = th.zeros((env.n_agents, batch_size, env.episode_length), dtype=th.int64)
 
     assert test_secrets.max() == 0
@@ -273,19 +285,23 @@ def test_sampling2(setting, agent_type, device):
         env.init_episode()
         for j in count():
             rewards, done, info = random_step(env)
-            obs, mask, secrets, envstate = env.observe(agent_type=agent_type, mode='neighbors_mask_secret_envstate')
+            obs, mask, secrets, envinfo = env.observe(agent_type=agent_type, mode='neighbors_mask_secret_envinfo')
             
             if secrets is not None:
                 test_secrets[:,batch_size-i-1,j] = secrets
 
+            if has_envinfo:
+                test_envinfo[:,batch_size-i-1,j] = envinfo
+            else:
+                assert envinfo is None
 
             if done:
                 break
 
     (
-        (prev_observations, prev_mask, prev_secrets, prev_envstate), 
-        (observations, mask, secrets, envstate), actions, rewards
-    ) = env.sample(agent_type=agent_type, mode='neighbors_mask_secret_envstate', batch_size=batch_size, last=True)
+        (prev_observations, prev_mask, prev_secrets, prev_envinfo), 
+        (observations, mask, secrets, envinfo), actions, rewards
+    ) = env.sample(agent_type=agent_type, mode='neighbors_mask_secret_envinfo', batch_size=batch_size, last=True)
 
 
     if (agent_type in setting['secrete_args']['agent_types']) and setting['secrete_args']['n_seeds'] is not None:
@@ -296,6 +312,13 @@ def test_sampling2(setting, agent_type, device):
         assert test_secrets.max() == 0
         assert prev_secrets is None
         assert secrets is None
+
+    if has_envinfo:
+        assert (prev_envinfo[:,:,1:] == envinfo[:,:,:-1]).all()
+        assert (test_envinfo == envinfo).all()
+    else:
+        assert prev_envinfo is None
+        assert envinfo is None
 
 
 def test_observations(setting):

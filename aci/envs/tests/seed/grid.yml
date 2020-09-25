@@ -9,12 +9,24 @@ grid:
     labels.n_seeds: [0, 2, 8, 64]
   - params.env_args.secrete_args.correlated: [true, false]
     labels.correlated: [true, false]
+  - 
+    - 
+      params.env_args:
+        envinfo_args:
+          info_names:
+            - rewarded
+            - avg_coordination
+            - avg_catch
+      labels.envinfo: true
+    - 
+      labels.envinfo: false
 params:
   env_args:
     n_agents: 20
     n_actions: 4
     network_period: 1
     mapping_period: 0
+    reward_period: 1
     max_history: 100
     graph_args:
       constrains: 
@@ -27,6 +39,7 @@ params:
       n_seeds: 16
       correlated: false
       agent_types: [ci]
+
     episode_length: 50
     rewards_args:
       ai:

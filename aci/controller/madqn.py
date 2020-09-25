@@ -10,74 +10,130 @@ import torch.nn as nn
 from aci.neural_modules import NETS
 
 
-
-
 def binary(x, bits):
     mask = 2**th.arange(bits).to(x.device, x.dtype)
     return x.unsqueeze(-1).bitwise_and(mask).ne(0).byte()
+
+def onehot(x, m, input_size, device):
+    onehot = th.zeros(*x.shape, input_size, dtype=th.float32, device=device)
+    x_ = x.clone()
+    x_[m] = 0
+    onehot.scatter_(-1, x_.unsqueeze(-1), 1)
+    onehot[m] = 0
+    return onehot
 
 
 class GRUAgentWrapper(nn.Module):
     def __init__(self, 
             observation_shapes, n_agents, n_actions, net_type, 
-            multi_type, device, **kwargs):
+            multi_type, device, add_catch=False, global_input_idx=[],
+            global_control_idx=[], **kwargs):
         super(GRUAgentWrapper, self).__init__()
         assert multi_type in ['shared_weights', 'individual_weights']
 
-        if observation_shapes[2] is None:
-            self.secrete_size = 0
-        else:
+
+        self.control_size = len(global_control_idx)
+        if observation_shapes[2] is not None:
             secrete_maxval = observation_shapes[2]['maxval']
             assert np.log2(secrete_maxval + 1) == int(np.log2(secrete_maxval + 1))
-            self.secrete_size = int(np.log2(secrete_maxval + 1))
+            self.control_size += int(np.log2(secrete_maxval + 1))
 
-        n_inputs = observation_shapes[0]['shape'][1]
-        self.input_size = n_actions + 1
+        self.n_inputs = observation_shapes[0]['shape'][1]
+
+        self.input_size = n_actions + len(global_input_idx)
+
+        if add_catch:
+            self.input_size += 1
 
         effective_agents = 1 if multi_type == 'shared_weights' else n_agents
 
         self.models = nn.ModuleList([
             NETS[net_type](
-                n_inputs=n_inputs, input_size=self.input_size, n_actions=n_actions, device=device, 
-                secrete_size=self.secrete_size, **kwargs)
+                n_inputs=self.n_inputs, input_size=self.input_size, n_actions=n_actions, device=device, 
+                control_size=self.control_size, **kwargs)
             for n in range(effective_agents)
         ])
         self.multi_type = multi_type
         self.n_actions = n_actions
         self.n_agents = n_agents
         self.device = device
+        self.global_input_idx = global_input_idx
+        self.global_control_idx = global_control_idx
+        self.add_catch = add_catch
 
-    def forward(self, x, m, s=None, e=None):
+    def forward(self, x, mask, secret=None, globalx=None):
         """
-            agents x batch x inputs
+            x: agents, episode, episode_step, neighbors, agent_type
+            m: agents, episode, episode_step, neighbors, agent_type
+            s: agents, episode, episode_step
+            e: 1, episode, episode_step
         """
+        x_ci_oh = onehot(x[:,:,:,:,0], mask, self.input_size, self.device) 
+
+        if len(self.global_input_idx) != 0:
+            x_ci_oh[:,:,:,:,-len(self.global_input_idx):] = globalx[:,:,:,self.global_input_idx].unsqueeze(-2)
+
+        if self.add_catch:
+            catch = (x[:,:,:,:,0] == x[:,:,:,:,1]).type(th.float)
+            x_ci_oh[:,:,:,:,-len(self.global_input_idx)-1] = catch
+        x_ci_oh[mask] = 0
+
+
+
+        if secret is not None:
+            control = binary(secret, self.control_size).type(th.float)
+            if len(self.global_control_idx) != 0:
+                control[:,:,:,-len(self.global_control_idx):] = globalx[:,:,:,self.global_control_idx]
+            data = x_ci_oh, mask, control
+
+        elif len(self.global_control_idx) != 0:
+            control = globalx[:,:,:,self.global_control_idx]
+            data = x_ci_oh, mask, control
+        else:
+            data = x_ci_oh, mask
+
+        # # random test
+        # random_agent = th.randint(high=self.n_agents, size=(1,)).item()
+        # random_batch = th.randint(high=x.shape[1], size=(1,)).item()
+        # random_step = th.randint(high=x.shape[2], size=(1,)).item()
+        # random_neighbor = th.randint(high=(x[random_agent,random_batch,random_step,:,0] != -1).sum(), size=(1,)).item()
+        
+        # # x_ci_oh test
+        # color = x[random_agent,random_batch,random_step,random_neighbor,0]
+        # vector = x_ci_oh[random_agent,random_batch,random_step,random_neighbor,:]
+        # assert vector[color] == 1, f"{color} {vector}"
+        # assert vector[:self.n_actions].sum() == 1
+
+        # if len(self.global_input_idx) != 0:
+        #     random_g_idx = th.randint(high=len(self.global_input_idx), size=(1,)).item()
+        #     offset = self.input_size - len(self.global_input_idx)
+        #     global_vec = globalx[random_agent,random_batch,random_step,self.global_input_idx]
+        #     assert vector[offset+random_g_idx] == global_vec[random_g_idx]
+
+        # if self.add_catch:
+        #     is_catch = (color == x[random_agent,random_batch,random_step,random_neighbor,1])
+        #     idx = - len(self.global_input_idx) - 1
+        #     assert vector[idx] == is_catch
+        # # end x_ci_oh test
+
+        # # test control
+        # if (secret is not None) or (len(self.global_control_idx) != 0):
+        #     secret_size = self.control_size - len(self.global_control_idx)
+        #     control_vec = control[random_agent,random_batch,random_step]
+        # if secret is not None:
+        #     binary_secret = np.unpackbits(secret[random_agent, random_batch, random_step].numpy().astype(np.uint8))[-secret_size:][::-1].copy()
+        #     binary_secret = th.tensor(binary_secret, dtype=th.float)
+        #     assert (control_vec[:secret_size] == binary_secret).all()
+        # if len(self.global_control_idx) != 0:
+        #     global_vec = globalx[random_agent,random_batch,random_step,self.global_control_idx]
+        #     assert (control_vec[-len(self.global_control_idx):] == global_vec).all()
+        # # end test control
 
         if self.multi_type == 'shared_weights':
-            o_shape = (*x.shape[:3], self.n_actions)
-            x = x.reshape(1, x.shape[0]*x.shape[1], *x.shape[2:])
-            m = m.reshape(1, x.shape[0]*x.shape[1], *x.shape[2:])
-            if e is not None:
-                e = e.unsqueeze(-1).repeat(self.n_agents,1,1,1)
-                e = e.reshape(1, e.shape[0]*e.shape[1], *e.shape[2:])
-            if s is not None:
-                s = s.reshape(1, s.shape[0]*s.shape[1], *s.shape[2:])
-        else:
-            if e is not None:
-                e = e.unsqueeze(-1)
-
-        onehot = th.zeros(*x.shape, self.input_size, dtype=th.float32, device=self.device)
-        x_ = x.clone()
-        x_[m] = 0
-        onehot.scatter_(-1, x_.unsqueeze(-1), 1)
-        if e is not None:
-            onehot[:,:,:,-1] = e
-        onehot[m] = 0
-
-        if s is not None:
-            binary_secrets = binary(s, self.secrete_size).type(th.float)
-            data = onehot, m, binary_secrets
-        else:
-            data = onehot, m
+            data = (
+                d.reshape(1, d.shape[0]*d.shape[1], *d.shape[2:])
+                for d in data
+            )
 
         q = [
             model(*d)
@@ -86,7 +142,7 @@ class GRUAgentWrapper(nn.Module):
         q = th.stack(q)
 
         if self.multi_type == 'shared_weights':
-            q = q.reshape(o_shape)
+            q = q.reshape(*x.shape[:3], -1)
 
         return q
 
@@ -132,8 +188,6 @@ class OneHotTransformer(nn.Module):
             self.model.reset()
 
 
-
-
 class MADQN:
     def __init__(
             self, observation_shapes, n_agents, n_actions, model_args, opt_args, sample_args, agent_type,
@@ -143,7 +197,7 @@ class MADQN:
         self.n_agents = n_agents
         self.device = device
         if model_args['net_type'] != 'gcn':
-            self.observation_mode = 'neighbors_mask_secret_envstate'
+            self.observation_mode = 'neighbors_mask_secret_envinfo'
             observation_shapes = observation_shapes[self.observation_mode]
             self.policy_net = GRUAgentWrapper(observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
             self.target_net = GRUAgentWrapper(observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)

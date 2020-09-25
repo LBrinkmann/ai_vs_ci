@@ -17,7 +17,7 @@ params:
         n_actions: 3
         network_period: 1
         mapping_period: 1
-        max_history: 50
+        max_history: 100
         graph_args:
             constrains: 
                 max_max_degree: 4
