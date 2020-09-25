@@ -31,15 +31,15 @@ params:
         sample_args: 
           horizon: 100
         model_args:
-          global_input_idx: [0]
+          # global_input_idx: [0]
           # global_control_idx: [1,2]
-          add_catch: true
+          # add_catch: true
           linear1: true
           rnn1: true
           linear2: true
           rnn2: true
-          merge_type: outer
-          merge_pos: prelin2
+          # merge_type: outer
+          # merge_pos: prelin2
           net_type: pooling_gru
           hidden_size: 100
           pooling_types: [avg, sum]
@@ -56,10 +56,13 @@ params:
         sample_args: 
           horizon: 100
         model_args:
-          global_input_idx: []
+          global_input_idx: [1,2]
           global_control_idx: []
-          add_catch: false
-          net_type: gru
+          add_catch: true
+          merge_type: outer
+          merge_pos: prelin2
+          net_type: pooling_gru
+          pooling_types: [avg, sum]
           hidden_size: 100
           multi_type: individual_weights
         opt_args:

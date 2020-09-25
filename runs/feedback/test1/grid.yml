@@ -1,0 +1,161 @@
+exec:
+  command: train
+  script_name: gpu
+labels:
+  project: ai_vs_ci
+  batch: cheap_talk_test1
+grid:
+  -
+    - 
+      params.env_args:
+        envstate_args:
+          period: 2
+        episode_length: 50
+      labels.envstate: p2_l50
+    - 
+      params.env_args:
+        envstate_args:
+          period: 1
+        episode_length: 50
+      labels.envstate: p1_l50
+    - 
+      params.env_args:
+        envstate_args:
+          period: 2
+        episode_length: 100
+      labels.envstate: p2_l100
+    - 
+      params.env_args:
+        episode_length: 50
+      labels.envstate: "off"
+  - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0001]
+    params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+params:
+  device_name: cuda
+  scheduler_args:
+    episodes: 30000
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training: 
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: true
+            ai: false
+      - episode: 5000
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: false
+            ai: true
+      - episode: 10000
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: true
+            ai: false
+      - episode: 15000
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: false
+            ai: true
+      - episode: 20000
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: true
+            ai: true
+  agent_types:
+    ai:
+      controller_args:
+        gamma: 0.80
+        batch_size: 3
+        target_update_freq: 100
+        sample_args: 
+          horizon: 100
+        model_args:
+          linear1: true
+          rnn1: true
+          linear2: true
+          rnn2: true
+          net_type: pooling_gru
+          hidden_size: 100
+          pooling_types: [avg, sum]
+          # multi_type: individual_weights
+          multi_type: individual_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+    ci:
+      controller_args:
+        gamma: 0.80
+        batch_size: 3
+        target_update_freq: 100
+        sample_args: 
+          horizon: 100
+        model_args:
+          linear1: true
+          rnn1: true
+          linear2: true
+          rnn2: true
+          net_type: pooling_gru
+          hidden_size: 100
+          pooling_types: [avg, sum]
+          # multi_type: individual_weights
+          multi_type: individual_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+  writer_args:
+    flush_period: 100000
+    periods:
+      trace: 10
+      mean_trace: 1
+      env: 1000
+  env_class: adversial_graph_coloring_historized
+  env_args:
+    n_agents: 20
+    n_actions: 4
+    network_period: 1
+    mapping_period: 0
+    max_history: 100
+    graph_args:
+      constrains: 
+        max_max_degree: 8
+        connected: True
+      graph_args:
+        p: 0.2
+      graph_type: erdos_renyi
+    # envstate_args:
+    #   period: 2
+    # episode_length: 50
+    rewards_args:
+      ai:
+        ind_coordination: 0
+        avg_coordination: -1
+        ind_catch: 0
+        avg_catch: 1
+      ci:
+        ind_coordination: 0
+        avg_coordination: 1
+        ind_catch: 0
+        avg_catch: -1

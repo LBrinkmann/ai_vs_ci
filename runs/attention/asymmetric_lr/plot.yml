@@ -16,7 +16,7 @@ plot_args:
       mode: train
     grid: [lr_ai, lr_ci]
     hue: metric
-    name: mean
+    name: reward
   - 
     selectors:
       mode: train
@@ -32,4 +32,13 @@ plot_args:
       name: stick_to_color
     grid: [lr_ai, lr_ci]
     hue: agent_type
-    name: mean_action
+    name: stick_to_color
+  - 
+    selectors:
+      # agent_type: ci
+      agents: mean
+      mode: train
+      name: max_freq
+    grid: [lr_ai, lr_ci]
+    hue: agent_type
+    name: max_freq

@@ -17,7 +17,7 @@ plot_args:
     grid: [hidden_size_ci, hidden_size_ai]
     hue: metric
     style: lr
-    name: mean
+    name: reward
   - 
     selectors:
       # agent_type: ci
@@ -27,4 +27,14 @@ plot_args:
     grid: [hidden_size_ci, hidden_size_ai]
     hue: agent_type
     style: lr
-    name: mean_action
+    name: stick_to_color
+  - 
+    selectors:
+      # agent_type: ci
+      agents: mean
+      mode: train
+      name: max_freq
+    grid: [hidden_size_ci, hidden_size_ai]
+    hue: agent_type
+    style: lr
+    name: max_freq
