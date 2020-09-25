@@ -1,6 +1,6 @@
 exec:
   command: train
-  script_name: local
+  script_name: gpu
 labels:
   project: ai_vs_ci
   batch: cheap_talk_test1
@@ -32,7 +32,7 @@ grid:
 params:
   device_name: cuda
   scheduler_args:
-    episodes: 10
+    episodes: 10000
     eval_period: 10
     eval_setting:
       eps:
