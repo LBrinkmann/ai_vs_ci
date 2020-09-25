@@ -360,7 +360,11 @@ class AdGraphColoringHist():
             'avg_coordination': ind_coordination.mean(0, keepdim=True).expand(self.n_agents),
             'ind_catch': ind_catch,
             'avg_catch': ind_catch.mean(0, keepdim=True).expand(self.n_agents),
-            'rewarded': th.full(size=(self.n_agents,), fill_value=(self.episode_step % self.reward_period) == 0, dtype=th.float)
+            'rewarded': th.full(
+                size=(self.n_agents,), 
+                fill_value=(self.episode_step % self.reward_period) == 0, 
+                dtype=th.float, device=self.device
+            )
         }
         ci_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ci'].items()]).sum(0)*metrics['rewarded']
         ai_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ai'].items()]).sum(0)*metrics['rewarded']

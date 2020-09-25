@@ -6,7 +6,7 @@ import torch as th
 class PoolingGRUAgent(nn.Module):
     def __init__(
             self, n_inputs, input_size, control_size, n_actions, hidden_size, pooling_types, 
-            linear1, rnn1, linear2, rnn2, merge_pos, merge_type, device):
+            linear1, rnn1, linear2, rnn2, device, merge_pos=None, merge_type=None):
         super(PoolingGRUAgent, self).__init__()
         self.pooling_types = pooling_types
         self.n_actions = n_actions
