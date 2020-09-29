@@ -8,26 +8,36 @@ grid:
   -
     - 
       params.env_args:
-        envstate_args:
-          period: 2
+        reward_period: 2
         episode_length: 50
       labels.envstate: p2_l50
     - 
       params.env_args:
-        envstate_args:
-          period: 1
+        reward_period: 1
         episode_length: 50
       labels.envstate: p1_l50
     - 
       params.env_args:
-        envstate_args:
-          period: 2
+        reward_period: 2
         episode_length: 100
       labels.envstate: p2_l100
+  - 
     - 
-      params.env_args:
-        episode_length: 50
-      labels.envstate: "off"
+      params.agent_types.ci.controller_args.model_args:
+        global_input_idx: [0]
+        global_control_idx: []
+      params.agent_types.ai.controller_args.model_args:
+        global_input_idx: [0]
+        global_control_idx: []
+      labels.rewarded_info: input
+    - 
+      params.agent_types.ci.controller_args.model_args:
+        global_input_idx: []
+        global_control_idx: [0]
+      params.agent_types.ai.controller_args.model_args:
+        global_input_idx: []
+        global_control_idx: [0]
+      labels.rewarded_info: control
   - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0001]
     params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0001]
     labels.lr: [0.001, 0.0001]
@@ -137,6 +147,7 @@ params:
     n_actions: 4
     network_period: 1
     mapping_period: 0
+    reward_period: 1
     max_history: 100
     graph_args:
       constrains: 
@@ -145,9 +156,13 @@ params:
       graph_args:
         p: 0.2
       graph_type: erdos_renyi
-    # envstate_args:
-    #   period: 2
-    # episode_length: 50
+    envinfo_args:
+      info_names:
+        - rewarded
+        - avg_coordination
+        - avg_catch
+        - ind_coordination
+        - ind_catch
     rewards_args:
       ai:
         ind_coordination: 0

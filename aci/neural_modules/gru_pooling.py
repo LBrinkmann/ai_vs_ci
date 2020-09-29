@@ -111,7 +111,7 @@ def merge_control(x, control, merge_type):
     elif merge_type == 'outer':
         return th.einsum('ijk,ijl->ijkl', x, control).reshape(x.shape[0],x.shape[1],-1)
     elif merge_type == 'outer_normalized':
-        control_normed = control / control.sum(-1, keepaxis=True)
+        control_normed = control / control.sum(dim=-1, keepdim=True)
         x = th.einsum('ijk,ijl->ijkl', x, control_normed).reshape(x.shape[0],x.shape[1],-1)
         return x
     else:

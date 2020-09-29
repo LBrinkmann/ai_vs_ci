@@ -14,22 +14,31 @@ plot_args:
   - 
     selectors:
       mode: train
-    grid: [metric, lr]
-    hue: feedback
-    name: rewards
+    grid: [hidden_size_ci, lr_ci]
+    hue: metric
+    name: reward
   - 
     selectors:
+      mode: train
+      metric: diff
+    grid: [hidden_size_ci, lr_ci]
+    # hue: metric
+    name: diff
+  - 
+    selectors:
+      # agent_type: ci
       agents: mean
       mode: train
       name: stick_to_color
-    grid: [agent_type, lr]
-    hue: feedback
+    grid: [hidden_size_ci, lr_ci]
+    hue: agent_type
     name: stick_to_color
   - 
     selectors:
+      # agent_type: ci
       agents: mean
       mode: train
       name: max_freq
-    grid: [agent_type, lr]
-    hue: feedback
+    grid: [hidden_size_ci, lr_ci]
+    hue: agent_type
     name: max_freq

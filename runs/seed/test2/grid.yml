@@ -3,35 +3,16 @@ exec:
   script_name: gpu
 labels:
   project: ai_vs_ci
-  batch: cheap_talk_test1
+  batch: seed_test_2
 grid:
-  -
-    # - 
-    #   labels.feedback: none
-    # - labels.feedback: neighbor_catch
-    #   params.agent_types.ci.controller_args.model_args:
-    #     add_catch: true
-    # - labels.feedback: ind_catch
-    #   params.agent_types.ci.controller_args.model_args:
-    #     global_control_idx: [4]
-    #     merge_type: cat
-    #     merge_pos: prelin2
-    # - labels.feedback: avg_catch
-    #   params.agent_types.ci.controller_args.model_args:
-    #     global_control_idx: [2]
-    #     merge_type: cat
-    #     merge_pos: prelin2
-    # - labels.feedback: avg_catch_corr
-    #   params.agent_types.ci.controller_args.model_args:
-    #     global_control_idx: [1, 2]
-    #     merge_type: cat
-    #     merge_pos: prelin2
-    - labels.feedback: all
-      params.agent_types.ci.controller_args.model_args:
-        global_control_idx: [1, 2]
-        merge_type: cat
-        merge_pos: prelin2
-        add_catch: true
+  # - params.env_args.secrete_args.n_seeds: [None, 4, 16]
+  #   labels.n_seeds: [0, 4, 16]
+  - params.env_args.secrete_args.correlated: [false, true]
+    labels.correlated: [false, true]
+  - params.agent_types.ci.controller_args.model_args.merge_type: [cat, outer_normalized]
+    labels.merge_type: [cat, outer_normalized]
+  - params.agent_types.ci.controller_args.model_args.merge_pos: [prelin2, prernn2, prelin3]
+    labels.merge_pos: [prelin2, prernn2, prelin3]
   - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0001]
     params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0001]
     labels.lr: [0.001, 0.0001]
@@ -123,6 +104,10 @@ params:
         - avg_catch
         - ind_coordination
         - ind_catch
+    secrete_args:
+      n_seeds: 8
+      # correlated: true
+      agent_types: [ci]
     episode_length: 50
     rewards_args:
       ai:

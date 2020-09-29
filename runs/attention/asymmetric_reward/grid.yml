@@ -3,35 +3,13 @@ exec:
   script_name: gpu
 labels:
   project: ai_vs_ci
-  batch: cheap_talk_test1
+  batch: asymmetric_reward
 grid:
-  -
-    # - 
-    #   labels.feedback: none
-    # - labels.feedback: neighbor_catch
-    #   params.agent_types.ci.controller_args.model_args:
-    #     add_catch: true
-    # - labels.feedback: ind_catch
-    #   params.agent_types.ci.controller_args.model_args:
-    #     global_control_idx: [4]
-    #     merge_type: cat
-    #     merge_pos: prelin2
-    # - labels.feedback: avg_catch
-    #   params.agent_types.ci.controller_args.model_args:
-    #     global_control_idx: [2]
-    #     merge_type: cat
-    #     merge_pos: prelin2
-    # - labels.feedback: avg_catch_corr
-    #   params.agent_types.ci.controller_args.model_args:
-    #     global_control_idx: [1, 2]
-    #     merge_type: cat
-    #     merge_pos: prelin2
-    - labels.feedback: all
-      params.agent_types.ci.controller_args.model_args:
-        global_control_idx: [1, 2]
-        merge_type: cat
-        merge_pos: prelin2
-        add_catch: true
+  - params.env_args.rewards_args.ai.avg_coordination: [-1, -1, -1, -1]
+    params.env_args.rewards_args.ai.avg_catch: [1, 1.5, 2, 4]
+    params.env_args.rewards_args.ci.avg_coordination: [1, 1, 1, 1]
+    params.env_args.rewards_args.ci.avg_catch: [-1, -1.5, -2, -4]
+    labels.catch_reward: [1, 1.5, 2, 4]
   - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0001]
     params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0001]
     labels.lr: [0.001, 0.0001]
@@ -65,14 +43,14 @@ params:
         sample_args: 
           horizon: 100
         model_args:
+          net_type: pooling_gru
+          pooling_types: ['avg', 'max', 'sum']
+          hidden_size: 100
+          multi_type: shared_weights
           linear1: true
           rnn1: true
           linear2: true
           rnn2: true
-          net_type: pooling_gru
-          hidden_size: 100
-          pooling_types: ['avg', 'max', 'sum']
-          multi_type: shared_weights
         opt_args:
           lr: 0.001
       controller_class: madqn
@@ -84,14 +62,14 @@ params:
         sample_args: 
           horizon: 100
         model_args:
+          pooling_types: ['avg', 'max', 'sum']
+          net_type: pooling_gru
+          hidden_size: 100
+          multi_type: individual_weights
           linear1: true
           rnn1: true
           linear2: true
           rnn2: true
-          net_type: pooling_gru
-          hidden_size: 100
-          pooling_types: ['avg', 'max', 'sum']
-          multi_type: individual_weights
         opt_args:
           lr: 0.001
       controller_class: madqn
@@ -105,10 +83,10 @@ params:
   env_args:
     n_agents: 20
     n_actions: 4
-    reward_period: 1
     network_period: 1
     mapping_period: 0
-    max_history: 100
+    reward_period: 1
+    max_history: 50
     graph_args:
       constrains: 
         max_max_degree: 8
@@ -116,13 +94,6 @@ params:
       graph_args:
         p: 0.2
       graph_type: erdos_renyi
-    envinfo_args:
-      info_names:
-        - rewarded
-        - avg_coordination
-        - avg_catch
-        - ind_coordination
-        - ind_catch
     episode_length: 50
     rewards_args:
       ai:

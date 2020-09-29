@@ -1,4 +1,3 @@
-
 clean: true
 preprocess_args:
   combine:
@@ -14,22 +13,25 @@ plot_args:
   - 
     selectors:
       mode: train
-    grid: [metric, lr]
-    hue: feedback
-    name: rewards
+    grid: [hidden_size, metric]
+    hue: correlated
+    style: merge_pos
+    name: reward_metrics
   - 
     selectors:
-      agents: mean
       mode: train
+      agents: mean
       name: stick_to_color
-    grid: [agent_type, lr]
-    hue: feedback
+    grid: [hidden_size, agent_type]
+    hue: correlated
+    style: merge_pos
     name: stick_to_color
   - 
     selectors:
-      agents: mean
       mode: train
+      agents: mean
       name: max_freq
-    grid: [agent_type, lr]
-    hue: feedback
+    grid: [hidden_size, agent_type]
+    hue: correlated
+    style: merge_pos
     name: max_freq

@@ -2,37 +2,44 @@
 clean: true
 preprocess_args:
   combine:
-    metric:
+    reward_metrics:
       coordination: 
         name: mean_avg_coordination
       catch: 
         name: mean_avg_catch
-      diff: 
-        name: mean_reward
-        agent_type: ci
+      # ci_reward: 
+      #   name: mean_reward
+      #   agent_type: ci
 plot_args:
   - 
     selectors:
       mode: train
-    grid: [envstate, rewarded_info]
-    hue: metric
-    style: lr
+    grid: [catch_reward, lr]
+    hue: reward_metrics
     name: reward_metrics
   - 
     selectors:
+      mode: train
+      name: mean_reward
+      agent_type: ci
+    grid: [catch_reward, lr]
+    # hue: metric
+    name: ci_reward
+  - 
+    selectors:
+      # agent_type: ci
       agents: mean
       mode: train
       name: stick_to_color
-    grid: [envstate, rewarded_info]
+    grid: [catch_reward, lr]
     hue: agent_type
-    style: lr
     name: stick_to_color
   - 
     selectors:
+      # agent_type: ci
       agents: mean
       mode: train
       name: max_freq
-    grid: [envstate, rewarded_info]
+    grid: [catch_reward, lr]
     hue: agent_type
-    style: lr
     name: max_freq
