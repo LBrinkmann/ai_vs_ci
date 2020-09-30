@@ -20,9 +20,9 @@ def get_secrets(n_agents=None, n_seeds=None, correlated=None, device=None, **kwa
     assert (n_agents is not None)
     assert (correlated is not None)
     if correlated:
-        return th.randint(low=1, high=n_seeds, size=(1,), device=device).repeat(n_agents)
+        return th.randint(low=0, high=n_seeds, size=(1,), device=device).repeat(n_agents)
     else:
-        return th.randint(low=1, high=n_seeds, size=(n_agents,), device=device)
+        return th.randint(low=0, high=n_seeds, size=(n_agents,), device=device)
 
 
 def get_secrets_shape(n_agents, n_seeds=None, agent_type=None, agent_types=None, **kwargs):
@@ -321,6 +321,7 @@ class AdGraphColoringHist():
                     prev_secrets = all_secrets[:,:,:-1]
                     secrets = all_secrets[:,:,1:]
                 else:
+                    prev_secrets = None
                     secrets = None
                 obs = (*obs, secrets, env_state)
                 prev_obs = (*prev_obs, prev_secrets, prev_env_state)

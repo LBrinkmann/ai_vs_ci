@@ -12,7 +12,7 @@ from aci.neural_modules import NETS
 
 def binary(x, bits):
     mask = 2**th.arange(bits).to(x.device, x.dtype)
-    return x.unsqueeze(-1).bitwise_and(mask).ne(0).byte()
+    return (x+1).unsqueeze(-1).bitwise_and(mask).ne(0).byte()
 
 def onehot(x, m, input_size, device):
     onehot = th.zeros(*x.shape, input_size, dtype=th.float32, device=device)
@@ -34,9 +34,9 @@ class GRUAgentWrapper(nn.Module):
 
         self.control_size = len(global_control_idx)
         if observation_shapes[2] is not None:
-            secrete_maxval = observation_shapes[2]['maxval']
-            assert np.log2(secrete_maxval + 1) == int(np.log2(secrete_maxval + 1))
-            self.control_size += int(np.log2(secrete_maxval + 1))
+            secrete_maxval_p1 = observation_shapes[2]['maxval'] + 1
+            assert np.log2(secrete_maxval_p1 + 1) == int(np.log2(secrete_maxval_p1 + 1))
+            self.control_size += int(np.log2(secrete_maxval_p1 + 1))
 
         self.n_inputs = observation_shapes[0]['shape'][1]
 

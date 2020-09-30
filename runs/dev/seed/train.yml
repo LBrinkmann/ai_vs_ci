@@ -59,6 +59,10 @@ params:
           global_input_idx: [1,2]
           global_control_idx: []
           add_catch: true
+          linear1: true
+          rnn1: true
+          linear2: true
+          rnn2: true
           merge_type: outer
           merge_pos: prelin2
           net_type: pooling_gru
@@ -83,9 +87,10 @@ params:
     reward_period: 1
     max_history: 50
     secrete_args:
-      n_seeds: 4
+      n_seeds: 3
       correlated: true
       agent_types: [ai,ci]
+      secret_period: 1
     envinfo_args:
       info_names:
         - rewarded
