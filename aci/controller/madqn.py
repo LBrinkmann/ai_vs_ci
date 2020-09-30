@@ -90,7 +90,7 @@ class GRUAgentWrapper(nn.Module):
         }
 
         stacked_state_dict = {
-            k: v * (1-mixing_factor) + v.sum(dim=0) * mixing_factor
+            k: v * (1-mixing_factor) + v.mean(dim=0) * mixing_factor
             for k, v in stacked_state_dict.items()
         }
 

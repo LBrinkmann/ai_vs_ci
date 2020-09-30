@@ -39,7 +39,7 @@ params:
       n_seeds: 16
       correlated: false
       agent_types: [ci]
-
+      secret_period: 1
     episode_length: 50
     rewards_args:
       ai:

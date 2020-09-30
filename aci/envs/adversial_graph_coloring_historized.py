@@ -32,6 +32,10 @@ def get_secrets_shape(n_agents, n_seeds=None, agent_type=None, agent_types=None,
         return None
 
 
+def do_update_secrets(secret_period, episode_step, **kwars):
+    return (episode_step % secret_period == 0) or (episode_step == 0)
+
+
 def gen_secrets(n_seeds=None, **kwargs):
     if (n_seeds is not None):
         return True
@@ -56,7 +60,7 @@ def get_envinfo_shape(n_agents, info_names=[]):
 class AdGraphColoringHist():
     def __init__(
             self, n_agents, n_actions, graph_args, episode_length, max_history, mapping_period, 
-            network_period, rewards_args, device, reward_period, secrete_args={}, envinfo_args={}, ):
+            network_period, rewards_args, device, reward_period, secrete_args={}, envinfo_args={}):
         self.episode_length = episode_length
         self.mapping_period = mapping_period
         self.network_period = network_period
@@ -76,8 +80,9 @@ class AdGraphColoringHist():
         self.device = device
         self.init_history()
 
-    def _get_secrets(self):
-        return get_secrets(**self.secrete_args, n_agents=self.n_agents, device=self.device)
+    def _update_secrets(self):
+        if do_update_secrets(episode_step=self.episode_step, **self.secrete_args):
+            self.secretes = get_secrets(**self.secrete_args, n_agents=self.n_agents, device=self.device)
 
     def _get_envinfo(self, info):
         return get_envinfo(info=info, **self.envinfo_args)
@@ -101,7 +106,7 @@ class AdGraphColoringHist():
             self.envinfo_history = None
 
         if gen_secrets(**self.secrete_args):
-            self.secretes_history = th.empty((self.n_agents, self.max_history), dtype=th.int64, device=self.device)
+            self.secretes_history = th.empty((self.n_agents, self.max_history, self.episode_length + 1), dtype=th.int64, device=self.device)
         else:
             self.secretes_history = None
 
@@ -134,7 +139,7 @@ class AdGraphColoringHist():
         # init state
         self.state = th.tensor(
                 np.random.randint(0, self.n_actions, (2, self.n_agents)), dtype=th.int64, device=self.device)
-        self.secretes = self._get_secrets()
+        self._update_secrets()
 
         ci_reward, ai_reward, info = self._get_rewards()
         self.envinfo = self._get_envinfo(info=info)
@@ -147,7 +152,7 @@ class AdGraphColoringHist():
         self.neighbors_mask_history[:, self.current_hist_idx] = self.neighbors_mask
 
         if self.secretes_history is not None:
-            self.secretes_history[:, self.current_hist_idx] = self.secretes
+            self.secretes_history[:, self.current_hist_idx, self.episode_step + 1] = self.secretes
         if self.envinfo_history is not None:
             self.envinfo_history[:, self.current_hist_idx, self.episode_step + 1] = self.envinfo
 
@@ -312,11 +317,13 @@ class AdGraphColoringHist():
                 else:
                     prev_env_state, env_state = None, None
                 if show_agent_type_secrets(agent_type=agent_type, **self.secrete_args):
-                    secrets = self.secretes_history[:, episode_idx].unsqueeze(2).repeat(1,1,self.episode_length)
+                    all_secrets = self.secretes_history[:, episode_idx]
+                    prev_secrets = all_secrets[:,:,:-1]
+                    secrets = all_secrets[:,:,1:]
                 else:
                     secrets = None
                 obs = (*obs, secrets, env_state)
-                prev_obs = (*prev_obs, secrets, prev_env_state)
+                prev_obs = (*prev_obs, prev_secrets, prev_env_state)
         elif mode == 'matrix':
             prev_obs, obs = self._batch_matrix(
                 episode_idx=episode_idx, agent_type=agent_type, **kwarg)
@@ -396,12 +403,16 @@ class AdGraphColoringHist():
 
         self.envinfo = self._get_envinfo(info)
 
+        self._update_secrets()
+
         self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
         self.reward_history[self.agent_types_idx['ci'], :, self.current_hist_idx, self.episode_step] = ci_reward
         self.reward_history[self.agent_types_idx['ai'], :, self.current_hist_idx, self.episode_step] = ai_reward
         if self.envinfo_history is not None:
             self.envinfo_history[:,self.current_hist_idx, self.episode_step + 1] = self.envinfo
- 
+        if self.secretes_history is not None:
+            self.secretes_history[:, self.current_hist_idx, self.episode_step + 1] = self.secretes
+
         rewards = {
             'ai': ai_reward[self.ci_ai_map],
             'ci': ci_reward

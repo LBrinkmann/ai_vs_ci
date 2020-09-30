@@ -1,0 +1,139 @@
+exec:
+  command: train
+  script_name: gpu
+labels:
+  project: ai_vs_ci
+  batch: weight_mixing_test1
+grid:
+  - 
+    -
+      params.agent_types.ci.controller_args.model_args.multi_type: individual_weights
+      params.agent_types.ci.controller_args.mix_freq: null
+      labels.mixing: no_mixing
+    -
+      params.agent_types.ci.controller_args.model_args.multi_type: shared_weights
+      params.agent_types.ci.controller_args.mix_freq: null
+      labels.mixing: shared
+    -
+      params.agent_types.ci.controller_args.model_args.multi_type: individual_weights
+      params.agent_types.ci.controller_args.mix_freq: 1
+      labels.mixing: mix_1
+    -
+      params.agent_types.ci.controller_args.model_args.multi_type: individual_weights
+      params.agent_types.ci.controller_args.mix_freq: 10
+      labels.mixing: mix_10
+    -
+      params.agent_types.ci.controller_args.model_args.multi_type: individual_weights
+      params.agent_types.ci.controller_args.mix_freq: 100
+      labels.mixing: mix_100
+  - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0003, 0.0001]
+    params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0003, 0.0001]
+    labels.lr: [0.001, 0.0003, 0.0001]
+params:
+  device_name: cuda
+  scheduler_args:
+    episodes: 10000
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training: 
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: true
+            ai: true
+  agent_types:
+    ai:
+      controller_args:
+        gamma: 0.80
+        batch_size: 20
+        target_update_freq: 100
+        sample_args: 
+          horizon: 100
+        model_args:
+          linear1: true
+          rnn1: true
+          linear2: true
+          rnn2: true
+          net_type: pooling_gru
+          hidden_size: 100
+          pooling_types: ['avg', 'max', 'sum']
+          multi_type: shared_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+    ci:
+      controller_args:
+        gamma: 0.80
+        batch_size: 20
+        target_update_freq: 100
+        mix_freq: 10
+        sample_args: 
+          horizon: 100
+        model_args:
+          mix_weights_args:
+            noise_factor: 0.0
+            mixing_factor: 1.0
+          linear1: true
+          rnn1: true
+          linear2: true
+          rnn2: true
+          net_type: pooling_gru
+          hidden_size: 100
+          pooling_types: ['avg', 'max', 'sum']
+          multi_type: individual_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+  writer_args:
+    flush_period: 100000
+    periods:
+      trace: 10
+      mean_trace: 1
+      env: 1000
+  env_class: adversial_graph_coloring_historized
+  env_args:
+    n_agents: 20
+    n_actions: 4
+    reward_period: 1
+    network_period: 1
+    mapping_period: 0
+    max_history: 100
+    graph_args:
+      constrains: 
+        max_max_degree: 8
+        connected: True
+      graph_args:
+        p: 0.2
+      graph_type: erdos_renyi
+    # envinfo_args:
+    #   info_names:
+    #     - rewarded
+    #     - avg_coordination
+    #     - avg_catch
+    #     - ind_coordination
+    #     - ind_catch
+    # secrete_args:
+    #   n_seeds: 8
+    #   correlated: true
+    #   agent_types: [ci]
+    episode_length: 50
+    rewards_args:
+      ai:
+        ind_coordination: 0
+        avg_coordination: -1
+        ind_catch: 0
+        avg_catch: 1
+      ci:
+        ind_coordination: 0
+        avg_coordination: 1
+        ind_catch: 0
+        avg_catch: -1

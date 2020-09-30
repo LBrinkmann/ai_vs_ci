@@ -1,0 +1,37 @@
+clean: true
+preprocess_args:
+  combine:
+    metric:
+      coordination: 
+        name: mean_avg_coordination
+      catch: 
+        name: mean_avg_catch
+      diff: 
+        name: mean_reward
+        agent_type: ci
+plot_args:
+  - 
+    selectors:
+      mode: train
+    grid: [hidden_size, metric]
+    hue: correlated
+    style: merge_pos
+    name: reward_metrics
+  - 
+    selectors:
+      mode: train
+      agents: mean
+      name: stick_to_color
+    grid: [hidden_size, agent_type]
+    hue: correlated
+    style: merge_pos
+    name: stick_to_color
+  - 
+    selectors:
+      mode: train
+      agents: mean
+      name: max_freq
+    grid: [hidden_size, agent_type]
+    hue: correlated
+    style: merge_pos
+    name: max_freq
