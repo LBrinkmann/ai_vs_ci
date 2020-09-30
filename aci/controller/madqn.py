@@ -27,7 +27,7 @@ class GRUAgentWrapper(nn.Module):
     def __init__(self, 
             observation_shapes, n_agents, n_actions, net_type, 
             multi_type, device, add_catch=False, global_input_idx=[],
-            global_control_idx=[], **kwargs):
+            global_control_idx=[], mix_weights_args=None, **kwargs):
         super(GRUAgentWrapper, self).__init__()
         assert multi_type in ['shared_weights', 'individual_weights']
 
@@ -60,6 +60,43 @@ class GRUAgentWrapper(nn.Module):
         self.global_input_idx = global_input_idx
         self.global_control_idx = global_control_idx
         self.add_catch = add_catch
+        self.mix_weights_args = mix_weights_args
+
+        # TODO: this is temporarly
+        if mix_weights_args is not None:
+            ref_model = self.models[0].state_dict()
+            for m in self.models:
+                m.load_state_dict(ref_model)
+
+    def mix_weigths(self):
+        return self._mix_weigths(**self.mix_weights_args)
+
+    def _mix_weigths(self, noise_factor=0.1, mixing_factor=0.8):
+        """
+        """
+        stacked_state_dict = {}
+        state_names = list(self.models[0].state_dict().keys())
+
+        stacked_state_dict = {
+            k: th.stack(
+                tuple(m.state_dict()[k] for m in self.models),
+                dim=0
+            ) for k in state_names
+        }
+
+        stacked_state_dict = {
+            k: v + th.randn_like(v) * v.std() * noise_factor
+            for k, v in stacked_state_dict.items()
+        }
+
+        stacked_state_dict = {
+            k: v * (1-mixing_factor) + v.sum(dim=0) * mixing_factor
+            for k, v in stacked_state_dict.items()
+        }
+
+        for i in range(len(self.models)):
+            self.models[i].load_state_dict({k: v[i] for k, v in stacked_state_dict.items()})
+
 
     def forward(self, x, mask, secret=None, globalx=None):
         """
@@ -77,7 +114,6 @@ class GRUAgentWrapper(nn.Module):
             catch = (x[:,:,:,:,0] == x[:,:,:,:,1]).type(th.float)
             x_ci_oh[:,:,:,:,-len(self.global_input_idx)-1] = catch
         x_ci_oh[mask] = 0
-
 
 
         if secret is not None:
@@ -191,7 +227,7 @@ class OneHotTransformer(nn.Module):
 class MADQN:
     def __init__(
             self, observation_shapes, n_agents, n_actions, model_args, opt_args, sample_args, agent_type,
-            gamma, batch_size, target_update_freq, device):
+            gamma, batch_size, target_update_freq, device, mix_freq=None):
         self.agent_type = agent_type
         self.n_actions = n_actions
         self.n_agents = n_agents
@@ -216,6 +252,7 @@ class MADQN:
         self.batch_size = batch_size
         self.sample_args = sample_args
         self.target_update_freq = target_update_freq
+        self.mix_freq = mix_freq
 
     def get_q(self, input, training=None):
         with th.no_grad():
@@ -229,8 +266,11 @@ class MADQN:
 
     def init_episode(self, episode, training):
         self.policy_net.reset()
+        if (self.mix_freq is not None) and training and (episode % self.mix_freq == 0):
+            self.policy_net.mix_weigths()
         if training and (episode % self.target_update_freq == 0):
             self._update_target()
+
 
     def _optimize(self, prev_observations, observations, actions, rewards):        
         self.policy_net.reset()

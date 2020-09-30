@@ -1,0 +1,120 @@
+labels:
+  project: ai_vs_ci
+  batch: dev_weight_mixing
+params:
+  device_name: cpu
+  scheduler_args:
+    episodes: 1000
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training: 
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training: 
+            ci: true
+            ai: true
+  agent_types:
+    ai:
+      controller_args:
+        gamma: 0.80
+        batch_size: 3
+        target_update_freq: 100
+        sample_args: 
+          horizon: 100
+        model_args:
+          # global_input_idx: [0]
+          # global_control_idx: [1,2]
+          # add_catch: true
+          linear1: true
+          rnn1: true
+          linear2: true
+          rnn2: true
+          # merge_type: outer
+          # merge_pos: prelin2
+          net_type: pooling_gru
+          hidden_size: 100
+          pooling_types: [avg, sum, max]
+          # multi_type: individual_weights
+          multi_type: shared_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+    ci:
+      controller_args:
+        gamma: 0.80
+        batch_size: 20
+        target_update_freq: 100
+        mix_freq: 10
+        sample_args: 
+          horizon: 100
+        model_args:
+          mix_weights_args:
+            noise_factor: 0.0
+            mixing_factor: 1.0
+          # global_input_idx: []
+          # global_control_idx: []
+          # add_catch: true
+          linear1: true
+          rnn1: true
+          linear2: true
+          rnn2: true
+          # merge_type: outer
+          # merge_pos: prelin2
+          net_type: pooling_gru
+          pooling_types: [avg, sum, max]
+          hidden_size: 100
+          multi_type: individual_weights
+        opt_args:
+          lr: 0.001
+      controller_class: madqn
+  writer_args:
+    flush_period: 1000
+    periods:
+      trace: 5
+      mean_trace: 1
+      env: 100
+  env_class: adversial_graph_coloring_historized
+  env_args:
+    n_agents: 20
+    n_actions: 3
+    network_period: 1
+    mapping_period: 0
+    reward_period: 1
+    max_history: 50
+    secrete_args:
+      n_seeds: 4
+      correlated: true
+      agent_types: [ai,ci]
+    envinfo_args:
+      info_names:
+        - rewarded
+        - avg_coordination
+        - avg_catch
+    graph_args:
+        constrains: 
+            max_max_degree: 8
+            connected: True
+        graph_args:
+          p: 0.2
+        graph_type: erdos_renyi
+    episode_length: 50
+    rewards_args:
+        ai:
+            avg_catch: 0.5
+            avg_coordination: 0
+            ind_catch: 0.5
+            ind_coordination: 0
+        ci:
+            avg_catch: 0
+            avg_coordination: 0
+            ind_catch: 0
+            ind_coordination: 1
