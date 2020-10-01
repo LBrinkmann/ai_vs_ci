@@ -46,7 +46,7 @@ class GRUAgentWrapper(nn.Module):
                 assert np.log2(secrete_maxval_p1 + 1) == int(np.log2(secrete_maxval_p1 + 1))
                 self.control_size += int(np.log2(secrete_maxval_p1 + 1))
             elif control_type == 'permute':
-                self.permuations = th.tensor(list(permutations(range(n_actions))))
+                self.permuations = th.tensor(list(permutations(range(n_actions))), device=device)
                 assert maxval < len(self.permuations), 'Max seed needs to be smaller then the factorial of actions.'
 
         self.n_inputs = observation_shapes[0]['shape'][1]
