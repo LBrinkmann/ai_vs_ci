@@ -56,7 +56,7 @@ params:
         sample_args: 
           horizon: 100
         model_args:
-          global_input_idx: [1,2]
+          global_input_idx: [3,4]
           global_control_idx: []
           add_catch: true
           linear1: true
@@ -96,6 +96,8 @@ params:
         - rewarded
         - avg_coordination
         - avg_catch
+        - local_coordination
+        - local_catch
     graph_args:
         constrains: 
             max_max_degree: 8

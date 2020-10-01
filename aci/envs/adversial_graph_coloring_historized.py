@@ -358,8 +358,13 @@ class AdGraphColoringHist():
         ind_coordination = 1 - conflicts.any(dim=0).type(th.float)
         ind_catch = (ai_state == ci_state).type(th.float)
 
-        local_coordination = (ind_coordination * self.adjacency_matrix + ind_coordination) / (self.adjacency_matrix.sum(0) + 1)
-        local_catch = (ind_catch * self.adjacency_matrix + ind_catch) / (self.adjacency_matrix.sum(0) + 1)
+        ad_matrix_float = self.adjacency_matrix.type(th.float)
+        ad_matrix_float.fill_diagonal_(1.)
+        ad_matrix_float = ad_matrix_float / ad_matrix_float.sum(0)
+        local_coordination = ind_coordination @ ad_matrix_float
+        local_catch = ind_catch @ ad_matrix_float
+        # assert (local_catch <= 1).all()
+        # assert (local_coordination <= 1).all()
 
         metrics = {
             'ind_coordination': ind_coordination,
