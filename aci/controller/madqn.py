@@ -1,5 +1,6 @@
 from collections import namedtuple
 from functools import reduce
+from itertools import permutations
 import math
 import random
 import torch as th
@@ -23,20 +24,30 @@ def onehot(x, m, input_size, device):
     return onehot
 
 
+
+
+
+
 class GRUAgentWrapper(nn.Module):
     def __init__(self, 
             observation_shapes, n_agents, n_actions, net_type, 
-            multi_type, device, add_catch=False, global_input_idx=[],
-            global_control_idx=[], mix_weights_args=None, **kwargs):
+            multi_type, device, add_catch=False, control_type=None, global_input_idx=[],
+            global_control_idx=[], mix_weights_args=None, action_permutation=False, **kwargs):
         super(GRUAgentWrapper, self).__init__()
         assert multi_type in ['shared_weights', 'individual_weights']
 
 
         self.control_size = len(global_control_idx)
+        self.control_type = control_type
         if observation_shapes[2] is not None:
-            secrete_maxval_p1 = observation_shapes[2]['maxval'] + 1
-            assert np.log2(secrete_maxval_p1 + 1) == int(np.log2(secrete_maxval_p1 + 1))
-            self.control_size += int(np.log2(secrete_maxval_p1 + 1))
+            maxval = observation_shapes[2]['maxval']
+            if control_type == 'binary':
+                secrete_maxval_p1 = maxval + 1
+                assert np.log2(secrete_maxval_p1 + 1) == int(np.log2(secrete_maxval_p1 + 1))
+                self.control_size += int(np.log2(secrete_maxval_p1 + 1))
+            elif control_type == 'permute':
+                self.permuations = th.tensor(list(permutations(range(n_actions))))
+                assert maxval < len(self.permuations), 'Max seed needs to be smaller then the factorial of actions.'
 
         self.n_inputs = observation_shapes[0]['shape'][1]
 
@@ -67,6 +78,7 @@ class GRUAgentWrapper(nn.Module):
             ref_model = self.models[0].state_dict()
             for m in self.models:
                 m.load_state_dict(ref_model)
+
 
     def mix_weigths(self):
         return self._mix_weigths(**self.mix_weights_args)
@@ -115,8 +127,7 @@ class GRUAgentWrapper(nn.Module):
             x_ci_oh[:,:,:,:,-len(self.global_input_idx)-1] = catch
         x_ci_oh[mask] = 0
 
-
-        if secret is not None:
+        if self.control_type == 'binary':
             control = binary(secret, self.control_size).type(th.float)
             if len(self.global_control_idx) != 0:
                 control[:,:,:,-len(self.global_control_idx):] = globalx[:,:,:,self.global_control_idx]
@@ -179,6 +190,10 @@ class GRUAgentWrapper(nn.Module):
 
         if self.multi_type == 'shared_weights':
             q = q.reshape(*x.shape[:3], -1)
+
+        if self.control_type == 'permute':
+            permutations = self.permuations[secret]
+            q = th.gather(q, -1, permutations)
 
         return q
 

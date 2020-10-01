@@ -56,15 +56,16 @@ params:
         sample_args: 
           horizon: 100
         model_args:
-          global_input_idx: [3,4]
+          global_input_idx: []
           global_control_idx: []
           add_catch: true
+          control_type: permute
           linear1: true
           rnn1: true
           linear2: true
           rnn2: true
-          merge_type: outer
-          merge_pos: prelin2
+          # merge_type: outer
+          # merge_pos: prelin2
           net_type: pooling_gru
           pooling_types: [avg, sum]
           hidden_size: 100
@@ -81,14 +82,14 @@ params:
   env_class: adversial_graph_coloring_historized
   env_args:
     n_agents: 20
-    n_actions: 3
+    n_actions: 4
     network_period: 1
     mapping_period: 0
     reward_period: 1
     max_history: 50
     secrete_args:
-      n_seeds: 3
-      correlated: true
+      n_seeds: 8
+      correlated: false
       agent_types: [ai,ci]
       secret_period: 1
     envinfo_args:
