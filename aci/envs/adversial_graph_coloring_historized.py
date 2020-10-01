@@ -243,19 +243,14 @@ class AdGraphColoringHist():
         ci_state = self.state_history[self.agent_types_idx['ci'], :, episode_idx]
         mask = self.neighbors_mask_history[:, episode_idx]
         neighbors = self.neighbors_history[:, episode_idx]
-
         links = th.stack([
             neighbors[:, :, [0]].repeat(1, 1, neighbors.shape[-1] - 1),
             neighbors[:, :, 1:]
         ], dim=-1)
-
         links = links.unsqueeze(2).repeat(1,1,self.episode_length,1,1)
-
         mask = mask[:, :, 1:].unsqueeze(2).repeat(1,1,self.episode_length,1)
-        
         prev_states = ci_state[:,:,:-1]
         this_states = ci_state[:,:,1:]
-
         return (prev_states, links, mask), (this_states, links, mask) 
 
 
@@ -363,16 +358,21 @@ class AdGraphColoringHist():
         ind_coordination = 1 - conflicts.any(dim=0).type(th.float)
         ind_catch = (ai_state == ci_state).type(th.float)
 
+        local_coordination = (ind_coordination * self.adjacency_matrix + ind_coordination) / (self.adjacency_matrix.sum(0) + 1)
+        local_catch = (ind_catch * self.adjacency_matrix + ind_catch) / (self.adjacency_matrix.sum(0) + 1)
+
         metrics = {
             'ind_coordination': ind_coordination,
             'avg_coordination': ind_coordination.mean(0, keepdim=True).expand(self.n_agents),
+            'local_coordination': local_coordination,
+            'local_catch': local_catch,
             'ind_catch': ind_catch,
             'avg_catch': ind_catch.mean(0, keepdim=True).expand(self.n_agents),
             'rewarded': th.full(
                 size=(self.n_agents,), 
                 fill_value=(self.episode_step % self.reward_period) == 0, 
                 dtype=th.float, device=self.device
-            )
+            ),
         }
         ci_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ci'].items()]).sum(0)*metrics['rewarded']
         ai_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ai'].items()]).sum(0)*metrics['rewarded']
