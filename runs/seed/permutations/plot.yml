@@ -13,25 +13,25 @@ plot_args:
   - 
     selectors:
       mode: train
-    grid: [hidden_size, metric]
+    grid: [lr, metric]
     hue: correlated
-    style: merge_pos
+    style: n_seeds
     name: reward_metrics
   - 
     selectors:
       mode: train
       agents: mean
       name: stick_to_color
-    grid: [hidden_size, agent_type]
+    grid: [lr, agent_type]
     hue: correlated
-    style: merge_pos
+    style: n_seeds
     name: stick_to_color
   - 
     selectors:
       mode: train
       agents: mean
       name: max_freq
-    grid: [hidden_size, agent_type]
+    grid: [lr, agent_type]
     hue: correlated
-    style: merge_pos
+    style: n_seeds
     name: max_freq

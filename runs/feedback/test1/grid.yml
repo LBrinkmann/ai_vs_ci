@@ -6,35 +6,50 @@ labels:
   batch: cheap_talk_test1
 grid:
   -
-    # - 
-    #   labels.feedback: none
-    # - labels.feedback: neighbor_catch
-    #   params.agent_types.ci.controller_args.model_args:
-    #     add_catch: true
-    # - labels.feedback: ind_catch
-    #   params.agent_types.ci.controller_args.model_args:
-    #     global_control_idx: [4]
-    #     merge_type: cat
-    #     merge_pos: prelin2
-    # - labels.feedback: avg_catch
-    #   params.agent_types.ci.controller_args.model_args:
-    #     global_control_idx: [2]
-    #     merge_type: cat
-    #     merge_pos: prelin2
-    # - labels.feedback: avg_catch_corr
-    #   params.agent_types.ci.controller_args.model_args:
-    #     global_control_idx: [1, 2]
-    #     merge_type: cat
-    #     merge_pos: prelin2
+    - 
+      labels.feedback: none
+    - labels.feedback: neighbor_catch
+      params.agent_types.ci.controller_args.model_args:
+        add_catch: true
+    - labels.feedback: ind_catch
+      params.agent_types.ci.controller_args.model_args:
+        global_control_idx: [4]
+        merge_type: cat
+        merge_pos: prelin2
+    - labels.feedback: avg_catch
+      params.agent_types.ci.controller_args.model_args:
+        global_control_idx: [2]
+        merge_type: cat
+        merge_pos: prelin2
+    - labels.feedback: avg_catch_corr
+      params.agent_types.ci.controller_args.model_args:
+        global_control_idx: [1, 2]
+        merge_type: cat
+        merge_pos: prelin2
     - labels.feedback: all
       params.agent_types.ci.controller_args.model_args:
         global_control_idx: [1, 2]
         merge_type: cat
         merge_pos: prelin2
         add_catch: true
-  - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0001]
-    params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0001]
-    labels.lr: [0.001, 0.0001]
+    - labels.feedback: local_catch_corr
+      params.agent_types.ci.controller_args.model_args:
+        global_control_idx: [5, 6]
+        merge_type: cat
+        merge_pos: prelin2
+        add_catch: false
+    - labels.feedback: local_catch
+      params.agent_types.ci.controller_args.model_args:
+        global_control_idx: [6]
+        merge_type: cat
+        merge_pos: prelin2
+        add_catch: false
+  # - params.agent_types.ci.controller_args.opt_args.lr: [0.001, 0.0001]
+  #   params.agent_types.ai.controller_args.opt_args.lr: [0.001, 0.0001]
+  #   labels.lr: [0.001, 0.0001]
+  - params.agent_types.ci.controller_args.opt_args.lr: [0.0003]  
+    params.agent_types.ai.controller_args.opt_args.lr: [0.0003]  
+    labels.lr: [0.0003]    
 params:
   device_name: cuda
   scheduler_args:
@@ -123,6 +138,8 @@ params:
         - avg_catch
         - ind_coordination
         - ind_catch
+        - local_coordination
+        - local_catch
     episode_length: 50
     rewards_args:
       ai:

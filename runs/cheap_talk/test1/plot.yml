@@ -14,8 +14,8 @@ plot_args:
   - 
     selectors:
       mode: train
-    grid: [envstate, rewarded_info]
-    hue: metric
+    grid: [metric, rewarded_info]
+    hue: envstate
     style: lr
     name: reward_metrics
   - 

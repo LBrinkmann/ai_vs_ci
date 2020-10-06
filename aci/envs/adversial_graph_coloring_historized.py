@@ -32,8 +32,8 @@ def get_secrets_shape(n_agents, n_seeds=None, agent_type=None, agent_types=None,
         return None
 
 
-def do_update_secrets(secret_period, episode_step, **kwars):
-    return (episode_step % secret_period == 0) or (episode_step == 0)
+def do_update_secrets(episode_step, secret_period=None, **kwars):
+    return (secret_period is None) or (episode_step % secret_period == 0) or (episode_step == 0)
 
 
 def gen_secrets(n_seeds=None, **kwargs):
