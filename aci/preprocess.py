@@ -10,9 +10,14 @@ Outputs:
 from docopt import docopt
 import os
 import pandas as pd
+import numpy as np
+import torch as th
 from multiprocessing import Manager, Pool
-from itertools import groupby
+# from itertools import groupby
+from functools import partial
+from itertools import product
 from aci.utils.io import load_yaml
+from aci.utils.array_to_df import using_multiindex, map_columns, to_alphabete
 
 
 N_JOBS = 16
@@ -28,11 +33,496 @@ def read_file(args):
     return (filename, pd.read_parquet(fullfilename))
 
 
-def find_files_with_extension(_dir, ext):
-    for root, dirs, files in os.walk(_dir):
-        for file in files:
-            if file.endswith(ext):
-                yield (file, os.path.join(root, file))
+def add_random(state, actions, agent_types, **other):
+    random = th.randint_like(state, len(actions))
+    _state = th.cat([state, random])
+    _agent_types = agent_types + ['random_ci', 'random_ai']
+    return {**other, 'agent_types': _agent_types, 'state': _state, 'actions': actions}
+
+
+def add_labels(df, labels):
+    label_df = pd.DataFrame(data=labels, dtype='category', index=df.index)
+    return pd.concat([label_df, df], axis=1)
+
+
+def _preprocess_file(filename, mode, pattern_df, labels, outdir, name, correlations_args, tuple_args, metric_args):
+    tensors = th.load(filename)
+    tensors = add_random(**tensors)
+
+    correlations_df = correlations(**tensors, **correlations_args)
+    pattern_df = pd.concat(match_tuples(**tensors, pattern_df=pattern_df, **tuple_args))
+    df_entropy = calculate_entropy(pattern_df)
+    df_kl = calculate_kullback_leibler(pattern_df)
+
+    metrics_df = agg_metrics(**tensors, **metric_args)
+
+    dfs = {'pattern': pattern_df, 'entropy': df_entropy, 'kl': df_kl, 'metrics': metrics_df, 'correlations': correlations_df}
+
+    _labels = {**labels, 'mode': mode}
+
+    dfs = {n: add_labels(df, _labels) for n, df in dfs.items()}
+
+    ensure_dir(outdir)
+    for dfname, df in dfs.items():
+        filename = os.path.join(outdir, f"{name}.{dfname}.parquet")
+        df.to_parquet(filename)
+
+
+# TODO: remove
+import string
+_agents = [string.ascii_uppercase[i] for i in range(4)]
+_actions = [string.ascii_uppercase[i] for i in range(4)]
+
+
+############## metrics
+
+
+def local_aggregation(metric, neighbors, neighbors_mask):
+    # state: agent_type, agents, batch, episode_step
+    # neighbors: agents, batch, max_neighbors
+    # neighbors_mask: agents, batch, max_neighbors
+    n_source, n_agents, batch_size, episode_steps = metric.shape
+    n_agents_2, batch_size_2, max_neighbors = neighbors.shape
+
+    assert n_agents == n_agents_2
+    assert n_agents == n_agents_2
+
+    # permutation needed because we map neighbors on agents
+    _metric = metric.permute(0,2,3,1) \
+        .unsqueeze(1).repeat(1, n_agents,1,1,1) # agents, batch, episode_step, neighbors 
+
+    _neighbors = neighbors.clone()
+    _neighbors[neighbors_mask] = 0
+    _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).repeat(n_source, 1, 1, episode_steps, 1) # agents, batch, episode_step, neighbors 
+    
+    _neighbors_mask = neighbors_mask.unsqueeze(0).unsqueeze(3) \
+        .repeat(n_source, 1, 1, episode_steps, 1) # agents, batch, episode_step, neighbors
+
+    local_metrics = th.gather(_metric, -1, _neighbors) # agent_type, agents, batch, episode_step, neighbors 
+    local_metrics[_neighbors_mask] = 0
+    local_metrics = local_metrics.sum(-1) / (~_neighbors_mask).sum(-1)
+    return local_metrics
+
+
+
+
+
+def recalcuate_metrics(state, neighbors, neighbors_mask, metrics, metric_names, agent_types, agents, **_):
+    """
+    We recaluclate the metrics for the random case.
+
+    """
+
+    at_map = {k: v for v, k in enumerate(agent_types)}
+
+    observations = get_observations(state, neighbors, neighbors_mask)
+
+    self_agent_types = [at_map['ci'], at_map['random_ci']]
+    other_agent_types = [at_map['ci'], at_map['random_ci']]
+    self_color = observations[self_agent_types][:,:,:,:, [0]]
+    other_colors = observations[other_agent_types][:,:,:,:, 1:]
+
+    coordination = (self_color != other_colors).all(-1).type(th.float)
+
+    local_coordination = local_aggregation(coordination, neighbors, neighbors_mask)
+
+    self_agent_types = [at_map['ci'], at_map['random_ci']]
+    other_agent_types = [at_map['ai'], at_map['random_ai']]
+    self_color = observations[self_agent_types,:,:,:, 0]
+    other_color = observations[other_agent_types,:,:,:, 0]
+    catch = (self_color == other_color).type(th.float)
+
+    local_catch = local_aggregation(catch, neighbors, neighbors_mask)
+
+    rec_metrics = th.stack([coordination, local_coordination, catch, local_catch], dim=-1)
+
+    df = using_multiindex(
+        rec_metrics, ['agent_source', 'agent', 'episode', 'episode_step', 'metric_name'], value_name='value')
+
+    rec_metric_names = ['ind_coordination', 'local_coordination', 'ind_catch', 'local_catch']
+
+    df = map_columns(df, agent=agents, metric_name=rec_metric_names, agent_source=['trained', 'random'])
+
+    # assert that newly calculated metrics are matching the old ones
+    org_df = using_multiindex(metrics, ['agent', 'episode', 'episode_step', 'metric_name'], value_name='org_value')
+    org_df = map_columns(org_df, agent=agents, metric_name=metric_names)
+    test = df[df['agent_source'] == 'trained'].merge(org_df, how='left')
+
+    assert np.isclose(test['value'], test['org_value']).all()
+
+    return df
+
+
+def agg_metrics(bin_size, **tensors):
+    df = recalcuate_metrics(**tensors)
+    # df = using_multiindex(metrics, ['agents', 'episode', 'episode_step', 'metric_name'], value_name='value')
+    # df = map_columns(df, agents=agents, metric_name=metric_names)
+    df = aggregation(df, quarter_column='episode_step', quarter_name='episode_part', bin_name='episode_bin', 
+        bin_column='episode', bin_size=bin_size, agg_column='value', agg_func='mean')
+
+    df = add_all(
+        df, value_name='value', merge_column='agent', sum_name='all', agg_func='mean')
+
+    column_order = [
+        'agent', 'episode_bin', 'episode_part', 'agent_source', 'metric_name', 'value'
+    ]
+    cat_column = ['agent_source', 'agent', 'episode_bin', 'episode_part', 'metric_name'] 
+
+    df[cat_column] = df[cat_column].astype('category')
+
+    return df[column_order]
+
+
+
+############## match_tuples
+
+
+def create_tuples(m, length):
+    episode_steps = m.shape[-1]
+    tuples = th.stack([m[:,:,:,i:(episode_steps + 1 - length + i)] for i in range(length)], dim=-1)
+    return tuples
+
+def tuple_to_multiindex(A, columns):
+    shape = A.shape[:-1]
+    length = A.shape[-1]
+    index = pd.MultiIndex.from_product([range(s) for s in shape], names=columns)
+    action_ids = [tuple(a) for a in A.reshape(-1, length).tolist()]
+    df = pd.DataFrame({'action_ids': action_ids}, index=index).reset_index()
+    return df
+
+
+def aggregation(df, quarter_column, quarter_name, bin_name, bin_column, bin_size, agg_column=None, agg_func='count'):
+    columns = list(set(df.columns) - set((quarter_column, bin_column, agg_column))) + [bin_name]
+
+    # create column to aggregate first and last quarter seperatly
+    max_episode_step = df[quarter_column].max()
+    df[quarter_name] = 'middle'
+    df.loc[df[quarter_column] < max_episode_step * 0.25, quarter_name] = 'start'
+    df.loc[df[quarter_column] > max_episode_step * 0.75, quarter_name] = 'end'
+
+    # create column to bin episodes
+    df[bin_name] = df[bin_column] // bin_size * bin_size + bin_size // 2
+    if agg_column is None:
+        df['count'] = 1
+        agg_column = 'count'
+
+    # aggreation with quarters seperatly
+    df_agg = df.groupby(columns + [quarter_name])[agg_column].agg(agg_func)
+    df_agg = df_agg.reset_index()
+
+    # aggreation with full data
+    df_all_agg = df.groupby(columns)[agg_column].agg(agg_func)
+    df_all_agg = df_all_agg.reset_index()
+    df_all_agg[quarter_name] = 'full'
+
+    df = pd.concat([df_agg, df_all_agg])
+    return df
+
+
+def add_all(df, value_name, merge_column, sum_name, agg_func):
+    groupby_columns = list(set(df.columns) - set([value_name, merge_column]))
+    sum_df = df.groupby(groupby_columns)[value_name].agg(agg_func).reset_index()
+    sum_df[merge_column] = sum_name
+    return pd.concat([df, sum_df])
+
+
+def match_tuples(state, pattern_df, agent_types, agents, actions, bin_size, **_):
+    for length, this_pattern_df in pattern_df.groupby("pattern_length"):
+        print(f'Create tuple of {length}')
+
+
+        # stack state tensor, such that we optain tuples
+        tuples = create_tuples(state, length)
+
+        # turn tensor in to dataframe, make dims to columns 
+        tuple_df = tuple_to_multiindex(tuples, ['agent_types', 'agent', 'episode', 'episode_step'])
+
+        # to replace the tuple of action_ids with the pattern_id might speed up things
+        tuple_df = this_pattern_df[['pattern_id', 'action_ids']].merge(tuple_df)
+        tuple_df['pattern_id'] = tuple_df['pattern_id'].astype('category')
+        tuple_df = tuple_df.drop(columns='action_ids')
+
+        # make binsize a parameter, should depend on length
+        tuple_df = aggregation(
+            tuple_df, quarter_column='episode_step', quarter_name='episode_part', bin_name='episode_bin', 
+            bin_column='episode', bin_size=bin_size)
+
+        # have agent and agent_types as strings
+        tuple_df = map_columns(
+            tuple_df, agent_types=agent_types, agent=agents)
+
+        # adding total count of all agents
+        tuple_df = add_all(
+            tuple_df, value_name='count', merge_column='agent', sum_name='all', agg_func='sum')
+
+        norm = tuple_df.groupby(['agent_types', 'agent', 'episode_bin', 'episode_part'])['count'].transform('sum')
+        tuple_df['freq'] = tuple_df['count'] / norm
+
+        tuple_df = this_pattern_df.merge(tuple_df)
+        tuple_df['pattern_length'] = length
+        column_order = [
+            'agent', 'episode_bin', 'episode_part', 'agent_types', 'pattern_length',
+            'pattern_id',  'pattern_name', 'pattern_group_name', 'count', 'freq'
+        ]
+        cat_column = ['agent_types', 'agent', 'episode_bin', 'episode_part',
+            'pattern_length', 'pattern_id', 'pattern_name', 'pattern_group_name',] 
+
+        tuple_df[cat_column] = tuple_df[cat_column].astype('category')
+
+        yield tuple_df[column_order]
+
+
+
+def calculate_entropy(df):
+    df = df.copy()
+    groupby = ['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length']
+    prop_column = 'freq'
+
+    df['entropy'] = -1 * df[prop_column] * np.log(df[prop_column])
+    return df.groupby(groupby)['entropy'].sum().reset_index()
+
+
+def calculate_kullback_leibler(df):
+    """
+        Calculates the kl divergence between each agent's pattern distribution and
+        the one of all agents together.
+    """
+    df = df.copy()
+    groupby = ['agent_types', 'episode_bin', 'episode_part', 'pattern_length']
+    w_all = df['agent'] == 'all'
+    # df_all = df[w_all]
+    # w_duplicate = df_all.groupby(groupby + ['pattern_id'])['freq'].transform('count')
+
+    _df = df[~w_all].merge(df.loc[w_all, groupby + ['freq', 'pattern_id']], on=groupby + ['pattern_id'], suffixes=['', '_all'])
+    
+    _df['kl_div'] =  _df['freq_all'] * np.log((_df['freq_all'] / (_df['freq'] + np.finfo(float).eps)) + np.finfo(float).eps)
+
+    _df = _df.groupby(groupby + ['agent'])['kl_div'].sum().reset_index()
+    _df_all = _df.groupby(groupby)['kl_div'].mean().reset_index()
+    _df_all['agent'] = 'all'
+    return pd.concat([_df, _df_all])
+
+
+##############     create pattern df
+
+def de_duplicate(seq):
+    seen = set()
+    return [x for x in seq if not (x in seen or seen.add(x))]
+
+
+def normalize_pattern(pattern, actions):
+    mapping = {name: actions[idx] for idx, name in enumerate(de_duplicate(pattern))}
+    return ''.join(mapping[p] for p in pattern)
+
+
+def create_single_pattern_df(length, actions):
+    pattern_name = list(''.join(n) for n in product(actions, repeat=length))
+    df = pd.DataFrame(
+        {
+            'action_ids': list(product(range(len(actions)), repeat=length)),
+            'pattern_name': pattern_name,
+            'pattern_length': length,
+        },
+    )
+    return df
+
+def create_pattern_df(min_length, max_length, actions):
+    """
+    Create tuples from the outer product of avaible actions.
+    Tuples which are equivalent upon permutation of action names are
+    assign the same pattern group. 
+
+    Parameters
+    ----------
+    min_length : int 
+        minimum length of tuple
+    max_length : int 
+        maximum length of tuple
+    actions : list
+        name of actions 
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with patterns. Columns are as follows:
+        ==================  ==========================================
+        pattern_id          Id of pattern.
+        pattern_length      Length of pattern.
+        pattern_name        Name of pattern as joined as action names. 
+        pattern_group_name  Pattern group. 
+        action_ids          Tuple with action ids of the pattern. 
+        ==================  ==========================================
+
+    """
+    pattern_dfs = [
+        create_single_pattern_df(length, actions) 
+        for length in range(min_length, max_length + 1)
+    ]
+    pattern_df = pd.concat(pattern_dfs)
+    pattern_df['pattern_id'] = np.arange(len(pattern_df))
+    pattern_df['pattern_group_name'] = pattern_df['pattern_name'].map(
+        lambda p: normalize_pattern(p, actions))
+    category_columns = ['pattern_name', 'pattern_group_name']
+    pattern_df[category_columns] = pattern_df[category_columns].astype('category')
+    column_order = [
+        'pattern_id', 'pattern_length', 'pattern_name', 
+        'pattern_group_name', 'action_ids'
+    ]
+    return pattern_df[column_order]
+
+
+def match(m, ref):
+    ref_ = ref.unsqueeze(1).unsqueeze(1).unsqueeze(1).unsqueeze(1)
+    matches = (m[np.newaxis] == ref_).all(-1).type(th.int).argmax(0)
+    return matches
+
+
+def get_observations(state, neighbors, neighbors_mask, **_):
+    # state: agent_type, agents, batch, episode_step
+    # neighbors: agents, batch, max_neighbors
+    # neighbors_mask: agents, batch, max_neighbors
+    n_agent_types, n_agents, batch_size, episode_steps = state.shape
+    n_agents_2, batch_size_2, max_neighbors = neighbors.shape
+
+    assert n_agents == n_agents_2
+    assert n_agents == n_agents_2
+
+    # permutation needed because we map neighbors on agents
+    _state = state.permute(0,2,3,1) \
+        .unsqueeze(1).repeat(1,n_agents,1,1,1) # agent_type, agents, batch, episode_step, neighbors 
+ 
+    _neighbors = neighbors.clone()
+    _neighbors[neighbors_mask] = 0
+    _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).repeat(n_agent_types, 1, 1, episode_steps, 1) # agent_type, agents, batch, episode_step, neighbors 
+    
+    _neighbors_mask = neighbors_mask \
+        .unsqueeze(0).unsqueeze(3) \
+        .repeat(n_agent_types, 1, 1, episode_steps, 1) # agent_type, agents, batch, episode_step, neighbors
+
+    observations = th.gather(_state, -1, _neighbors) # agent_type, agents, batch, episode_step, neighbors 
+    observations[_neighbors_mask] = -1
+    return observations
+
+
+
+# TODO:
+# add 
+# degree_centrality(neighbors_mask)
+# 
+def correlations(state, neighbors, neighbors_mask, max_delta, bin_size, agent_types, agents, correlations, **_):
+    observations = get_observations(state, neighbors, neighbors_mask)
+    at_map = {k: v for v, k in enumerate(agent_types)}
+    all_df = []
+    for c in correlations:
+        df_neighbor = neighbor_correlations(
+            observations, neighbors_mask, at_map=at_map, max_delta=max_delta, bin_size=bin_size, **c)
+        all_df.append(df_neighbor)
+        df_self = node_correlations(observations, at_map=at_map, max_delta=max_delta, bin_size=bin_size, **c)
+        all_df.append(df_self)
+    df =  pd.concat(all_df)
+
+    # have agent and agent_types as strings
+    df = map_columns(df, agent=agents)
+
+    # adding total count of all agents
+    df = add_all(
+        df, value_name='correlation', merge_column='agent', sum_name='all', agg_func='mean')
+
+    column_order = [
+        'agent', 'episode_bin', 'episode_part', 'other', 'node', 'delta_t',  'correlation']
+    cat_column = ['other', 'node', 'agent', 'delta_t', 'episode_bin', 'episode_part'] 
+
+    df[cat_column] = df[cat_column].astype('category')
+    return df[column_order]
+
+
+def degree_centrality(neighbors_mask):
+    degree_centrality = (~neighbors_mask[:,:,1:]).sum(-1).type(th.float) / (neighbors_mask.shape[0] - 1)
+    return degree_centrality # agents, batch
+
+
+def node_correlation(observations, delta_t, self_agent_type, other_agent_type):
+    """
+    Simple metric
+        #same_neigbhors / #sum_neighbors
+
+    input:
+        observations: [agent_type, agents, batch, episode_step, neighbors]
+        mask: [agent_type, agents, batch, episode_step, neighbors]
+        delta_t: compare self color at time t with other colors at time t - delta_t
+        self_agent_type: agent type of self
+        other_agent_type: agent type of neighbors
+    """
+    if delta_t != 0:
+        self_color = observations[self_agent_type,:,:,delta_t:, 0]
+        other_color = observations[other_agent_type,:,:,:-delta_t, 0]
+    else:
+        self_color = observations[self_agent_type,:,:,:,0]
+        other_color = observations[other_agent_type,:,:,:,0]
+    same_color = (self_color == other_color).type(th.float)
+    return same_color # agents, batch, episodes
+
+    
+def neighbor_correlation(observations, mask, delta_t, self_agent_type, other_agent_type):
+    """
+    Simple metric
+        #same_neigbhors / #sum_neighbors
+
+    input:
+        observations: [agent_type, agents, batch, episode_step, neighbors]
+        mask: [agent_type, agents, batch, episode_step, neighbors]
+        delta_t: compare self color at time t with other colors at time t - delta_t
+        self_agent_type: agent type of self
+        other_agent_type: agent type of neighbors
+    """
+    if delta_t != 0:
+        # remove the first delta_t datapoints in each episode
+        self_color = observations[self_agent_type,:,:,delta_t:, [0]]
+        # remove the last delta_t datapoints in each episode
+        other_colors = observations[other_agent_type,:,:,:-delta_t, 1:]
+    else:
+        # remove the first delta_t datapoints in each episode
+        self_color = observations[self_agent_type,:,:,:, [0]]
+        # remove the last delta_t datapoints in each episode
+        other_colors = observations[other_agent_type,:,:,:, 1:]
+
+    same_color_count = (self_color == other_colors).type(th.float).sum(-1)
+
+    neighbor_count = (~mask[:,:,1:]).sum(-1).type(th.float).unsqueeze(-1)
+
+    same_color_fraction = same_color_count / neighbor_count # agents, batch, episodes
+
+    return same_color_fraction
+
+
+def x_correlations(*args, other, node, at_map, max_delta, bin_size, function, metric_name):
+    all_df = []
+    for delta_t in range(max_delta):
+        arr = function(*args, other_agent_type=at_map[other], self_agent_type=at_map[node], delta_t=delta_t)
+        df = using_multiindex(arr, ['agent', 'episode', 'episode_step'], value_name='correlation')
+        df['delta_t'] = delta_t
+        all_df.append(df)
+    df = pd.concat(all_df)
+    df = aggregation(df, quarter_column='episode_step', quarter_name='episode_part', bin_name='episode_bin', 
+        bin_column='episode', bin_size=bin_size, agg_column='correlation', agg_func='mean')
+    df['other'] = other
+    df['node'] = node
+    df['metric_name'] = metric_name
+    return df
+
+neighbor_correlations = partial(x_correlations, function=neighbor_correlation, metric_name='neighbor_correlation')
+node_correlations = partial(x_correlations, function=node_correlation, metric_name='node_correlation')
+
+
+def preprocess_file(args):
+    return _preprocess_file(**args)
+
+def get_files(_dir):
+    return [
+        o
+        for o in os.listdir(_dir) 
+        if os.path.isdir(os.path.join(_dir,o))
+    ]
 
 
 def get_subdirs(_dir):
@@ -43,158 +533,42 @@ def get_subdirs(_dir):
     ]
 
 
-
-def binby(df, groupby=['mode', 'name'], bin_by='episode', bin_size={}, values='value'):
-    df = df.reset_index()
-    for k, v in bin_size.items():
-        assert v % 2 == 0, 'episode_bin need to be an even number.'
-        w = df['mode'] == k
-        df.loc[w, bin_by] = (df.loc[w, bin_by] // v) * v + v // 2
-    df = df.groupby([bin_by] + groupby)[values].mean()
-    return df
-
-def obj_to_category(df):
-    df.loc[:,df.dtypes == 'object'] = df.loc[:,df.dtypes == 'object'].astype('category')
-    return df
-
-
-def mean_bin(df, bin_args):
-    # mean over agents and episode_steps
-    df['mean'] = df.mean(axis=1)
-    # mean over episode_steps and episode bins
-    df = binby(df, **bin_args, values=df.columns)
-    df.columns.name = 'agents'
-    sr = df.stack()
-    sr.name = 'value'
-    df = sr.reset_index()
-    df = obj_to_category(df)
-    return df
-
-
-def max_freq(df, bin_by='episode', bin_size={}):
-    index_col = list(df.index.names)
-    df = df.reset_index()
-    for mode, bs in bin_size.items():
-        assert bs % 2 == 0, 'episode_bin need to be an even number.'
-        w = df['mode'] == mode
-        df.loc[w,bin_by] = (df.loc[w,bin_by] // bs) * bs + bs // 2
-    df = df.set_index(index_col)
-    sr = df.stack()
-    sr.name = 'color'
-    sr = sr.groupby(['episode', 'mode', 'name', 'agents']).value_counts(normalize=True)
-    sr.name = 'value'
-    sr = sr.groupby(['episode', 'mode', 'name', 'agents']).max()
-    df = sr.unstack()
-    df['mean'] = df.mean(axis=1)
-    sr = df.stack()
-    sr.name = 'value'
-    df = sr.reset_index()
-    df = obj_to_category(df)
-    return df
-
-
-def parse_info(df, bin_args):
-    df = mean_bin(df, bin_args)
-    return [df]
-
-
-def parse_reward(df, bin_args):
-    df = mean_bin(df, bin_args)
-    df['agent_type'] = df['name']
-    df['name'] = pd.Series('reward', index=df.index, dtype='category')
-    return [df]
-
-
-def parse_mean_info(df, bin_args):
-    df = binby(df, **bin_args, values=df.columns).reset_index()
-    df['name'] = ('mean_' + df['name'].astype(str)).astype('category')
-    return [df]
-
-
-def parse_mean_reward(df, bin_args):
-    df = binby(df, **bin_args, values=df.columns).reset_index()
-    df['agent_type'] = df['name']
-    df['name'] = pd.Series('mean_reward', index=df.index, dtype='category')
-    return [df]
-
-
-def parse_actions(df, bin_args):
-    df = df.sort_index()
-    df = df.astype('Int64')
-    df_same = df.groupby(['episode', 'mode', 'name']).shift(0) == df.groupby(['episode', 'mode', 'name']).shift(1)
-    df_same = df_same.astype('float')
-    df_same = df_same.groupby(['episode', 'mode', 'name']).mean()
-    df_same = mean_bin(df_same, bin_args)
-    df_same['agent_type'] = df_same['name']
-    df_same['name'] = pd.Series('stick_to_color', index=df_same.index, dtype='category')
-
-    df_max_count = max_freq(df, **bin_args)
-    df_max_count['agent_type'] = df_max_count['name']
-    df_max_count['name'] = pd.Series('max_freq', index=df_max_count.index, dtype='category')
-
-    return [df_same, df_max_count]
-
-parser = {
-    'info': parse_info,
-    'rewards': parse_reward,
-    'actions': parse_actions,
-    'mean_info': parse_mean_info,
-    'mean_rewards': parse_mean_reward
-}
-
-
-def parse(name, files, parse_args):
-    df = pd.concat(pd.read_parquet(p) for n, p in files)
-    return parser[name](df, **parse_args[name])
-
-
-def single(args):
-    run_folder, parse_args = args
-    return _single(run_folder, parse_args)
-
-
-def _single(run_folder, parse_args):
-    print(f'Start with {run_folder}')
-    run_yml = os.path.join(run_folder, 'train.yml')
+def get_labels(job_folder):
+    run_yml = os.path.join(job_folder, 'train.yml')
     run_parameter = load_yaml(run_yml)
     labels = run_parameter['labels']
-
-    exp_dir = os.path.join(run_folder, 'train')
-    files_g = find_files_with_extension(exp_dir, ".parquet")
-
-    files_g = list(files_g)
-    files_g = sorted(files_g, key=lambda f: f[0].split('.')[0])
-    files_grouped = groupby(files_g, lambda f: f[0].split('.')[0])
-
-    dfs = []
-    for name, files in files_grouped:
-        dfs.extend(parse(name, files, parse_args))
-    if len(dfs) == 0:
-        print(f'Skip {run_folder}')
-        return
-
-    df = pd.concat(dfs)
-    df = obj_to_category(df)
-    dup = df.duplicated(subset=[c for c in df.columns if c != 'value'])
-
-    assert not df.duplicated(subset=[c for c in df.columns if c != 'value']).any()
-
-    for k, v in labels.items():
-        df[k] = pd.Series(v, index=df.index, **({'dtype': 'category'} if isinstance(v, str) else {}))
-    print(f'Finished with {run_folder}')
-    return df
+    return labels
 
 
-def _main(in_folders, out_file, parse_args):
+def get_files(job_folder):
+    for mode in ['eval', 'train']:
+        for f in os.listdir(os.path.join(job_folder, 'train', 'env', mode)):
+            filename = os.path.join(job_folder, 'train', 'env', mode, f)
+            outdir = os.path.join(job_folder, 'preprocess', mode)
+            name = os.path.splitext(f)[0]
+            yield mode, name, filename, outdir
+
+
+def _main(job_folder, out_file, parse_args):
     pool = Pool(N_JOBS)
-    arg_list = list(zip(in_folders, [parse_args]*len(in_folders)))
-    dfs = pool.map(single, arg_list)
-    # dfs = [single(al) for al in arg_list]
 
-    print('Merge and save')
-    dfs = [df for df in dfs if df is not None]
-    df = pd.concat(dfs)
-    df.to_parquet(out_file)
+    pattern_df = create_pattern_df(**parse_args['pattern_args'])
+
+    labels = {jf: get_labels(jf) for jf in job_folder}
+
+    arg_list = [
+        {'mode': mode, 'filename': filename, 'pattern_df':pattern_df, 'labels': labels[jf], 'outdir': outdir, 'name': name, **parse_args[mode]}
+        for jf in job_folder
+        for mode, name, filename, outdir in get_files(jf)
+    ]
+
+    # dfs = pool.map(preprocess_file, arg_list)
+    dfs = [preprocess_file(al) for al in arg_list]
+
+    # print('Merge and save')
+    # dfs = [df for df in dfs if df is not None]
+    # df = pd.concat(dfs)
+    # df.to_parquet(out_file)
 
 
 def main():
@@ -211,13 +585,13 @@ def main():
 
 
     if 'grid' in get_subdirs(run_folder):
-        in_folders = get_subdirs(os.path.join(run_folder, 'grid'))
-        in_folders = [os.path.join(run_folder, 'grid', f) for f in in_folders]
+        job_folder = get_subdirs(os.path.join(run_folder, 'grid'))
+        job_folder = [os.path.join(run_folder, 'grid', f) for f in job_folder]
     elif 'train' in get_subdirs(run_folder):
-        in_folders = [run_folder]
+        job_folder = [run_folder]
     else:
         raise FileNotFoundError('No data found.')
-    _main(in_folders=in_folders, out_file=out_file, **parameter)
+    _main(job_folder=job_folder, out_file=out_file, **parameter)
     
 
 

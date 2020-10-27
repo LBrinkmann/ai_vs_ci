@@ -1,0 +1,47 @@
+parse_args:
+  pattern_args:
+    min_length: 1
+    max_length: 4
+    actions: ABCD
+  eval:
+    correlations_args:
+      max_delta: 10
+      bin_size: 10
+      correlations: 
+      - node: ai
+        other: ai 
+      - node: ci
+        other: ci 
+      - node: ai
+        other: ai
+      - node: random_ci
+        other: random_ci
+      - node: ci
+        other: ai
+      - node: ai
+        other: ci
+    tuple_args:
+      bin_size: 10
+    metric_args:
+      bin_size: 10
+  train:
+    correlations_args:
+      max_delta: 10
+      bin_size: 100
+      correlations: 
+      - node: ai
+        other: ai 
+      - node: ci
+        other: ci 
+      - node: ai
+        other: ai
+      - node: random_ci
+        other: random_ci
+      - node: ci
+        other: ai
+      - node: ai
+        other: ci
+    tuple_args:
+      bin_size: 100
+    metric_args:
+      bin_size: 100

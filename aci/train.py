@@ -42,7 +42,7 @@ def average(d):
 
 def run_episode(*, episode, env, controller, eps, training, writer, **__):
     env.init_episode()
-    writer.add_env(env, on='env')
+    # writer.add_env(env, on='env')
 
     agent_types = controller.keys()
 
@@ -63,16 +63,18 @@ def run_episode(*, episode, env, controller, eps, training, writer, **__):
 
         rewards, done, info = env.step(actions)
 
-        writer.add_metrics2('actions', actions, on='trace')
-        writer.add_metrics2('rewards', rewards, on='trace')
-        writer.add_metrics2('info', info, on='trace')
-        writer.add_metrics2('mean_rewards', average(rewards), on='mean_trace')
-        writer.add_metrics2('mean_info', average(info), on='mean_trace')
+        # writer.add_metrics2('actions', actions, on='trace')
+        # writer.add_metrics2('rewards', rewards, on='trace')
+        # writer.add_metrics2('info', info, on='trace')
+        # writer.add_metrics2('mean_rewards', average(rewards), on='mean_trace')
+        # writer.add_metrics2('mean_info', average(info), on='mean_trace')
 
         for agent_type in agent_types:
             controller[agent_type].update(done, env.sample, writer=writer, training=training[agent_type])
         if done:
             break
+
+    env.finish_episode()
 
 
 def _main(*, output_path, agent_types, env_class, env_args, writer_args, meta, run_args={}, scheduler_args, device_name):
@@ -82,13 +84,16 @@ def _main(*, output_path, agent_types, env_class, env_args, writer_args, meta, r
     print(f'Use {th.get_num_threads()} threads.')
 
     writer = Writer(output_path, **writer_args, **meta)
+
     # if gpu is to be used
     device = th.device(device_name)
     print(device)
-    # device = th.device("cpu")
 
     envs = {
-        tm: ENVIRONMENTS[env_class](**env_args, device=device)
+        tm: ENVIRONMENTS[env_class](
+            **env_args, env_scope=tm, device=device,
+            out_dir=os.path.join(output_path,'env',tm)
+        )
         for tm in ['train', 'eval']
     }
 

@@ -24,20 +24,21 @@ def onehot(x, m, input_size, device):
     return onehot
 
 
-
-
+def map_to_idx(to_map, names):
+    names_dict = {n: i for i, n in enumerate(names)}
+    return [names_dict[n] for n in to_map]
 
 
 class GRUAgentWrapper(nn.Module):
     def __init__(self, 
             observation_shapes, n_agents, n_actions, net_type, 
-            multi_type, device, add_catch=False, control_type=None, global_input_idx=[],
-            global_control_idx=[], mix_weights_args=None, action_permutation=False, **kwargs):
+            multi_type, device, add_catch=False, control_type=None, global_input=[],
+            global_control=[], mix_weights_args=None, action_permutation=False, **kwargs):
         super(GRUAgentWrapper, self).__init__()
         assert multi_type in ['shared_weights', 'individual_weights']
 
 
-        self.control_size = len(global_control_idx)
+        self.control_size = len(global_control)
         self.control_type = control_type
         if observation_shapes[2] is not None:
             maxval = observation_shapes[2]['maxval']
@@ -51,7 +52,7 @@ class GRUAgentWrapper(nn.Module):
 
         self.n_inputs = observation_shapes[0]['shape'][1]
 
-        self.input_size = n_actions + len(global_input_idx)
+        self.input_size = n_actions + len(global_input)
 
         if add_catch:
             self.input_size += 1
@@ -68,8 +69,8 @@ class GRUAgentWrapper(nn.Module):
         self.n_actions = n_actions
         self.n_agents = n_agents
         self.device = device
-        self.global_input_idx = global_input_idx
-        self.global_control_idx = global_control_idx
+        self.global_input_idx = map_to_idx(global_input, observation_shapes[3]['names'])
+        self.global_control_idx = map_to_idx(global_control, observation_shapes[3]['names'])
         self.add_catch = add_catch
         self.mix_weights_args = mix_weights_args
 

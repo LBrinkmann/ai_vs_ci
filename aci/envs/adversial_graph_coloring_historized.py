@@ -5,7 +5,11 @@ Graph Coloring Environment
 import torch as th
 import numpy as np
 import collections
+import string
+import os
 from .utils.graph import create_graph, determine_max_degree, pad_neighbors
+from ..utils.io import ensure_dir
+
 
 
 def show_agent_type_secrets(agent_type=None, agent_types=None, n_seeds=None, **kwargs):
@@ -43,24 +47,17 @@ def gen_secrets(n_seeds=None, **kwargs):
         return False
 
 
-def get_envinfo(info, info_names=[]):
-    if len(info_names) == 0:
-        return None
-    else:
-        return th.stack([info[name] for name in info_names], dim=1)
-
-
-def get_envinfo_shape(n_agents, info_names=[]):
-    if len(info_names) == 0:
-        return None
-    else:
-        return {'shape': (n_agents, len(info_names),), 'maxval': 1}
-
-
 class AdGraphColoringHist():
     def __init__(
             self, n_agents, n_actions, graph_args, episode_length, max_history, mapping_period, 
-            network_period, rewards_args, device, reward_period, secrete_args={}, envinfo_args={}):
+            network_period, rewards_args, device, reward_period, secrete_args={}, 
+            env_scope='train', out_dir=None):
+
+        self.metric_names = [
+            'ind_coordination', 'avg_coordination' ,'local_coordination', 'local_catch', 
+            'ind_catch', 'avg_catch', 'rewarded'
+        ]
+
         self.episode_length = episode_length
         self.mapping_period = mapping_period
         self.network_period = network_period
@@ -69,26 +66,25 @@ class AdGraphColoringHist():
         self.graph_args = graph_args
         self.rewards_args = rewards_args
         self.secrete_args = secrete_args
-        self.envinfo_args = envinfo_args
         self.agent_types = ['ci', 'ai']
         self.agent_types_idx = {'ci': 0, 'ai': 1}
         self.n_agents = n_agents
         self.n_actions = n_actions
         self.episode = -1
         self.max_degree = determine_max_degree(n_nodes=n_agents, **graph_args)
-
+        self.env_scope = env_scope
+        self.out_dir = out_dir
         self.device = device
         self.init_history()
+        ensure_dir(out_dir)
 
     def _update_secrets(self):
         if do_update_secrets(episode_step=self.episode_step, **self.secrete_args):
             self.secretes = get_secrets(**self.secrete_args, n_agents=self.n_agents, device=self.device)
 
-    def _get_envinfo(self, info):
-        return get_envinfo(info=info, **self.envinfo_args)
-
     def init_history(self):
         self.history_queue = collections.deque([], maxlen=self.max_history)
+        self.episode_history = th.empty((self.max_history,), dtype=th.int64, device=self.device)
         self.state_history = th.empty(
             (len(self.agent_types), self.n_agents, self.max_history, self.episode_length + 1), dtype=th.int64, device=self.device)
         self.reward_history = th.empty(
@@ -98,12 +94,8 @@ class AdGraphColoringHist():
         self.neighbors_mask_history = th.empty((self.n_agents, self.max_history, self.max_degree + 1), dtype=th.bool, device=self.device)
         self.ci_ai_map_history = th.empty((self.n_agents, self.max_history), dtype=th.int64, device=self.device)
 
-        envinfo_shape = get_envinfo_shape(self.n_agents, **self.envinfo_args)
-        if envinfo_shape is not None:
-            self.envinfo_history = th.empty(
-                (self.n_agents, self.max_history, self.episode_length + 1, envinfo_shape['shape'][1]), dtype=th.float, device=self.device)
-        else:
-            self.envinfo_history = None
+        self.metrics_history = th.empty(
+            (self.n_agents, self.max_history, self.episode_length + 1, len(self.metric_names)), dtype=th.float, device=self.device)
 
         if gen_secrets(**self.secrete_args):
             self.secretes_history = th.empty((self.n_agents, self.max_history, self.episode_length + 1), dtype=th.int64, device=self.device)
@@ -141,11 +133,11 @@ class AdGraphColoringHist():
                 np.random.randint(0, self.n_actions, (2, self.n_agents)), dtype=th.int64, device=self.device)
         self._update_secrets()
 
-        ci_reward, ai_reward, info = self._get_rewards()
-        self.envinfo = self._get_envinfo(info=info)
-
+        ci_reward, ai_reward, metrics = self._get_rewards()
+        self.metrics = metrics
         # add to history
         self.history_queue.appendleft(self.current_hist_idx)
+        self.episode_history[self.current_hist_idx] = self.episode
         self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
         # self.adjacency_matrix_history[self.current_hist_idx] = self.adjacency_matrix
         self.neighbors_history[:, self.current_hist_idx] = self.neighbors
@@ -153,8 +145,7 @@ class AdGraphColoringHist():
 
         if self.secretes_history is not None:
             self.secretes_history[:, self.current_hist_idx, self.episode_step + 1] = self.secretes
-        if self.envinfo_history is not None:
-            self.envinfo_history[:, self.current_hist_idx, self.episode_step + 1] = self.envinfo
+        self.metrics_history[:, self.current_hist_idx, self.episode_step + 1] = self.metrics
 
         self.ci_ai_map_history[:, self.current_hist_idx] = self.ci_ai_map
 
@@ -165,9 +156,35 @@ class AdGraphColoringHist():
             'ci_ai_map': self.ci_ai_map.tolist()
         }
 
+    def write_history(self):
+        filename = os.path.join(self.out_dir, f"{self.episode + 1}.pt")
+        chi = self.current_hist_idx + 1
+        th.save(
+            {
+                'agent_types': self.agent_types,
+                'actions': [string.ascii_uppercase[i] for i in range(self.n_actions)],
+                'agents': [string.ascii_uppercase[i] for i in range(self.n_agents)],
+                'state': self.state_history[:,:,:chi],
+                'reward':self.reward_history[:,:,:chi],
+                'neighbors':self.neighbors_history[:,:chi],
+                'neighbors_mask':self.neighbors_mask_history[:,:chi],
+                'ci_ai_map':self.ci_ai_map_history[:,:chi],
+                'episode':self.episode_history[:chi],
+                'metrics':self.metrics_history[:,:chi],
+                'metric_names':self.metric_names,            
+                **({} if self.secretes_history is None else {'secretes': self.secretes_history[:,:chi]}),
+            },
+            filename
+        )
+
+    def finish_episode(self):
+        if self.current_hist_idx == self.max_history - 1:
+            self.write_history()
+
     def to_dict(self):
         return self.info
 
+    # def save_history(self):
     def _observe_neighbors(self, agent_type):
         state = self.state.T.unsqueeze(0).repeat(self.n_agents,1,1) # repeated, agent, agent_type
 
@@ -263,7 +280,7 @@ class AdGraphColoringHist():
                 {'shape': (self.n_agents, self.max_degree + 1, 2), 'maxval': self.n_actions},
                 {'shape': (self.n_agents, self.max_degree + 1), 'maxval': 1},
                 get_secrets_shape(n_agents=self.n_agents, agent_type=agent_type, **self.secrete_args),
-                get_envinfo_shape(n_agents=self.n_agents, **self.envinfo_args),
+                {'shape': (self.n_agents, len(self.metric_names)), 'maxval': 1, 'names': self.metric_names},
             ),
         }
 
@@ -277,7 +294,7 @@ class AdGraphColoringHist():
                 secretes = self.secretes
             else:
                 secretes = None
-            return obs, mask, secretes, self.envinfo
+            return obs, mask, secretes, self.metrics
         elif mode == 'neighbors':
             return self._observe_neighbors(**kwarg)[0]
         elif mode == 'matrix': 
@@ -290,9 +307,12 @@ class AdGraphColoringHist():
             return
 
         if not last:
+            assert horizon is not None
+            assert horizon <= self.max_history
             eff_horizon = min(len(self.history_queue), horizon)
             pos_idx = np.random.choice(eff_horizon, batch_size)
         else:
+            assert batch_size <= self.max_history
             # get the last n episodes (n=batch_size)
             pos_idx = np.arange(batch_size)
 
@@ -305,8 +325,8 @@ class AdGraphColoringHist():
                 prev_obs = prev_obs[0]
                 obs = obs[0]
             elif mode == 'neighbors_mask_secret_envinfo':
-                if self.envinfo_history is not None:
-                    all_env_state = self.envinfo_history[:,episode_idx]
+                if self.metrics_history is not None:
+                    all_env_state = self.metrics_history[:,episode_idx]
                     prev_env_state = all_env_state[:,:,:-1]
                     env_state = all_env_state[:,:,1:]
                 else:
@@ -379,10 +399,13 @@ class AdGraphColoringHist():
                 dtype=th.float, device=self.device
             ),
         }
+
         ci_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ci'].items()]).sum(0)*metrics['rewarded']
         ai_reward = th.stack([metrics[k] * v for k,v in self.rewards_args['ai'].items()]).sum(0)*metrics['rewarded']
 
-        return ci_reward, ai_reward, metrics
+        metrics_stacked = th.stack([metrics[k] for k in self.metric_names], dim=1)
+
+        return ci_reward, ai_reward, metrics_stacked
 
 
     def step(self, actions):
@@ -405,17 +428,16 @@ class AdGraphColoringHist():
         self.state[self.agent_types_idx['ci']] = actions['ci']
         self.state[self.agent_types_idx['ai']] = actions['ai'][self.ai_ci_map]
 
-        ci_reward, ai_reward, info = self._get_rewards()
+        ci_reward, ai_reward, metrics = self._get_rewards()
 
-        self.envinfo = self._get_envinfo(info)
+        self.metrics = metrics
 
         self._update_secrets()
 
         self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
         self.reward_history[self.agent_types_idx['ci'], :, self.current_hist_idx, self.episode_step] = ci_reward
         self.reward_history[self.agent_types_idx['ai'], :, self.current_hist_idx, self.episode_step] = ai_reward
-        if self.envinfo_history is not None:
-            self.envinfo_history[:,self.current_hist_idx, self.episode_step + 1] = self.envinfo
+        self.metrics_history[:,self.current_hist_idx, self.episode_step + 1] = self.metrics
         if self.secretes_history is not None:
             self.secretes_history[:, self.current_hist_idx, self.episode_step + 1] = self.secretes
 
@@ -423,7 +445,8 @@ class AdGraphColoringHist():
             'ai': ai_reward[self.ci_ai_map],
             'ci': ci_reward
         }
-        return rewards, done, info
+        return rewards, done, {}
 
-    def close(self):
-        pass
+    def __del__(self):
+        if self.current_hist_idx != self.max_history - 1:
+            self.write_history()

@@ -1,16 +1,16 @@
 import pandas as pd
 
 
-def using_multiindex(A, columns):
+def using_multiindex(A, columns, value_name='value'):
     shape = A.shape
     index = pd.MultiIndex.from_product([range(s) for s in shape], names=columns)
-    df = pd.DataFrame({'value': A.flatten()}, index=index).reset_index()
+    df = pd.DataFrame({value_name: A.flatten()}, index=index).reset_index()
     return df
 
 
 def map_columns(df, **map_columns):
     for col, names in map_columns.items():
-        df[col] = df[col].map({idx: name for idx, name in enumerate(names)})
+        df[col] = df[col].map({idx: name for idx, name in enumerate(names)}).astype('category')
     return df
 
 
