@@ -51,12 +51,12 @@ def _preprocess_file(filename, mode, pattern_df, labels, outdir, name, correlati
 
     correlations_df = correlations(**tensors, **correlations_args)
     pattern_df = pd.concat(match_tuples(**tensors, pattern_df=pattern_df, **tuple_args))
-    df_entropy = calculate_entropy(pattern_df)
-    df_kl = calculate_kullback_leibler(pattern_df)
+    pattern_metrics_df = calculate_pattern_metrics(pattern_df)
 
     metrics_df = agg_metrics(**tensors, **metric_args)
 
-    dfs = {'pattern': pattern_df, 'entropy': df_entropy, 'kl': df_kl, 'metrics': metrics_df, 'correlations': correlations_df}
+    dfs = {'pattern': pattern_df, 'pattern_metrics': pattern_metrics_df, 'metrics': metrics_df, 'correlations': correlations_df}
+
 
     _labels = {**labels, 'mode': mode}
 
@@ -265,7 +265,7 @@ def match_tuples(state, pattern_df, agent_types, agents, actions, bin_size, **_)
             'pattern_id',  'pattern_name', 'pattern_group_name', 'count', 'freq'
         ]
         cat_column = ['agent_types', 'agent', 'episode_bin', 'episode_part',
-            'pattern_length', 'pattern_id', 'pattern_name', 'pattern_group_name',] 
+            'pattern_length', 'pattern_id', 'pattern_name', 'pattern_group_name'] 
 
         tuple_df[cat_column] = tuple_df[cat_column].astype('category')
 
@@ -278,8 +278,8 @@ def calculate_entropy(df):
     groupby = ['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length']
     prop_column = 'freq'
 
-    df['entropy'] = -1 * df[prop_column] * np.log(df[prop_column])
-    return df.groupby(groupby)['entropy'].sum().reset_index()
+    df['value'] = -1 * df[prop_column] * np.log(df[prop_column])
+    return df.groupby(groupby)['value'].sum().reset_index()
 
 
 def calculate_kullback_leibler(df):
@@ -295,12 +295,27 @@ def calculate_kullback_leibler(df):
 
     _df = df[~w_all].merge(df.loc[w_all, groupby + ['freq', 'pattern_id']], on=groupby + ['pattern_id'], suffixes=['', '_all'])
     
-    _df['kl_div'] =  _df['freq_all'] * np.log((_df['freq_all'] / (_df['freq'] + np.finfo(float).eps)) + np.finfo(float).eps)
+    _df['value'] =  _df['freq_all'] * np.log((_df['freq_all'] / (_df['freq'] + np.finfo(float).eps)) + np.finfo(float).eps)
 
-    _df = _df.groupby(groupby + ['agent'])['kl_div'].sum().reset_index()
-    _df_all = _df.groupby(groupby)['kl_div'].mean().reset_index()
+    _df = _df.groupby(groupby + ['agent'])['value'].sum().reset_index()
+    _df_all = _df.groupby(groupby)['value'].mean().reset_index()
     _df_all['agent'] = 'all'
     return pd.concat([_df, _df_all])
+
+
+def calculate_pattern_metrics(pattern_df):
+    df_entropy = calculate_entropy(pattern_df)
+    df_entropy['metric_name'] = 'entropy'
+    df_kl = calculate_kullback_leibler(pattern_df)
+    df_kl['metric_name'] = 'kl_div'
+    df = pd.concat([df_entropy, df_kl])
+    column_order = [
+        'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name', 'value'
+    ]
+    cat_column = ['agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name',] 
+
+    df[cat_column] = df[cat_column].astype('category')
+    return df[column_order]
 
 
 ##############     create pattern df
@@ -426,11 +441,11 @@ def correlations(state, neighbors, neighbors_mask, max_delta, bin_size, agent_ty
 
     # adding total count of all agents
     df = add_all(
-        df, value_name='correlation', merge_column='agent', sum_name='all', agg_func='mean')
+        df, value_name='value', merge_column='agent', sum_name='all', agg_func='mean')
 
     column_order = [
-        'agent', 'episode_bin', 'episode_part', 'other', 'node', 'delta_t',  'correlation']
-    cat_column = ['other', 'node', 'agent', 'delta_t', 'episode_bin', 'episode_part'] 
+        'agent', 'episode_bin', 'episode_part', 'other', 'node', 'delta_t', 'metric_name', 'value']
+    cat_column = ['other', 'node', 'agent', 'delta_t', 'episode_bin', 'episode_part', 'metric_name'] 
 
     df[cat_column] = df[cat_column].astype('category')
     return df[column_order]
@@ -499,7 +514,7 @@ def x_correlations(*args, other, node, at_map, max_delta, bin_size, function, me
     all_df = []
     for delta_t in range(max_delta):
         arr = function(*args, other_agent_type=at_map[other], self_agent_type=at_map[node], delta_t=delta_t)
-        df = using_multiindex(arr, ['agent', 'episode', 'episode_step'], value_name='correlation')
+        df = using_multiindex(arr, ['agent', 'episode', 'episode_step'], value_name='value')
         df['delta_t'] = delta_t
         all_df.append(df)
     df = pd.concat(all_df)
