@@ -28,7 +28,8 @@ setup(
             'preprocess = aci.preprocess:main',
             'plot = aci.plot:main',
             'video = aci.video:main',
-            'runtest = aci.test:main'
+            'runtest = aci.test:main',
+            'merge = aci.merge:main'
         ],
     },
     scripts=[

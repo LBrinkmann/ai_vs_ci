@@ -1,4 +1,4 @@
-"""Usage: train.py RUN_FOLDER
+"""Usage: train.py RUN_FOLDER IN_FOLDER
 
 Arguments:
     RUN_FOLDER
@@ -16,16 +16,11 @@ from multiprocessing import Manager, Pool
 # from itertools import groupby
 from functools import partial
 from itertools import product
-from aci.utils.io import load_yaml
+from aci.utils.io import load_yaml, ensure_dir
 from aci.utils.array_to_df import using_multiindex, map_columns, to_alphabete
 
 
 N_JOBS = 16
-
-
-def ensure_dir(directory):
-    if not os.path.exists(directory):
-        os.makedirs(directory)
 
 
 def read_file(args):
@@ -45,27 +40,33 @@ def add_labels(df, labels):
     return pd.concat([label_df, df], axis=1)
 
 
+def save_df(df, labels, name, metric_name, outdir):
+    df = add_labels(df, labels)
+    filename = os.path.join(outdir, f"{name}.{metric_name}.parquet")
+    print(f'Save {filename}.')
+    df.to_parquet(filename)
+
+
 def _preprocess_file(filename, mode, pattern_df, labels, outdir, name, correlations_args, tuple_args, metric_args):
-    tensors = th.load(filename)
+    print(f'Start processing {filename}.')
+
+    tensors = th.load(filename, map_location=th.device('cpu'))
     tensors = add_random(**tensors)
-
-    correlations_df = correlations(**tensors, **correlations_args)
-    pattern_df = pd.concat(match_tuples(**tensors, pattern_df=pattern_df, **tuple_args))
-    pattern_metrics_df = calculate_pattern_metrics(pattern_df)
-
-    metrics_df = agg_metrics(**tensors, **metric_args)
-
-    dfs = {'pattern': pattern_df, 'pattern_metrics': pattern_metrics_df, 'metrics': metrics_df, 'correlations': correlations_df}
-
-
     _labels = {**labels, 'mode': mode}
 
-    dfs = {n: add_labels(df, _labels) for n, df in dfs.items()}
-
     ensure_dir(outdir)
-    for dfname, df in dfs.items():
-        filename = os.path.join(outdir, f"{name}.{dfname}.parquet")
-        df.to_parquet(filename)
+
+    correlations_df = correlations(**tensors, **correlations_args)
+    save_df(correlations_df, _labels, name, 'correlations', outdir)
+
+    pattern_df = pd.concat(match_tuples(**tensors, pattern_df=pattern_df, **tuple_args))
+    save_df(pattern_df, _labels, name, 'pattern', outdir)
+
+    pattern_metrics_df = calculate_pattern_metrics(pattern_df)
+    save_df(pattern_metrics_df, _labels, name, 'pattern_metrics', outdir)
+
+    metrics_df = agg_metrics(**tensors, **metric_args)
+    save_df(metrics_df, _labels, name, 'metrics', outdir)
 
 
 # TODO: remove
@@ -564,49 +565,37 @@ def get_files(job_folder):
             yield mode, name, filename, outdir
 
 
-def _main(job_folder, out_file, parse_args):
-    pool = Pool(N_JOBS)
+def _main(job_folder, out_file, parse_args, labels, cores=1):
+
 
     pattern_df = create_pattern_df(**parse_args['pattern_args'])
 
-    labels = {jf: get_labels(jf) for jf in job_folder}
-
     arg_list = [
-        {'mode': mode, 'filename': filename, 'pattern_df':pattern_df, 'labels': labels[jf], 'outdir': outdir, 'name': name, **parse_args[mode]}
-        for jf in job_folder
-        for mode, name, filename, outdir in get_files(jf)
+        {'mode': mode, 'filename': filename, 'pattern_df':pattern_df, 'labels': labels, 'outdir': outdir, 'name': name, **parse_args[mode]}
+        for mode, name, filename, outdir in get_files(job_folder)
     ]
 
-    # dfs = pool.map(preprocess_file, arg_list)
-    dfs = [preprocess_file(al) for al in arg_list]
-
-    # print('Merge and save')
-    # dfs = [df for df in dfs if df is not None]
-    # df = pd.concat(dfs)
-    # df.to_parquet(out_file)
-
+    if cores == 1:
+        for al in arg_list:
+            preprocess_file(al)
+    else:
+        pool = Pool(cores)
+        pool.map(preprocess_file, arg_list)
 
 def main():
     arguments = docopt(__doc__)
     run_folder = arguments['RUN_FOLDER']
+    in_folder = arguments['IN_FOLDER']
 
     parameter_file = os.path.join(run_folder, 'preprocess.yml')
-
 
     out_folder = os.path.join(run_folder, 'preprocess')
     out_file = os.path.join(out_folder, 'metrics.parquet')
     ensure_dir(out_folder)
     parameter = load_yaml(parameter_file)
 
-
-    if 'grid' in get_subdirs(run_folder):
-        job_folder = get_subdirs(os.path.join(run_folder, 'grid'))
-        job_folder = [os.path.join(run_folder, 'grid', f) for f in job_folder]
-    elif 'train' in get_subdirs(run_folder):
-        job_folder = [run_folder]
-    else:
-        raise FileNotFoundError('No data found.')
-    _main(job_folder=job_folder, out_file=out_file, **parameter)
+    _main(job_folder=in_folder, out_file=out_file, cores=parameter['exec']['cores'],
+        labels=parameter['labels'], **parameter['params'])
 
 
 
