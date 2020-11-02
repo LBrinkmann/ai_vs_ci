@@ -1,4 +1,4 @@
-"""Usage: train.py RUN_FOLDER IN_FOLDER
+"""Usage: train.py RUN_FOLDER [IN_FOLDER]
 
 Arguments:
     RUN_FOLDER
@@ -56,17 +56,45 @@ def _preprocess_file(filename, mode, pattern_df, labels, outdir, name, correlati
 
     ensure_dir(outdir)
 
-    correlations_df = correlations(**tensors, **correlations_args)
-    save_df(correlations_df, _labels, name, 'correlations', outdir)
-
     pattern_df = pd.concat(match_tuples(**tensors, pattern_df=pattern_df, **tuple_args))
-    save_df(pattern_df, _labels, name, 'pattern', outdir)
+    pattern_df = agg_pattern_group(pattern_df)
+
+    top_pattern_df = filter_top_pattern(pattern_df)
+    save_df(top_pattern_df, _labels, name, 'top_pattern', outdir)
 
     pattern_metrics_df = calculate_pattern_metrics(pattern_df)
     save_df(pattern_metrics_df, _labels, name, 'pattern_metrics', outdir)
 
+    correlations_df = correlations(**tensors, **correlations_args)
+    save_df(correlations_df, _labels, name, 'correlations', outdir)
+
     metrics_df = agg_metrics(**tensors, **metric_args)
     save_df(metrics_df, _labels, name, 'metrics', outdir)
+
+
+def agg_pattern_group(pattern_df):
+    groupby = ['agent', 'episode_bin', 'episode_part', 'agent_types', 'pattern_length']
+    pattern_group_df = pattern_df.groupby(groupby + ['pattern_group_name'])['count'].sum().reset_index()
+    norm = pattern_group_df.groupby(groupby)['count'].transform('sum')
+    pattern_group_df['freq'] = pattern_group_df['count'] / norm
+    pattern_group_df['name'] = pattern_group_df['pattern_group_name']
+    pattern_group_df['type'] = 'pattern_group'
+    pattern_df['name'] = pattern_df['pattern_name']
+    pattern_df['type'] = 'pattern'
+    df =  pd.concat([pattern_df, pattern_group_df])
+    column_order = [
+        'agent', 'episode_bin', 'episode_part', 'agent_types', 'pattern_length', 'name', 'type', 'count', 'freq'
+    ]
+    cat_column = ['agent', 'episode_bin', 'episode_part', 'agent_types', 'pattern_length', 'name']
+    df[cat_column] = df[cat_column].astype('category')
+    return pattern_group_df
+
+
+def filter_top_pattern(pattern_df):
+    columns = ['agent', 'episode_bin', 'episode_part', 'agent_types', 'pattern_length']
+    pattern_df = pattern_df.sort_values('count', ascending=False)
+    pattern_df = pattern_df.groupby(columns).head(10)
+    return pattern_df
 
 
 # TODO: remove
@@ -259,6 +287,10 @@ def match_tuples(state, pattern_df, agent_types, agents, actions, bin_size, **_)
         norm = tuple_df.groupby(['agent_types', 'agent', 'episode_bin', 'episode_part'])['count'].transform('sum')
         tuple_df['freq'] = tuple_df['count'] / norm
 
+        # in_group_norm = tuple_df.groupby(
+        #     ['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_group_name'])['count'].transform('sum')
+        # tuple_df['in_group_freq'] = tuple_df['count'] / in_group_norm
+
         tuple_df = this_pattern_df.merge(tuple_df)
         tuple_df['pattern_length'] = length
         column_order = [
@@ -276,25 +308,23 @@ def match_tuples(state, pattern_df, agent_types, agents, actions, bin_size, **_)
 
 def calculate_entropy(df):
     df = df.copy()
-    groupby = ['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length']
+    groupby = ['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'type']
     prop_column = 'freq'
 
     df['value'] = -1 * df[prop_column] * np.log(df[prop_column])
     return df.groupby(groupby)['value'].sum().reset_index()
 
 
-def calculate_kullback_leibler(df):
+def calculate_kullback_leibler(df, ):
     """
         Calculates the kl divergence between each agent's pattern distribution and
         the one of all agents together.
     """
     df = df.copy()
-    groupby = ['agent_types', 'episode_bin', 'episode_part', 'pattern_length']
+    groupby = ['agent_types', 'episode_bin', 'episode_part', 'pattern_length', 'type']
     w_all = df['agent'] == 'all'
-    # df_all = df[w_all]
-    # w_duplicate = df_all.groupby(groupby + ['pattern_id'])['freq'].transform('count')
 
-    _df = df[~w_all].merge(df.loc[w_all, groupby + ['freq', 'pattern_id']], on=groupby + ['pattern_id'], suffixes=['', '_all'])
+    _df = df[~w_all].merge(df.loc[w_all, groupby + ['freq', 'name']], on=groupby + ['name'], suffixes=['', '_all'])
 
     _df['value'] =  _df['freq_all'] * np.log((_df['freq_all'] / (_df['freq'] + np.finfo(float).eps)) + np.finfo(float).eps)
 
@@ -309,6 +339,7 @@ def calculate_pattern_metrics(pattern_df):
     df_entropy['metric_name'] = 'entropy'
     df_kl = calculate_kullback_leibler(pattern_df)
     df_kl['metric_name'] = 'kl_div'
+
     df = pd.concat([df_entropy, df_kl])
     column_order = [
         'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name', 'value'
@@ -594,9 +625,15 @@ def main():
     ensure_dir(out_folder)
     parameter = load_yaml(parameter_file)
 
-    _main(job_folder=in_folder, out_file=out_file, cores=parameter['exec']['cores'],
-        labels=parameter['labels'], **parameter['params'])
-
+    if in_folder:
+        _main(job_folder=in_folder, out_file=out_file, cores=parameter['exec']['cores'],
+            labels=parameter['labels'], **parameter['params'])
+    else:
+        run_yml = os.path.join(run_folder, 'train.yml')
+        run_parameter = load_yaml(run_yml)
+        labels = run_parameter['labels']
+        _main(job_folder=run_folder, out_file=out_file, cores=1,
+            labels=labels, **parameter)
 
 
 if __name__ == "__main__":
