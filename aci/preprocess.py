@@ -89,16 +89,16 @@ def local_aggregation(metric, neighbors, neighbors_mask):
 
     # permutation needed because we map neighbors on agents
     _metric = metric.permute(0,2,3,1) \
-        .unsqueeze(1).repeat(1, n_agents,1,1,1) # agents, batch, episode_step, neighbors 
+        .unsqueeze(1).repeat(1, n_agents,1,1,1) # agents, batch, episode_step, neighbors
 
     _neighbors = neighbors.clone()
     _neighbors[neighbors_mask] = 0
-    _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).repeat(n_source, 1, 1, episode_steps, 1) # agents, batch, episode_step, neighbors 
-    
+    _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).repeat(n_source, 1, 1, episode_steps, 1) # agents, batch, episode_step, neighbors
+
     _neighbors_mask = neighbors_mask.unsqueeze(0).unsqueeze(3) \
         .repeat(n_source, 1, 1, episode_steps, 1) # agents, batch, episode_step, neighbors
 
-    local_metrics = th.gather(_metric, -1, _neighbors) # agent_type, agents, batch, episode_step, neighbors 
+    local_metrics = th.gather(_metric, -1, _neighbors) # agent_type, agents, batch, episode_step, neighbors
     local_metrics[_neighbors_mask] = 0
     local_metrics = local_metrics.sum(-1) / (~_neighbors_mask).sum(-1)
     return local_metrics
@@ -157,7 +157,7 @@ def agg_metrics(bin_size, **tensors):
     df = recalcuate_metrics(**tensors)
     # df = using_multiindex(metrics, ['agents', 'episode', 'episode_step', 'metric_name'], value_name='value')
     # df = map_columns(df, agents=agents, metric_name=metric_names)
-    df = aggregation(df, quarter_column='episode_step', quarter_name='episode_part', bin_name='episode_bin', 
+    df = aggregation(df, quarter_column='episode_step', quarter_name='episode_part', bin_name='episode_bin',
         bin_column='episode', bin_size=bin_size, agg_column='value', agg_func='mean')
 
     df = add_all(
@@ -166,7 +166,7 @@ def agg_metrics(bin_size, **tensors):
     column_order = [
         'agent', 'episode_bin', 'episode_part', 'agent_source', 'metric_name', 'value'
     ]
-    cat_column = ['agent_source', 'agent', 'episode_bin', 'episode_part', 'metric_name'] 
+    cat_column = ['agent_source', 'agent', 'episode_bin', 'episode_part', 'metric_name']
 
     df[cat_column] = df[cat_column].astype('category')
 
@@ -234,7 +234,7 @@ def match_tuples(state, pattern_df, agent_types, agents, actions, bin_size, **_)
         # stack state tensor, such that we optain tuples
         tuples = create_tuples(state, length)
 
-        # turn tensor in to dataframe, make dims to columns 
+        # turn tensor in to dataframe, make dims to columns
         tuple_df = tuple_to_multiindex(tuples, ['agent_types', 'agent', 'episode', 'episode_step'])
 
         # to replace the tuple of action_ids with the pattern_id might speed up things
@@ -244,7 +244,7 @@ def match_tuples(state, pattern_df, agent_types, agents, actions, bin_size, **_)
 
         # make binsize a parameter, should depend on length
         tuple_df = aggregation(
-            tuple_df, quarter_column='episode_step', quarter_name='episode_part', bin_name='episode_bin', 
+            tuple_df, quarter_column='episode_step', quarter_name='episode_part', bin_name='episode_bin',
             bin_column='episode', bin_size=bin_size)
 
         # have agent and agent_types as strings
@@ -265,7 +265,7 @@ def match_tuples(state, pattern_df, agent_types, agents, actions, bin_size, **_)
             'pattern_id',  'pattern_name', 'pattern_group_name', 'count', 'freq'
         ]
         cat_column = ['agent_types', 'agent', 'episode_bin', 'episode_part',
-            'pattern_length', 'pattern_id', 'pattern_name', 'pattern_group_name'] 
+            'pattern_length', 'pattern_id', 'pattern_name', 'pattern_group_name']
 
         tuple_df[cat_column] = tuple_df[cat_column].astype('category')
 
@@ -294,7 +294,7 @@ def calculate_kullback_leibler(df):
     # w_duplicate = df_all.groupby(groupby + ['pattern_id'])['freq'].transform('count')
 
     _df = df[~w_all].merge(df.loc[w_all, groupby + ['freq', 'pattern_id']], on=groupby + ['pattern_id'], suffixes=['', '_all'])
-    
+
     _df['value'] =  _df['freq_all'] * np.log((_df['freq_all'] / (_df['freq'] + np.finfo(float).eps)) + np.finfo(float).eps)
 
     _df = _df.groupby(groupby + ['agent'])['value'].sum().reset_index()
@@ -312,7 +312,7 @@ def calculate_pattern_metrics(pattern_df):
     column_order = [
         'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name', 'value'
     ]
-    cat_column = ['agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name',] 
+    cat_column = ['agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name',]
 
     df[cat_column] = df[cat_column].astype('category')
     return df[column_order]
@@ -345,16 +345,16 @@ def create_pattern_df(min_length, max_length, actions):
     """
     Create tuples from the outer product of avaible actions.
     Tuples which are equivalent upon permutation of action names are
-    assign the same pattern group. 
+    assign the same pattern group.
 
     Parameters
     ----------
-    min_length : int 
+    min_length : int
         minimum length of tuple
-    max_length : int 
+    max_length : int
         maximum length of tuple
     actions : list
-        name of actions 
+        name of actions
 
     Returns
     -------
@@ -363,14 +363,14 @@ def create_pattern_df(min_length, max_length, actions):
         ==================  ==========================================
         pattern_id          Id of pattern.
         pattern_length      Length of pattern.
-        pattern_name        Name of pattern as joined as action names. 
-        pattern_group_name  Pattern group. 
-        action_ids          Tuple with action ids of the pattern. 
+        pattern_name        Name of pattern as joined as action names.
+        pattern_group_name  Pattern group.
+        action_ids          Tuple with action ids of the pattern.
         ==================  ==========================================
 
     """
     pattern_dfs = [
-        create_single_pattern_df(length, actions) 
+        create_single_pattern_df(length, actions)
         for length in range(min_length, max_length + 1)
     ]
     pattern_df = pd.concat(pattern_dfs)
@@ -380,7 +380,7 @@ def create_pattern_df(min_length, max_length, actions):
     category_columns = ['pattern_name', 'pattern_group_name']
     pattern_df[category_columns] = pattern_df[category_columns].astype('category')
     column_order = [
-        'pattern_id', 'pattern_length', 'pattern_name', 
+        'pattern_id', 'pattern_length', 'pattern_name',
         'pattern_group_name', 'action_ids'
     ]
     return pattern_df[column_order]
@@ -404,26 +404,26 @@ def get_observations(state, neighbors, neighbors_mask, **_):
 
     # permutation needed because we map neighbors on agents
     _state = state.permute(0,2,3,1) \
-        .unsqueeze(1).repeat(1,n_agents,1,1,1) # agent_type, agents, batch, episode_step, neighbors 
- 
+        .unsqueeze(1).repeat(1,n_agents,1,1,1) # agent_type, agents, batch, episode_step, neighbors
+
     _neighbors = neighbors.clone()
     _neighbors[neighbors_mask] = 0
-    _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).repeat(n_agent_types, 1, 1, episode_steps, 1) # agent_type, agents, batch, episode_step, neighbors 
-    
+    _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).repeat(n_agent_types, 1, 1, episode_steps, 1) # agent_type, agents, batch, episode_step, neighbors
+
     _neighbors_mask = neighbors_mask \
         .unsqueeze(0).unsqueeze(3) \
         .repeat(n_agent_types, 1, 1, episode_steps, 1) # agent_type, agents, batch, episode_step, neighbors
 
-    observations = th.gather(_state, -1, _neighbors) # agent_type, agents, batch, episode_step, neighbors 
+    observations = th.gather(_state, -1, _neighbors) # agent_type, agents, batch, episode_step, neighbors
     observations[_neighbors_mask] = -1
     return observations
 
 
 
 # TODO:
-# add 
+# add
 # degree_centrality(neighbors_mask)
-# 
+#
 def correlations(state, neighbors, neighbors_mask, max_delta, bin_size, agent_types, agents, correlations, **_):
     observations = get_observations(state, neighbors, neighbors_mask)
     at_map = {k: v for v, k in enumerate(agent_types)}
@@ -445,7 +445,7 @@ def correlations(state, neighbors, neighbors_mask, max_delta, bin_size, agent_ty
 
     column_order = [
         'agent', 'episode_bin', 'episode_part', 'other', 'node', 'delta_t', 'metric_name', 'value']
-    cat_column = ['other', 'node', 'agent', 'delta_t', 'episode_bin', 'episode_part', 'metric_name'] 
+    cat_column = ['other', 'node', 'agent', 'delta_t', 'episode_bin', 'episode_part', 'metric_name']
 
     df[cat_column] = df[cat_column].astype('category')
     return df[column_order]
@@ -477,7 +477,7 @@ def node_correlation(observations, delta_t, self_agent_type, other_agent_type):
     same_color = (self_color == other_color).type(th.float)
     return same_color # agents, batch, episodes
 
-    
+
 def neighbor_correlation(observations, mask, delta_t, self_agent_type, other_agent_type):
     """
     Simple metric
@@ -518,8 +518,8 @@ def x_correlations(*args, other, node, at_map, max_delta, bin_size, function, me
         df['delta_t'] = delta_t
         all_df.append(df)
     df = pd.concat(all_df)
-    df = aggregation(df, quarter_column='episode_step', quarter_name='episode_part', bin_name='episode_bin', 
-        bin_column='episode', bin_size=bin_size, agg_column='correlation', agg_func='mean')
+    df = aggregation(df, quarter_column='episode_step', quarter_name='episode_part', bin_name='episode_bin',
+        bin_column='episode', bin_size=bin_size, agg_column='value', agg_func='mean')
     df['other'] = other
     df['node'] = node
     df['metric_name'] = metric_name
@@ -535,7 +535,7 @@ def preprocess_file(args):
 def get_files(_dir):
     return [
         o
-        for o in os.listdir(_dir) 
+        for o in os.listdir(_dir)
         if os.path.isdir(os.path.join(_dir,o))
     ]
 
@@ -543,7 +543,7 @@ def get_files(_dir):
 def get_subdirs(_dir):
     return [
         o
-        for o in os.listdir(_dir) 
+        for o in os.listdir(_dir)
         if os.path.isdir(os.path.join(_dir,o))
     ]
 
@@ -607,7 +607,7 @@ def main():
     else:
         raise FileNotFoundError('No data found.')
     _main(job_folder=job_folder, out_file=out_file, **parameter)
-    
+
 
 
 if __name__ == "__main__":
