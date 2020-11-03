@@ -1,37 +1,46 @@
 clean: true
 preprocess_args:
-  combine:
-    metric:
-      coordination: 
-        name: mean_avg_coordination
-      catch: 
-        name: mean_avg_catch
-      diff: 
-        name: mean_reward
-        agent_type: ci
+  metrics:
+    selectors:
+      mode: train
+      metric_name: [ind_catch, ind_coordination]
+      agent: all
+  pattern_metrics:
+    selectors:
+      mode: train
+      agent: all
+
 plot_args:
-  - 
+  #   - expand: [lr]
+  #     filename: metrics
+  #     # baseline:
+  #     #   column: agent_source
+  #     #   value: random
+  #     selectors:
+  #       mode: train
+  #       metric_name: [ind_catch, ind_coordination]
+  #       agent: all
+  #       agent_source: trained
+  #     x: episode_bin
+  #     y: value
+  #     grid: [episode_part, metric_name]
+  #     hue: correlated
+  #     style: n_seeds
+  #     name: metrics
+  - expand: [lr, n_seeds]
+    filename: pattern_metrics
+    # baseline:
+    #   column: agent_types
+    #   value: random_ai
     selectors:
       mode: train
-    grid: [lr, metric]
+      agent: all
+      metric_name: entropy
+      episode_part: full
+      agent_types: [ai, ci, random_ai]
+    x: episode_bin
+    y: value
+    grid: [type, pattern_length]
     hue: correlated
-    style: n_seeds
-    name: reward_metrics
-  - 
-    selectors:
-      mode: train
-      agents: mean
-      name: stick_to_color
-    grid: [lr, agent_type]
-    hue: correlated
-    style: n_seeds
-    name: stick_to_color
-  - 
-    selectors:
-      mode: train
-      agents: mean
-      name: max_freq
-    grid: [lr, agent_type]
-    hue: correlated
-    style: n_seeds
-    name: max_freq
+    style: agent_types
+    name: pattern_metrics
