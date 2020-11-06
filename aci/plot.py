@@ -69,7 +69,8 @@ def plot(
     dfs = dfs.dropna(subset=groupby)
     # dfsb = dfsb.dropna(subset=groupby)
 
-    df_dup = dfs.duplicated(subset=groupby)
+    w_baseline = dfs[baseline['column']] == baseline['value']
+    df_dup = dfs[~w_baseline].duplicated(subset=groupby)
     if df_dup.any():
         dup = dfs[df_dup].sort_values(groupby)
         print(dup.head())
@@ -81,14 +82,21 @@ def plot(
 
     grid = {n: g for g, n in zip(grid[::-1], ['col','row'])}
 
-
-
     grid_order = {
         f'{k}_order': sorted([n for n in dfs[v].unique() if not pd.isnull(n)])
         for k, v in grid.items()
     }
 
-    import ipdb; ipdb.set_trace()
+    other = {}
+    if hue is not None:
+        other['hue'] = hue
+    if style is not None:
+        other['style'] = style
+
+    other_order = {
+        f'{k}_order': sorted([n for n in dfs[v].unique() if not pd.isnull(n)])
+        for k, v in other.items()
+    }
 
     grid = sns.FacetGrid(
         data=dfs,
@@ -96,41 +104,18 @@ def plot(
         **grid_order)
 
     grid.map_dataframe(
+        single_plot,
         x=x,
         y=y,
-        hue=hue,
-        style=style,
-        kind="line",
-        ci=None)
-
-    # w = dfs[baseline['column'] != baseline['value']]
-
-    g = sns.relplot(
-        data=dfs,
-        x=x,
-        y=y,
-        **grid,
-        **grid_order,
-        hue=hue,
-        style=style,
-        kind="line",
-        ci=None
+        baseline=baseline,
+        **other,
+        **other_order
     )
 
-    # g = sns.relplot(
-    #     data=dfsb,
-    #     x=x,
-    #     y=y,
-    #     **grid,
-    #     **grid_order,
-    #     kind="line",
-    #     ci=None,
-    #     color='black'
-    # )
-
     plt.subplots_adjust(top=0.9)
-    g.fig.suptitle(title)
-    g.fig.patch.set_facecolor('white')
+    grid.fig.suptitle(title)
+    grid.fig.patch.set_facecolor('white')
+    grid.add_legend()
     if folder:
         ensure_directory(os.path.join(output_path, folder))
         filename = os.path.join(output_path, folder, f"{name}.png")
@@ -141,16 +126,29 @@ def plot(
     plt.close()
 
 
-def plot_single(data, baseline, *args, **kwargs):
-    g = sns.lineplot(
-        data=dfs,
+def single_plot(data, baseline, x, y, color, *args, **kwargs):
+    w_baseline = data[baseline['column']] == baseline['value']
+    baseline_data = data[w_baseline]
+    other_data = data[~w_baseline]
+
+    sns.lineplot(
+        data=baseline_data,
         x=x,
         y=y,
-        **grid,
-        **grid_order,
-        hue=hue,
-        style=style,
-        kind="line",
+        *args,
+        **kwargs,
+        color='gray',
+        lw=0.5,
+        ci=None
+    )
+    sns.lineplot(
+        data=other_data,
+        x=x,
+        y=y,
+        color=color,
+        *args,
+        **kwargs,
+        lw=2,
         ci=None
     )
 
@@ -246,8 +244,8 @@ def _main(*, input_files, clean, preprocess_args=None, plot_args, output_path):
     ns.dfs = dfs
     pool = Pool(20)
     data_args = list(zip(plot_args, [ns]*len(plot_args)))
-    pool.map(_plot, data_args)
-    # _plot(data_args[0])
+    # pool.map(_plot, data_args)
+    _plot(data_args[0])
     # _plot(data_args[1])
 
 
