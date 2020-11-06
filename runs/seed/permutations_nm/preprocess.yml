@@ -1,6 +1,6 @@
 exec:
   command: preprocess
-  script_name: cpu
+  script_name: cpu_torque
   cores: 6
   hours: 2
   memory: 32
@@ -39,7 +39,7 @@ params:
     train:
       correlations_args:
         max_delta: 10
-        bin_size: 100
+        bin_size: 50
         correlations:
           - node: ai
             other: ai
@@ -54,6 +54,6 @@ params:
           - node: ai
             other: ci
       tuple_args:
-        bin_size: 100
+        bin_size: 50
       metric_args:
-        bin_size: 100
+        bin_size: 50

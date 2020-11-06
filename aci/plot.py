@@ -81,10 +81,27 @@ def plot(
 
     grid = {n: g for g, n in zip(grid[::-1], ['col','row'])}
 
+
+
     grid_order = {
         f'{k}_order': sorted([n for n in dfs[v].unique() if not pd.isnull(n)])
         for k, v in grid.items()
     }
+
+    import ipdb; ipdb.set_trace()
+
+    grid = sns.FacetGrid(
+        data=dfs,
+        **grid,
+        **grid_order)
+
+    grid.map_dataframe(
+        x=x,
+        y=y,
+        hue=hue,
+        style=style,
+        kind="line",
+        ci=None)
 
     # w = dfs[baseline['column'] != baseline['value']]
 
@@ -122,6 +139,23 @@ def plot(
     plt.savefig(filename)
     print(f'Saved {filename}')
     plt.close()
+
+
+def plot_single(data, baseline, *args, **kwargs):
+    g = sns.lineplot(
+        data=dfs,
+        x=x,
+        y=y,
+        **grid,
+        **grid_order,
+        hue=hue,
+        style=style,
+        kind="line",
+        ci=None
+    )
+
+
+
 
 
 def preprocess(df, combine={}, selectors={}):
