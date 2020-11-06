@@ -65,6 +65,8 @@ def _preprocess_file(filename, mode, pattern_df, labels, outdir, name, correlati
     pattern_metrics_df = calculate_pattern_metrics(pattern_df)
     save_df(pattern_metrics_df, _labels, name, 'pattern_metrics', outdir)
 
+    assert pattern_metrics_df.groupby(['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name'])['value'].count().max() == 1
+
     correlations_df = correlations(**tensors, **correlations_args)
     save_df(correlations_df, _labels, name, 'correlations', outdir)
 
@@ -342,9 +344,9 @@ def calculate_pattern_metrics(pattern_df):
 
     df = pd.concat([df_entropy, df_kl])
     column_order = [
-        'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name', 'value'
+        'agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name', 'value'
     ]
-    cat_column = ['agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name',]
+    cat_column = ['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name']
 
     df[cat_column] = df[cat_column].astype('category')
     return df[column_order]
