@@ -69,8 +69,6 @@ def plot(
     dfs = dfs.dropna(subset=groupby)
     # dfsb = dfsb.dropna(subset=groupby)
 
-    import ipdb; ipdb.set_trace()
-
     df_dup = dfs.duplicated(subset=groupby)
     if df_dup.any():
         dup = dfs[df_dup].sort_values(groupby)
@@ -214,8 +212,9 @@ def _main(*, input_files, clean, preprocess_args=None, plot_args, output_path):
     ns.dfs = dfs
     pool = Pool(20)
     data_args = list(zip(plot_args, [ns]*len(plot_args)))
-    # pool.map(_plot, data_args)
-    _plot(data_args[0])
+    pool.map(_plot, data_args)
+    # _plot(data_args[0])
+    # _plot(data_args[1])
 
 
 def main():

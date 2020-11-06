@@ -65,7 +65,7 @@ def _preprocess_file(filename, mode, pattern_df, labels, outdir, name, correlati
     pattern_metrics_df = calculate_pattern_metrics(pattern_df)
     save_df(pattern_metrics_df, _labels, name, 'pattern_metrics', outdir)
 
-    assert pattern_metrics_df.groupby(['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name'])['value'].count().max() == 1
+    assert pattern_metrics_df.groupby(['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name', 'type'])['value'].count().max() == 1
 
     correlations_df = correlations(**tensors, **correlations_args)
     save_df(correlations_df, _labels, name, 'correlations', outdir)
@@ -641,7 +641,7 @@ def main():
         run_yml = os.path.join(run_folder, 'train.yml')
         run_parameter = load_yaml(run_yml)
         labels = run_parameter['labels']
-        _main(job_folder=run_folder, out_file=out_folder, cores=1,
+        _main(job_folder=run_folder, out_folder=out_folder, cores=1,
             labels=labels, **parameter)
 
 
