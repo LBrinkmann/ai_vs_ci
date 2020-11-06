@@ -89,7 +89,7 @@ def agg_pattern_group(pattern_df):
     ]
     cat_column = ['agent', 'episode_bin', 'episode_part', 'agent_types', 'pattern_length', 'name']
     df[cat_column] = df[cat_column].astype('category')
-    return pattern_group_df
+    return df
 
 
 def filter_top_pattern(pattern_df):
@@ -138,7 +138,7 @@ def local_aggregation(metric, neighbors, neighbors_mask):
 
 
 
-def recalcuate_metrics(state, neighbors, neighbors_mask, metrics, metric_names, agent_types, agents, **_):
+def recalcuate_metrics(state, episode, neighbors, neighbors_mask, metrics, metric_names, agent_types, agents, **_):
     """
     We recaluclate the metrics for the random case.
 
@@ -170,12 +170,15 @@ def recalcuate_metrics(state, neighbors, neighbors_mask, metrics, metric_names, 
     df = using_multiindex(
         rec_metrics, ['agent_source', 'agent', 'episode', 'episode_step', 'metric_name'], value_name='value')
 
+    df['episode'] = df['episode'].map(pd.Series(episode))
+
     rec_metric_names = ['ind_coordination', 'local_coordination', 'ind_catch', 'local_catch']
 
     df = map_columns(df, agent=agents, metric_name=rec_metric_names, agent_source=['trained', 'random'])
 
     # assert that newly calculated metrics are matching the old ones
     org_df = using_multiindex(metrics, ['agent', 'episode', 'episode_step', 'metric_name'], value_name='org_value')
+    org_df['episode'] = org_df['episode'].map(pd.Series(episode))
     org_df = map_columns(org_df, agent=agents, metric_name=metric_names)
     test = df[df['agent_source'] == 'trained'].merge(org_df, how='left')
 
@@ -344,9 +347,9 @@ def calculate_pattern_metrics(pattern_df):
 
     df = pd.concat([df_entropy, df_kl])
     column_order = [
-        'agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name', 'value'
+        'agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name', 'type', 'value'
     ]
-    cat_column = ['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name']
+    cat_column = ['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name',]
 
     df[cat_column] = df[cat_column].astype('category')
     return df[column_order]
@@ -458,15 +461,18 @@ def get_observations(state, neighbors, neighbors_mask, **_):
 # add
 # degree_centrality(neighbors_mask)
 #
-def correlations(state, neighbors, neighbors_mask, max_delta, bin_size, agent_types, agents, correlations, **_):
+def correlations(state, neighbors, neighbors_mask, episode, max_delta, bin_size, agent_types, agents, correlations, **_):
     observations = get_observations(state, neighbors, neighbors_mask)
     at_map = {k: v for v, k in enumerate(agent_types)}
     all_df = []
     for c in correlations:
         df_neighbor = neighbor_correlations(
-            observations, neighbors_mask, at_map=at_map, max_delta=max_delta, bin_size=bin_size, **c)
+            observations, neighbors_mask, episode=episode, at_map=at_map, max_delta=max_delta,
+            bin_size=bin_size, **c)
         all_df.append(df_neighbor)
-        df_self = node_correlations(observations, at_map=at_map, max_delta=max_delta, bin_size=bin_size, **c)
+        df_self = node_correlations(
+            observations, episode=episode, at_map=at_map, max_delta=max_delta,
+            bin_size=bin_size, **c)
         all_df.append(df_self)
     df =  pd.concat(all_df)
 
@@ -544,11 +550,12 @@ def neighbor_correlation(observations, mask, delta_t, self_agent_type, other_age
     return same_color_fraction
 
 
-def x_correlations(*args, other, node, at_map, max_delta, bin_size, function, metric_name):
+def x_correlations(*args, episode, other, node, at_map, max_delta, bin_size, function, metric_name):
     all_df = []
     for delta_t in range(max_delta):
         arr = function(*args, other_agent_type=at_map[other], self_agent_type=at_map[node], delta_t=delta_t)
         df = using_multiindex(arr, ['agent', 'episode', 'episode_step'], value_name='value')
+        df['episode'] = df['episode'].map(pd.Series(episode))
         df['delta_t'] = delta_t
         all_df.append(df)
     df = pd.concat(all_df)
@@ -589,23 +596,25 @@ def get_labels(job_folder):
     return labels
 
 
-def get_files(job_folder):
+def get_files(job_folder, out_folder):
     for mode in ['eval', 'train']:
         for f in os.listdir(os.path.join(job_folder, 'train', 'env', mode)):
             filename = os.path.join(job_folder, 'train', 'env', mode, f)
-            outdir = os.path.join(job_folder, 'preprocess', mode)
+            outdir = os.path.join(out_folder, mode)
             name = os.path.splitext(f)[0]
             yield mode, name, filename, outdir
 
 
-def _main(job_folder, out_file, parse_args, labels, cores=1):
-
+def _main(job_folder, out_folder, parse_args, labels, cores=1):
 
     pattern_df = create_pattern_df(**parse_args['pattern_args'])
 
     arg_list = [
-        {'mode': mode, 'filename': filename, 'pattern_df':pattern_df, 'labels': labels, 'outdir': outdir, 'name': name, **parse_args[mode]}
-        for mode, name, filename, outdir in get_files(job_folder)
+        {
+            'mode': mode, 'filename': filename, 'pattern_df':pattern_df, 'labels': labels,
+            'outdir': outdir, 'name': name, **parse_args[mode]
+        }
+        for mode, name, filename, outdir in get_files(job_folder, out_folder)
     ]
 
     if cores == 1:
@@ -623,18 +632,16 @@ def main():
     parameter_file = os.path.join(run_folder, 'preprocess.yml')
 
     out_folder = os.path.join(run_folder, 'preprocess')
-    out_file = os.path.join(out_folder, 'metrics.parquet')
-    ensure_dir(out_folder)
     parameter = load_yaml(parameter_file)
 
     if in_folder:
-        _main(job_folder=in_folder, out_file=out_file, cores=parameter['exec']['cores'],
+        _main(job_folder=in_folder, out_folder=out_folder, cores=parameter['exec']['cores'],
             labels=parameter['labels'], **parameter['params'])
     else:
         run_yml = os.path.join(run_folder, 'train.yml')
         run_parameter = load_yaml(run_yml)
         labels = run_parameter['labels']
-        _main(job_folder=run_folder, out_file=out_file, cores=1,
+        _main(job_folder=run_folder, out_file=out_folder, cores=1,
             labels=labels, **parameter)
 
 

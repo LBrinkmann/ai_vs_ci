@@ -35,7 +35,8 @@ def merge(run_folder):
 
     ensure_dir(out_folder)
 
-    files_g = find_files_with_extension(exp_dir, ".parquet")
+    preprocess_folder = os.path.join(run_folder, 'preprocess')
+    files_g = find_files_with_extension(preprocess_folder , ".parquet")
 
     files_g = list(files_g)
     # print(files_g[1])
