@@ -260,16 +260,16 @@ def add_all(df, value_name, merge_column, sum_name, agg_func):
     return pd.concat([df, sum_df])
 
 
-def match_tuples(state, pattern_df, agent_types, agents, actions, bin_size, **_):
+def match_tuples(state, pattern_df, agent_types, agents, actions, episode, bin_size, **_):
     for length, this_pattern_df in pattern_df.groupby("pattern_length"):
         print(f'Create tuple of {length}')
-
 
         # stack state tensor, such that we optain tuples
         tuples = create_tuples(state, length)
 
         # turn tensor in to dataframe, make dims to columns
         tuple_df = tuple_to_multiindex(tuples, ['agent_types', 'agent', 'episode', 'episode_step'])
+        tuple_df['episode'] = tuple_df['episode'].map(pd.Series(episode))
 
         # to replace the tuple of action_ids with the pattern_id might speed up things
         tuple_df = this_pattern_df[['pattern_id', 'action_ids']].merge(tuple_df)

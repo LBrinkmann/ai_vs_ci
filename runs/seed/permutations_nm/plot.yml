@@ -11,22 +11,21 @@ preprocess_args:
       agent: all
 
 plot_args:
-    - expand: [lr]
-      filename: metrics
-      baseline:
-        column: agent_source
-        value: random
-      selectors:
-        mode: train
-        metric_name: [ind_catch, ind_coordination]
-        agent: all
-        # agent_source: trained
-      x: episode_bin
-      y: value
-      grid: [episode_part, metric_name]
-      hue: correlated
-      style: n_seeds
-      name: metrics
+  #   - expand: [lr]
+  #     filename: metrics
+  #     baseline:
+  #       column: agent_source
+  #       value: random
+  #     selectors:
+  #       mode: train
+  #       metric_name: [ind_catch, ind_coordination]
+  #       agent: all
+  #     x: episode_bin
+  #     y: value
+  #     grid: [episode_part, metric_name]
+  #     hue: correlated
+  #     style: n_seeds
+  #     name: metrics
   - expand: [lr, n_seeds]
     filename: pattern_metrics
     baseline:

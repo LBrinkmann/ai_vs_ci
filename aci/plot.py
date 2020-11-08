@@ -70,12 +70,18 @@ def plot(
     # dfsb = dfsb.dropna(subset=groupby)
 
     w_baseline = dfs[baseline['column']] == baseline['value']
-    df_dup = dfs[~w_baseline].duplicated(subset=groupby)
+    df_nb = dfs[~w_baseline]
+    df_dup = df_nb.duplicated(subset=groupby)
+
+
+    import ipdb; ipdb.set_trace()
+
+
     if df_dup.any():
-        dup = dfs[df_dup].sort_values(groupby)
+        dup = df_nb[df_dup].sort_values(groupby)
         print(dup.head())
         diff = dup.iloc[0] != dup.iloc[1]
-        print(dup.loc[:,diff])
+        print(df_nb.loc[:,diff])
         raise ValueError('There are doublicates.')
 
     grid.sort(key=lambda l: dfs[l].nunique())
@@ -97,6 +103,7 @@ def plot(
         f'{k}_order': sorted([n for n in dfs[v].unique() if not pd.isnull(n)])
         for k, v in other.items()
     }
+
 
     grid = sns.FacetGrid(
         data=dfs,
