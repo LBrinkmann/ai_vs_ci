@@ -56,17 +56,18 @@ def merge_selectors(selectors, new_selectors):
 def expand_selectors(df, selectors, expand=[]):
     if len(expand) == 0:
         yield selectors
-    grid_dims = [[
-        {e: f}
-        for f in df[e].unique() if not pd.isnull(f)]
-        for e in expand
-    ]
-    grid = list(product(*grid_dims))
-    grid = list(map(merge_dicts, grid))
-    for i, g in enumerate(grid):
-        _selectors = merge_selectors(selectors, g)
-        if _selectors is not None:
-            yield _selectors
+    else:
+        grid_dims = [[
+            {e: f}
+            for f in df[e].unique() if not pd.isnull(f)]
+            for e in expand
+        ]
+        grid = list(product(*grid_dims))
+        grid = list(map(merge_dicts, grid))
+        for i, g in enumerate(grid):
+            _selectors = merge_selectors(selectors, g)
+            if _selectors is not None:
+                yield _selectors
 
 
 def combine_values(df, combine):
@@ -95,9 +96,10 @@ def summarize_df(df, name):
             print(f'{name} {col} has the values: {values}')
 
 
-def preprocess(df, combine={}, selectors={}):
+def preprocess(df, combine=None, selectors={}):
     df = select_df(df, selectors).copy()
-    df = combine_values(df, combine)
+    if combine is not None:
+        df = combine_values(df, combine)
     return df
 
 

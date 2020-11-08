@@ -83,17 +83,17 @@ def agg_pattern_group(pattern_df):
     pattern_group_df['type'] = 'pattern_group'
     pattern_df['name'] = pattern_df['pattern_name']
     pattern_df['type'] = 'pattern'
-    df =  pd.concat([pattern_df, pattern_group_df])
+    df = pd.concat([pattern_df, pattern_group_df])
     column_order = [
         'agent', 'episode_bin', 'episode_part', 'agent_types', 'pattern_length', 'name', 'type', 'count', 'freq'
     ]
     cat_column = ['agent', 'episode_bin', 'episode_part', 'agent_types', 'pattern_length', 'name']
     df[cat_column] = df[cat_column].astype('category')
-    return df
+    return df[column_order]
 
 
 def filter_top_pattern(pattern_df):
-    columns = ['agent', 'episode_bin', 'episode_part', 'agent_types', 'pattern_length']
+    columns = ['agent', 'episode_bin', 'episode_part', 'agent_types', 'pattern_length', 'type']
     pattern_df = pattern_df.sort_values('count', ascending=False)
     pattern_df = pattern_df.groupby(columns).head(10)
     return pattern_df
@@ -331,12 +331,16 @@ def calculate_kullback_leibler(df, ):
 
     _df = df[~w_all].merge(df.loc[w_all, groupby + ['freq', 'name']], on=groupby + ['name'], suffixes=['', '_all'])
 
-    _df['value'] =  _df['freq_all'] * np.log((_df['freq_all'] / (_df['freq'] + np.finfo(float).eps)) + np.finfo(float).eps)
+    _df['value'] = _df['freq_all'] * np.log((_df['freq_all'] / (_df['freq'] + np.finfo(float).eps)) + np.finfo(float).eps)
 
-    _df = _df.groupby(groupby + ['agent'])['value'].sum().reset_index()
-    _df_all = _df.groupby(groupby)['value'].mean().reset_index()
+    _df = _df.groupby(groupby + ['agent'], observed=True)['value'].sum().reset_index()
+    _df_all = _df.groupby(groupby, observed=True)['value'].mean().reset_index()
     _df_all['agent'] = 'all'
-    return pd.concat([_df, _df_all])
+    __df = pd.concat([_df, _df_all])
+    assert not _df.duplicated(subset=groupby + ['agent'], keep=False).any()
+    assert not _df_all.duplicated(subset=groupby + ['agent'], keep=False).any()
+    assert not __df.duplicated(subset=groupby + ['agent'], keep=False).any()
+    return __df
 
 
 def calculate_pattern_metrics(pattern_df):
@@ -349,7 +353,10 @@ def calculate_pattern_metrics(pattern_df):
     column_order = [
         'agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name', 'type', 'value'
     ]
-    cat_column = ['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name',]
+    cat_column = ['agent_types', 'agent', 'episode_bin', 'episode_part', 'pattern_length', 'metric_name', 'type']
+
+
+    assert not df.duplicated(subset=cat_column, keep=False).any()
 
     df[cat_column] = df[cat_column].astype('category')
     return df[column_order]

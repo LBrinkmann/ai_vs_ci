@@ -48,11 +48,11 @@ def plot(
     groupby = [c for c in (grid + [hue, style, x]) if c is not None]
 
     dfs = dfs.dropna(subset=groupby)
-
     w_baseline = dfs[baseline['column']] == baseline['value']
-    df_dup = dfs[~w_baseline].duplicated(subset=groupby)
+    df_wo_baseline = dfs[~w_baseline]
+    df_dup = df_wo_baseline.duplicated(subset=groupby, keep=False)
     if df_dup.any():
-        dup = dfs[df_dup].sort_values(groupby)
+        dup = df_wo_baseline[df_dup].sort_values(groupby)
         print(dup.head())
         diff = dup.iloc[0] != dup.iloc[1]
         print(dup.loc[:,diff])
@@ -171,6 +171,9 @@ def _main(*, input_files, clean, preprocess_args=None, plots, output_path):
     ns = mgr.Namespace()
     ns.dfs = dfs
     pool = Pool(20)
+
+    # print(plot_args[0])
+    # print(plot_args[1])
 
     data_args = list(zip(plot_args, [ns]*len(plot_args)))
     pool.map(_plot, data_args)
