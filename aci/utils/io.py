@@ -32,3 +32,9 @@ def load_yaml(filename):
     with open(filename) as f:
         data = yaml.safe_load(f)
     return data
+
+
+def get_subfolders(d):
+    return [o for o in os.listdir(d) if os.path.isdir(os.path.join(d,o))]
+
+

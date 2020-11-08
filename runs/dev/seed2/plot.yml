@@ -10,7 +10,7 @@ preprocess_args:
       mode: train
       agent: all
 
-plot_args:
+plots:
 -
       filename: metrics
       baseline:
@@ -26,20 +26,20 @@ plot_args:
       hue: metric_name
       style: episode_part
       name: metrics
-# -
-#     filename: pattern_metrics
-#     baseline:
-#       column: agent_types
-#       value: random_ai
-#     selectors:
-#       mode: train
-#       agent: all
-#       metric_name: entropy
-#       episode_part: full
-#       agent_types: [ai, ci, random_ai]
-#     x: episode_bin
-#     y: value
-#     grid: [type, pattern_length]
-#     # hue: correlated
-#     style: agent_types
-#     name: pattern_metrics
+-
+    filename: pattern_metrics
+    baseline:
+      column: agent_types
+      value: random_ai
+    selectors:
+      mode: train
+      agent: all
+      metric_name: entropy
+      episode_part: full
+      agent_types: [ai, ci, random_ai]
+    x: episode_bin
+    y: value
+    grid: [type, pattern_length]
+    # hue: correlated
+    style: agent_types
+    name: pattern_metrics

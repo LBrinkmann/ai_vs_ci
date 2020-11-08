@@ -29,7 +29,8 @@ setup(
             'plot = aci.plot:main',
             'video = aci.video:main',
             'runtest = aci.test:main',
-            'merge = aci.merge:main'
+            'merge = aci.merge:main',
+            'causality = aci.causality:main'
         ],
     },
     scripts=[
