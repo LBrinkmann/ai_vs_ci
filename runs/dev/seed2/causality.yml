@@ -1,0 +1,32 @@
+clean: true
+preprocess_args:
+  metrics:
+    filename: metrics
+    selectors:
+      mode: train
+      metric_name: [ind_catch, ind_coordination]
+      agent: all
+      episode_part: full
+      agent_source: trained
+    combine:
+      cmetric:
+        ind_catch:
+          metric_name: ind_catch
+        ind_coordination:
+          metric_name: ind_coordination
+  pattern_metrics:
+    filename: pattern_metrics
+    selectors:
+      mode: train
+      agent: all
+      episode_part: full
+      pattern_length: 2
+      type: pattern
+    combine:
+      cmetric:
+        ai_entropy_2:
+          metric_name: entropy
+          agent_types: ai
+        ci_entropy_2:
+          metric_name: entropy
+          agent_types: ci
