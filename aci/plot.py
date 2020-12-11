@@ -134,9 +134,9 @@ def single_plot(data, baseline, x, y, color, *args, **kwargs):
     )
 
 
-def apply_expand(dfs, selectors, filename, **kwargs):
-    for sel in expand_selectors(dfs[filename], selectors):
-        yield {'selectors': sel, 'filename': filename, **kwargs}
+def apply_expand(dfs, selectors, filename, expand, **kwargs):
+    for idx, sel in enumerate(expand_selectors(dfs[filename], selectors, expand=expand)):
+        yield {'selectors': sel, 'filename': filename, **kwargs, 'idx': idx}
 
 
 def create_plots_args(dfs, plots, **kwargs):
