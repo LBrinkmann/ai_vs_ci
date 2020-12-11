@@ -49,12 +49,12 @@ def gen_secrets(n_seeds=None, **kwargs):
 
 class AdGraphColoringHist():
     def __init__(
-            self, n_agents, n_actions, graph_args, episode_length, max_history, mapping_period, 
-            network_period, rewards_args, device, reward_period, secrete_args={}, 
+            self, n_agents, n_actions, graph_args, episode_length, max_history, mapping_period,
+            network_period, rewards_args, device, reward_period, secrete_args={},
             env_scope='train', out_dir=None):
 
         self.metric_names = [
-            'ind_coordination', 'avg_coordination' ,'local_coordination', 'local_catch', 
+            'ind_coordination', 'avg_coordination' ,'local_coordination', 'local_catch',
             'ind_catch', 'avg_catch', 'rewarded'
         ]
 
@@ -117,8 +117,8 @@ class AdGraphColoringHist():
             self.neighbors_mask = th.tensor(neighbors_mask, dtype=th.bool, device=self.device)
             self.adjacency_matrix = th.tensor(
                 adjacency_matrix, dtype=th.bool, device=self.device)
-            
-            
+
+
         # mapping between ai agents and ci agents (outward: ci_ai_map, incoming: ai_ci_map)
         # ci_ai_map: [2, 0, 1], ai agent 0 is ci agent 2
         if (self.mapping_period > 0) and (self.episode % self.mapping_period == 0):
@@ -139,7 +139,6 @@ class AdGraphColoringHist():
         self.history_queue.appendleft(self.current_hist_idx)
         self.episode_history[self.current_hist_idx] = self.episode
         self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
-        # self.adjacency_matrix_history[self.current_hist_idx] = self.adjacency_matrix
         self.neighbors_history[:, self.current_hist_idx] = self.neighbors
         self.neighbors_mask_history[:, self.current_hist_idx] = self.neighbors_mask
 
@@ -171,7 +170,7 @@ class AdGraphColoringHist():
                 'ci_ai_map':self.ci_ai_map_history[:,:chi],
                 'episode':self.episode_history[:chi],
                 'metrics':self.metrics_history[:,:chi],
-                'metric_names':self.metric_names,            
+                'metric_names':self.metric_names,
                 **({} if self.secretes_history is None else {'secretes': self.secretes_history[:,:chi]}),
             },
             filename
@@ -201,7 +200,7 @@ class AdGraphColoringHist():
         else:
             raise ValueError(f'Unkown agent_type {agent_type}')
 
-    
+
     def _batch_neighbors(self, episode_idx, agent_type):
         eps_states = self.state_history[:, :, episode_idx]
 
@@ -268,7 +267,7 @@ class AdGraphColoringHist():
         mask = mask[:, :, 1:].unsqueeze(2).repeat(1,1,self.episode_length,1)
         prev_states = ci_state[:,:,:-1]
         this_states = ci_state[:,:,1:]
-        return (prev_states, links, mask), (this_states, links, mask) 
+        return (prev_states, links, mask), (this_states, links, mask)
 
 
     def get_observation_shapes(self, agent_type):
@@ -297,7 +296,7 @@ class AdGraphColoringHist():
             return obs, mask, secretes, self.metrics
         elif mode == 'neighbors':
             return self._observe_neighbors(**kwarg)[0]
-        elif mode == 'matrix': 
+        elif mode == 'matrix':
             return self._observe_matrix(**kwarg)
         else:
             raise NotImplementedError(f'Mode {mode} is not implemented.')
@@ -371,7 +370,7 @@ class AdGraphColoringHist():
         ai_state = self.state[self.agent_types_idx['ai']]
 
         ci_state_shifted = (ci_state + 1)
-        ci_state_shifted_mapped = self.adjacency_matrix * (ci_state + 1) # [a,:] neighbors of agent a 
+        ci_state_shifted_mapped = self.adjacency_matrix * (ci_state + 1) # [a,:] neighbors of agent a
 
         conflicts = (ci_state_shifted[:, np.newaxis] == ci_state_shifted_mapped)
 
@@ -394,8 +393,8 @@ class AdGraphColoringHist():
             'ind_catch': ind_catch,
             'avg_catch': ind_catch.mean(0, keepdim=True).expand(self.n_agents),
             'rewarded': th.full(
-                size=(self.n_agents,), 
-                fill_value=(self.episode_step % self.reward_period) == 0, 
+                size=(self.n_agents,),
+                fill_value=(self.episode_step % self.reward_period) == 0,
                 dtype=th.float, device=self.device
             ),
         }
