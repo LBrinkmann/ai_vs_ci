@@ -1,8 +1,6 @@
 from collections import namedtuple
 from functools import reduce
 from itertools import permutations
-import math
-import random
 import torch as th
 import numpy as np
 import torch.optim as optim
@@ -14,6 +12,7 @@ from aci.neural_modules import NETS
 def binary(x, bits):
     mask = 2**th.arange(bits).to(x.device, x.dtype)
     return (x+1).unsqueeze(-1).bitwise_and(mask).ne(0).byte()
+
 
 def onehot(x, m, input_size, device):
     onehot = th.zeros(*x.shape, input_size, dtype=th.float32, device=device)
@@ -30,13 +29,12 @@ def map_to_idx(to_map, names):
 
 
 class GRUAgentWrapper(nn.Module):
-    def __init__(self, 
-            observation_shapes, n_agents, n_actions, net_type, 
-            multi_type, device, add_catch=False, control_type=None, global_input=[],
-            global_control=[], mix_weights_args=None, action_permutation=False, **kwargs):
+    def __init__(self,
+                 observation_shapes, n_agents, n_actions, net_type,
+                 multi_type, device, add_catch=False, control_type=None, global_input=[],
+                 global_control=[], mix_weights_args=None, action_permutation=False, **kwargs):
         super(GRUAgentWrapper, self).__init__()
         assert multi_type in ['shared_weights', 'individual_weights']
-
 
         self.control_size = len(global_control)
         self.control_type = control_type
@@ -48,7 +46,8 @@ class GRUAgentWrapper(nn.Module):
                 self.control_size += int(np.log2(secrete_maxval_p1 + 1))
             elif control_type == 'permute':
                 self.permuations = th.tensor(list(permutations(range(n_actions))), device=device)
-                assert maxval < len(self.permuations), 'Max seed needs to be smaller then the factorial of actions.'
+                assert maxval < len(
+                    self.permuations), 'Max seed needs to be smaller then the factorial of actions.'
 
         self.n_inputs = observation_shapes[0]['shape'][1]
 
@@ -61,7 +60,7 @@ class GRUAgentWrapper(nn.Module):
 
         self.models = nn.ModuleList([
             NETS[net_type](
-                n_inputs=self.n_inputs, input_size=self.input_size, n_actions=n_actions, device=device, 
+                n_inputs=self.n_inputs, input_size=self.input_size, n_actions=n_actions, device=device,
                 control_size=self.control_size, **kwargs)
             for n in range(effective_agents)
         ])
@@ -74,17 +73,15 @@ class GRUAgentWrapper(nn.Module):
         self.add_catch = add_catch
         self.mix_weights_args = mix_weights_args
 
-        # TODO: this is temporarly
         if mix_weights_args is not None:
             ref_model = self.models[0].state_dict()
             for m in self.models:
                 m.load_state_dict(ref_model)
 
+    def mix_weights(self):
+        return self._mix_weights(**self.mix_weights_args)
 
-    def mix_weigths(self):
-        return self._mix_weigths(**self.mix_weights_args)
-
-    def _mix_weigths(self, noise_factor=0.1, mixing_factor=0.8):
+    def _mix_weights(self, noise_factor=0.1, mixing_factor=0.8):
         """
         """
         stacked_state_dict = {}
@@ -110,7 +107,6 @@ class GRUAgentWrapper(nn.Module):
         for i in range(len(self.models)):
             self.models[i].load_state_dict({k: v[i] for k, v in stacked_state_dict.items()})
 
-
     def forward(self, x, mask, secret=None, globalx=None):
         """
             x: agents, episode, episode_step, neighbors, agent_type
@@ -118,24 +114,26 @@ class GRUAgentWrapper(nn.Module):
             s: agents, episode, episode_step
             e: 1, episode, episode_step
         """
-        x_ci_oh = onehot(x[:,:,:,:,0], mask, self.input_size, self.device) 
+        x_ci_oh = onehot(x[:, :, :, :, 0], mask, self.input_size, self.device)
 
         if len(self.global_input_idx) != 0:
-            x_ci_oh[:,:,:,:,-len(self.global_input_idx):] = globalx[:,:,:,self.global_input_idx].unsqueeze(-2)
+            x_ci_oh[:, :, :, :, -len(self.global_input_idx):] = globalx[:,
+                                                                        :, :, self.global_input_idx].unsqueeze(-2)
 
         if self.add_catch:
-            catch = (x[:,:,:,:,0] == x[:,:,:,:,1]).type(th.float)
-            x_ci_oh[:,:,:,:,-len(self.global_input_idx)-1] = catch
+            catch = (x[:, :, :, :, 0] == x[:, :, :, :, 1]).type(th.float)
+            x_ci_oh[:, :, :, :, -len(self.global_input_idx)-1] = catch
         x_ci_oh[mask] = 0
 
         if self.control_type == 'binary':
             control = binary(secret, self.control_size).type(th.float)
             if len(self.global_control_idx) != 0:
-                control[:,:,:,-len(self.global_control_idx):] = globalx[:,:,:,self.global_control_idx]
+                control[:, :, :, -len(self.global_control_idx):] = globalx[:,
+                                                                           :, :, self.global_control_idx]
             data = x_ci_oh, mask, control
 
         elif len(self.global_control_idx) != 0:
-            control = globalx[:,:,:,self.global_control_idx]
+            control = globalx[:, :, :, self.global_control_idx]
             data = x_ci_oh, mask, control
         else:
             data = x_ci_oh, mask
@@ -145,7 +143,7 @@ class GRUAgentWrapper(nn.Module):
         # random_batch = th.randint(high=x.shape[1], size=(1,)).item()
         # random_step = th.randint(high=x.shape[2], size=(1,)).item()
         # random_neighbor = th.randint(high=(x[random_agent,random_batch,random_step,:,0] != -1).sum(), size=(1,)).item()
-        
+
         # # x_ci_oh test
         # color = x[random_agent,random_batch,random_step,random_neighbor,0]
         # vector = x_ci_oh[random_agent,random_batch,random_step,random_neighbor,:]
@@ -222,7 +220,7 @@ class OneHotTransformer(nn.Module):
         shift = shift.reshape(batch_size, seq_length).unsqueeze(0).repeat(n_agents, 1, 1)
 
         edge_index = links + shift.unsqueeze(-1).unsqueeze(-1)
-        edge_index = edge_index[~mask].permute(1,0)
+        edge_index = edge_index[~mask].permute(1, 0)
         x = x.reshape(-1)
 
         onehot = th.zeros(len(x), self.n_actions, dtype=th.float32, device=self.device)
@@ -231,7 +229,7 @@ class OneHotTransformer(nn.Module):
         y = self.model(onehot, edge_index)
         y = y.reshape(n_agents, batch_size, seq_length, -1)
         return y
-    
+
     def log(self, *args, **kwargs):
         self.model.log(*args, **kwargs)
 
@@ -251,8 +249,10 @@ class MADQN:
         if model_args['net_type'] != 'gcn':
             self.observation_mode = 'neighbors_mask_secret_envinfo'
             observation_shapes = observation_shapes[self.observation_mode]
-            self.policy_net = GRUAgentWrapper(observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
-            self.target_net = GRUAgentWrapper(observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
+            self.policy_net = GRUAgentWrapper(
+                observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
+            self.target_net = GRUAgentWrapper(
+                observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
         else:
             self.observation_mode = 'matrix'
             model_args.pop('net_type')
@@ -276,25 +276,26 @@ class MADQN:
 
     def update(self, done, sampler, writer=None, training=None):
         if training and done:
-            sample = sampler(agent_type=self.agent_type, batch_size=self.batch_size, mode=self.observation_mode, **self.sample_args)
+            sample = sampler(agent_type=self.agent_type, batch_size=self.batch_size,
+                             mode=self.observation_mode, **self.sample_args)
             if sample is not None:
                 self._optimize(*sample)
 
     def init_episode(self, episode, training):
         self.policy_net.reset()
         if (self.mix_freq is not None) and training and (episode % self.mix_freq == 0):
-            self.policy_net.mix_weigths()
+            self.policy_net.mix_weights()
         if training and (episode % self.target_update_freq == 0):
             self._update_target()
 
-
-    def _optimize(self, prev_observations, observations, actions, rewards):        
+    def _optimize(self, prev_observations, observations, actions, rewards):
         self.policy_net.reset()
         self.target_net.reset()
 
         # this will not work with multi yet
 
-        policy_state_action_values = self.policy_net(*prev_observations).gather(-1, actions.unsqueeze(-1))
+        policy_state_action_values = self.policy_net(
+            *prev_observations).gather(-1, actions.unsqueeze(-1))
 
         next_state_values = th.zeros_like(rewards, device=self.device)
         next_state_values = self.target_net(*observations).max(-1)[0].detach()
@@ -303,7 +304,8 @@ class MADQN:
         expected_state_action_values = (next_state_values * self.gamma) + rewards
 
         # Compute Huber loss
-        loss = F.smooth_l1_loss(policy_state_action_values, expected_state_action_values.unsqueeze(-1))
+        loss = F.smooth_l1_loss(policy_state_action_values,
+                                expected_state_action_values.unsqueeze(-1))
 
         # Optimize the model
         self.optimizer.zero_grad()

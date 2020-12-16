@@ -13,100 +13,95 @@ Outputs:
 
 from itertools import count
 from docopt import docopt
-import sys
 from aci.components.scheduler import Scheduler, select_action
 
 from aci.envs import ENVIRONMENTS
 from aci.controller import CONTROLLERS
 from aci.utils.io import load_yaml
-# from aci.utils.writer import Writer
 import torch as th
+import numpy as np
 import os
+import random
 
 
 def run(envs, controller, scheduler):
     for episode in scheduler:
-        # writer.add_meta(_step=episode['episode'], episode=episode['episode'], mode=episode['mode'])
-        print(f'Start episode {episode["episode"]}.')
+        print(f'Start episode {episode["episode"]} in mode {episode["mode"]}.')
         env = envs[episode['mode']]
         run_episode(
             env=env,
             controller=controller,
-            # writer=writer,
             **episode)
-
-
-def average(d):
-    return {k: v.mean() for k, v in d.items()}
 
 
 def run_episode(*, episode, env, controller, eps, training, **__):
     env.init_episode()
-    # writer.add_env(env, on='env')
 
-    agent_types = controller.keys()
+    # initialize episode for all controller
+    for agent_type, a_controller in controller.items():
+        a_controller.init_episode(episode, training[agent_type])
 
-    for agent_type in agent_types:
-        controller[agent_type].init_episode(episode, training[agent_type])
-
-    for t in count():
-        # print(f'Start step {t} with test mode {test_mode}.')
-        # writer.add_meta(episode_step=t)
-
+    for step in count():
+        # collect actions of all controller here
         actions = {}
-        for agent_type in agent_types:
-            # Select and perform an action
-            obs = env.observe(mode=controller[agent_type].observation_mode, agent_type=agent_type)
-            proposed_action = controller[agent_type].get_q(obs, training=training[agent_type])
-            selected_action = select_action(proposed_actions=proposed_action, eps=eps[agent_type])
+        for agent_type, a_controller in controller.items():
+            # Get observations for agent type from environment
+            obs = env.observe(mode=a_controller.observation_mode, agent_type=agent_type)
+            # Get q values from controller
+            q_values = a_controller.get_q(obs, training=training[agent_type])
+            # Sample a action
+            selected_action = select_action(q_values=q_values, eps=eps[agent_type])
             actions[agent_type] = selected_action
 
+        # pass actions to environment and advance by one step
         rewards, done, info = env.step(actions)
 
-        # writer.add_metrics2('actions', actions, on='trace')
-        # writer.add_metrics2('rewards', rewards, on='trace')
-        # writer.add_metrics2('info', info, on='trace')
-        # writer.add_metrics2('mean_rewards', average(rewards), on='mean_trace')
-        # writer.add_metrics2('mean_info', average(info), on='mean_trace')
-
-        for agent_type in agent_types:
-            controller[agent_type].update(done, env.sample, training=training[agent_type])
+        # allow all controller to update themself
+        for agent_type, a_controller in controller.items():
+            # controller do not get reward directly, but a callback to env.sample
+            a_controller.update(done, env.sample, training=training[agent_type])
         if done:
             break
 
     env.finish_episode()
 
 
-def _main(*, output_path, agent_types, env_class, env_args, meta, run_args={}, scheduler_args, device_name):
+def _main(*, output_path, agent_types, env_class, env_args, meta,
+          run_args={}, scheduler_args, device_name, seed=None):
+
+    # Set seed
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        th.manual_seed(seed)
+        th.set_deterministic(True)
+
+    # Set threads
     if 'num_threads' in run_args:
         th.set_num_threads(run_args['num_threads'])
-
     print(f'Use {th.get_num_threads()} threads.')
 
-    # writer = Writer(output_path, **writer_args, **meta)
-
-    # if gpu is to be used
+    # Set device
     device = th.device(device_name)
-    print(device)
+    print(f'Use device {device}.')
 
+    # Create train and eval environment
     envs = {
         tm: ENVIRONMENTS[env_class](
-            **env_args, env_scope=tm, device=device,
-            out_dir=os.path.join(output_path,'env',tm)
+            **env_args, device=device, out_dir=os.path.join(output_path, 'env', tm)
         )
         for tm in ['train', 'eval']
     }
 
     scheduler = Scheduler(**scheduler_args)
-
     controller = {
         name: CONTROLLERS[args['controller_class']](
-        observation_shapes=envs['train'].get_observation_shapes(agent_type=name),
-        n_actions=envs['train'].n_actions,
-        agent_type=name,
-        n_agents=envs['train'].n_agents,
-        **args['controller_args'],
-        device=device)
+            observation_shapes=envs['train'].get_observation_shapes(agent_type=name),
+            n_actions=envs['train'].n_actions,
+            agent_type=name,
+            n_agents=envs['train'].n_nodes,
+            **args['controller_args'],
+            device=device)
         for name, args in agent_types.items()
     }
 

@@ -6,17 +6,19 @@ from torch.distributions import Categorical
 import math
 import random
 
-def select_action(proposed_actions, eps):
 
-    avail_actions = th.ones_like(proposed_actions)
+def select_action(q_values, eps):
 
-    masked_q_values = proposed_actions
+    avail_actions = th.ones_like(q_values)
+
+    masked_q_values = q_values
     masked_q_values[avail_actions == 0.0] = -float("inf")  # should never be selected!
 
-    random_numbers = th.rand_like(proposed_actions[:, 0])
+    random_numbers = th.rand_like(q_values[:, 0])
     pick_random = (random_numbers < eps).long()
     random_actions = Categorical(avail_actions.float()).sample().long()
-    picked_actions = pick_random * random_actions + (1 - pick_random) * masked_q_values.max(dim=-1)[1]
+    picked_actions = pick_random * random_actions + \
+        (1 - pick_random) * masked_q_values.max(dim=-1)[1]
     return picked_actions
 
 

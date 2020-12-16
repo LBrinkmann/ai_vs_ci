@@ -75,7 +75,7 @@ class Writer():
 
     def add_meta(self, **meta):
         self.meta = {**self.meta, **meta}
-    
+
     @selector
     def check_on(self):
         return True
@@ -87,12 +87,12 @@ class Writer():
     @selector
     def add_table(self, **kwargs):
         # might change in the future
-        
+
         # now = datetime.datetime.utcnow()
         # meta = {**self.meta, **meta, 'createdAt': now, 'name': name}
         # for k, v in meta.items():
         #     df[k] = v
-        self._write_table(**kwargs)   
+        self._write_table(**kwargs)
 
     @selector
     def add_env(self, env):
@@ -169,7 +169,7 @@ class Writer():
             self.frames[name] = [callback()]
         else:
             self.frames[name].append(callback())
-        if flush: 
+        if flush:
             self.frames_flush()
 
     def frames_flush(self):
@@ -190,7 +190,7 @@ class Writer():
         array_np = array.transpose(1,3).transpose(1,2).cpu().numpy()
         clip = ImageSequenceClip([f for f in array_np], fps=1)
         clip.write_videofile(file_name)
-    
+
     def _write_table(self, df, name, sheet):
         df.to_csv(f"{self.df_folder}/{name}.{sheet}.csv")
 
