@@ -19,20 +19,20 @@ from aci.components.scheduler import Scheduler, select_action
 from aci.envs import ENVIRONMENTS
 from aci.controller import CONTROLLERS
 from aci.utils.io import load_yaml
-from aci.utils.writer import Writer
+# from aci.utils.writer import Writer
 import torch as th
 import os
 
 
-def run(envs, controller, scheduler, writer):
+def run(envs, controller, scheduler):
     for episode in scheduler:
-        writer.add_meta(_step=episode['episode'], episode=episode['episode'], mode=episode['mode'])
+        # writer.add_meta(_step=episode['episode'], episode=episode['episode'], mode=episode['mode'])
         print(f'Start episode {episode["episode"]}.')
         env = envs[episode['mode']]
         run_episode(
             env=env,
             controller=controller,
-            writer=writer,
+            # writer=writer,
             **episode)
 
 
@@ -40,7 +40,7 @@ def average(d):
     return {k: v.mean() for k, v in d.items()}
 
 
-def run_episode(*, episode, env, controller, eps, training, writer, **__):
+def run_episode(*, episode, env, controller, eps, training, **__):
     env.init_episode()
     # writer.add_env(env, on='env')
 
@@ -51,7 +51,7 @@ def run_episode(*, episode, env, controller, eps, training, writer, **__):
 
     for t in count():
         # print(f'Start step {t} with test mode {test_mode}.')
-        writer.add_meta(episode_step=t)
+        # writer.add_meta(episode_step=t)
 
         actions = {}
         for agent_type in agent_types:
@@ -70,20 +70,20 @@ def run_episode(*, episode, env, controller, eps, training, writer, **__):
         # writer.add_metrics2('mean_info', average(info), on='mean_trace')
 
         for agent_type in agent_types:
-            controller[agent_type].update(done, env.sample, writer=writer, training=training[agent_type])
+            controller[agent_type].update(done, env.sample, training=training[agent_type])
         if done:
             break
 
     env.finish_episode()
 
 
-def _main(*, output_path, agent_types, env_class, env_args, writer_args, meta, run_args={}, scheduler_args, device_name):
+def _main(*, output_path, agent_types, env_class, env_args, meta, run_args={}, scheduler_args, device_name):
     if 'num_threads' in run_args:
         th.set_num_threads(run_args['num_threads'])
 
     print(f'Use {th.get_num_threads()} threads.')
 
-    writer = Writer(output_path, **writer_args, **meta)
+    # writer = Writer(output_path, **writer_args, **meta)
 
     # if gpu is to be used
     device = th.device(device_name)
@@ -110,7 +110,7 @@ def _main(*, output_path, agent_types, env_class, env_args, writer_args, meta, r
         for name, args in agent_types.items()
     }
 
-    run(envs, controller, scheduler, writer)
+    run(envs, controller, scheduler)
 
 
 def main():
