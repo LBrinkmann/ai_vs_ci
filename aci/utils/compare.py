@@ -35,8 +35,6 @@ def compare_files(path, ref_path):
         raise ValueError(f'Mismatch in file {path}.')
 
 
-
-
 def compare(obj, ref):
     # check if both are of same type
     if type(obj) != type(ref):
@@ -93,10 +91,14 @@ def compare_df(obj, ref):
     try:
         assert obj.equals(ref), 'pandas dataframe mismatch'
     except Exception as e:
-        col_mismatch = (obj != ref).any()
-        row_mismatch = (obj.loc[:, col_mismatch] != ref.loc[:, col_mismatch]).any(1)
-        print(obj[row_mismatch].loc[:, col_mismatch])
-        print(ref[row_mismatch].loc[:, col_mismatch])
+        try:
+            col_mismatch = (obj != ref).any()
+            row_mismatch = (obj.loc[:, col_mismatch] != ref.loc[:, col_mismatch]).any(1)
+            print(obj[row_mismatch].loc[:, col_mismatch])
+            print(ref[row_mismatch].loc[:, col_mismatch])
+        except:
+            print(obj)
+            print(ref)
         raise e
 
 

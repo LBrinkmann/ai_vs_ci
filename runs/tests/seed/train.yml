@@ -63,9 +63,9 @@ params:
         opt_args:
           lr: 0.001
       controller_class: madqn
-  env_class: adversial_graph_coloring_historized
+  env_class: network_game
   env_args:
-    n_agents: 20
+    n_nodes: 20
     n_actions: 4
     reward_period: 1
     network_period: 1
@@ -83,15 +83,15 @@ params:
       correlated: true
       agent_types: [ci]
       secret_period: 1
-    episode_length: 5
+    episode_steps: 5
     rewards_args:
       ai:
+        avg_catch: 0.5
+        avg_coordination: 0
+        ind_catch: 0.5
         ind_coordination: 0
-        avg_coordination: -1
-        ind_catch: 0
-        avg_catch: 1
       ci:
-        ind_coordination: 0
-        avg_coordination: 1
+        avg_catch: 0
+        avg_coordination: 0
         ind_catch: 0
-        avg_catch: -1
+        ind_coordination: 1

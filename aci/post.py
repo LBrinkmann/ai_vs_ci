@@ -13,6 +13,7 @@ import os
 import pandas as pd
 import numpy as np
 import torch as th
+import random
 from multiprocessing import Manager, Pool
 # from itertools import groupby
 from functools import partial
@@ -43,7 +44,7 @@ def add_labels(df, labels):
 
 def save_df(df, labels, name, metric_name, outdir):
     df = add_labels(df, labels)
-    filename = os.path.join(outdir, f"{name}.{metric_name}.parquet")
+    filename = os.path.join(outdir, f"{name}.{metric_name}.parquet.gzip")
     print(f'Save {filename}.')
     df.to_parquet(filename)
 
@@ -97,8 +98,9 @@ def agg_pattern_group(pattern_df):
 
 def filter_top_pattern(pattern_df):
     columns = ['agent', 'episode_bin', 'episode_part', 'agent_types', 'pattern_length', 'type']
-    pattern_df = pattern_df.sort_values('count', ascending=False)
-    pattern_df = pattern_df.groupby(columns).head(10)
+    median_count = pattern_df.groupby(columns)['count'].transform('median')
+    pattern_df = pattern_df[pattern_df['count'] > median_count]
+    pattern_df = pattern_df.sort_values(columns).reset_index(drop=True)
     return pattern_df
 
 
@@ -204,6 +206,8 @@ def agg_metrics(bin_size, **tensors):
         'agent', 'episode_bin', 'episode_part', 'agent_source', 'metric_name', 'value'
     ]
     cat_column = ['agent_source', 'agent', 'episode_bin', 'episode_part', 'metric_name']
+
+    df = df.sort_values(cat_column).reset_index(drop=True)
 
     df[cat_column] = df[cat_column].astype('category')
 
@@ -503,6 +507,7 @@ def correlations(state, neighbors, neighbors_mask, episode, max_delta, bin_size,
     cat_column = ['other', 'node', 'agent', 'delta_t',
                   'episode_bin', 'episode_part', 'metric_name']
 
+    df = df.sort_values(cat_column).reset_index(drop=True)
     df[cat_column] = df[cat_column].astype('category')
     return df[column_order]
 
@@ -611,13 +616,6 @@ def get_subdirs(_dir):
     ]
 
 
-def get_labels(job_folder):
-    run_yml = os.path.join(job_folder, 'train.yml')
-    run_parameter = load_yaml(run_yml)
-    labels = run_parameter['labels']
-    return labels
-
-
 def get_files(job_folder, out_folder):
     for mode in ['eval', 'train']:
         for f in os.listdir(os.path.join(job_folder, 'train', 'env', mode)):
@@ -627,7 +625,13 @@ def get_files(job_folder, out_folder):
             yield mode, name, filename, outdir
 
 
-def _main(job_folder, out_folder, parse_args, labels, cores=1):
+def _main(job_folder, out_folder, parse_args, labels, cores=1, seed=None):
+    # Set seed
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        th.manual_seed(seed)
+        th.set_deterministic(True)
 
     pattern_df = create_pattern_df(**parse_args['pattern_args'])
 
@@ -652,20 +656,22 @@ def main():
     run_folder = arguments['RUN_FOLDER']
     in_folder = arguments['IN_FOLDER']
 
-    parameter_file = os.path.join(run_folder, 'preprocess.yml')
+    print(in_folder)
 
-    out_folder = os.path.join(run_folder, 'preprocess')
+    parameter_file = os.path.join(run_folder, 'post.yml')
+
+    out_folder = os.path.join(run_folder, 'post')
     parameter = load_yaml(parameter_file)
 
     if in_folder:
         _main(job_folder=in_folder, out_folder=out_folder, cores=parameter['exec']['cores'],
               labels=parameter['labels'], **parameter['params'])
     else:
-        run_yml = os.path.join(run_folder, 'train.yml')
-        run_parameter = load_yaml(run_yml)
-        labels = run_parameter['labels']
+        # run_yml = os.path.join(run_folder, 'train.yml')
+        # run_parameter = load_yaml(run_yml)
+        # labels = run_parameter['labels']
         _main(job_folder=run_folder, out_folder=out_folder, cores=1,
-              labels=labels, **parameter)
+              labels=parameter['labels'], **parameter['params'])
 
 
 if __name__ == "__main__":

@@ -414,7 +414,60 @@ class NetworkGame():
     def _map_outgoing(self, values):
         return {'ai': values['ai'][self.ci_ai_map], 'ci': values['ci']}
 
+    @staticmethod
+    def __get_observations(state, neighbors, neighbors_mask, **_):
+        # state: agent_type, agents, batch, episode_step
+        # neighbors: agents, batch, max_neighbors
+        # neighbors_mask: agents, batch, max_neighbors
+        n_agent_types, n_agents, batch_size, episode_steps = state.shape
+        n_agents_2, batch_size_2, max_neighbors = neighbors.shape
+
+        assert n_agents == n_agents_2
+        assert n_agents == n_agents_2
+
+        # permutation needed because we map neighbors on agents
+        _state = state.permute(0, 2, 3, 1) \
+            .unsqueeze(1).repeat(1, n_agents, 1, 1, 1)  # agent_type, agents, batch, episode_step, neighbors
+
+        _neighbors = neighbors.clone()
+        _neighbors[neighbors_mask] = 0
+        _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).repeat(
+            n_agent_types, 1, 1, episode_steps, 1)  # agent_type, agents, batch, episode_step, neighbors
+
+        _neighbors_mask = neighbors_mask \
+            .unsqueeze(0).unsqueeze(3) \
+            .repeat(n_agent_types, 1, 1, episode_steps, 1)  # agent_type, agents, batch, episode_step, neighbors
+
+        # agent_type, agents, batch, episode_step, neighbors
+        observations = th.gather(_state, -1, _neighbors)
+        observations[_neighbors_mask] = -1
+        return observations
+
+    @staticmethod
+    def __get_reward(observations):
+        observations = get_observations(state, neighbors, neighbors_mask)
+
+        self_agent_types = [at_map['ci'], at_map['random_ci']]
+        other_agent_types = [at_map['ci'], at_map['random_ci']]
+        self_color = observations[self_agent_types][:, :, :, :, [0]]
+        other_colors = observations[other_agent_types][:, :, :, :, 1:]
+
+        coordination = (self_color != other_colors).all(-1).type(th.float)
+
+        local_coordination = local_aggregation(coordination, neighbors, neighbors_mask)
+
+        self_agent_types = [at_map['ci'], at_map['random_ci']]
+        other_agent_types = [at_map['ai'], at_map['random_ai']]
+        self_color = observations[self_agent_types, :, :, :, 0]
+        other_color = observations[other_agent_types, :, :, :, 0]
+        catch = (self_color == other_color).type(th.float)
+
+        local_catch = local_aggregation(catch, neighbors, neighbors_mask)
+
+        rec_metrics = th.stack([coordination, local_coordination, catch, local_catch], dim=-1)
+
     # TODO: Unit test.
+
     def _get_rewards(self):
         ci_state = self.state[self.agent_types_idx['ci']]
         ai_state = self.state[self.agent_types_idx['ai']]

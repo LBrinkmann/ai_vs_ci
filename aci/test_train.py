@@ -29,7 +29,7 @@ def main():
     parameter = load_yaml(parameter_file)
 
     # test environment
-    # test_setting(parameter['params']['env_args'])
+    test_setting(parameter['params']['env_args'])
 
     meta = {f'label.{k}': v for k, v in parameter.get('labels', {}).items()}
     _main(meta=meta, output_path=test_dir, **parameter['params'])
