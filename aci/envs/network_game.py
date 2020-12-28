@@ -24,7 +24,7 @@ def get_secrets(n_nodes=None, n_seeds=None, correlated=None, device=None, **kwar
     assert (n_nodes is not None)
     assert (correlated is not None)
     if correlated:
-        return th.randint(low=0, high=n_seeds, size=(1,), device=device).repeat(n_nodes)
+        return th.randint(low=0, high=n_seeds, size=(1,), device=device).expand(n_nodes)
     else:
         return th.randint(low=0, high=n_seeds, size=(n_nodes,), device=device)
 
@@ -47,6 +47,40 @@ def gen_secrets(n_seeds=None, **kwargs):
         return False
 
 
+def global_aggregation(metric):
+    # metric: m, p, b, s
+    n_metrics, n_nodes, batch_size, episode_steps = metric.shape
+    return metric.mean(1, keepdim=True).expand(-1, n_nodes, -1, -1)
+
+
+def local_aggregation(metric, neighbors, neighbors_mask):
+    # metric: m, p, b, s
+    # neighbors: p, b, n
+    # neighbors_mask: p, b, n
+    n_metrics, n_nodes, batch_size, episode_steps = metric.shape
+    n_nodes_2, batch_size_2, max_neighbors = neighbors.shape
+
+    assert n_nodes == n_nodes_2
+    assert n_nodes == n_nodes_2
+
+    # permutation needed because we map neighbors on agents
+    _metric = metric.permute(0, 2, 3, 1) \
+        .unsqueeze(1).expand(-1, n_nodes, -1, -1, -1)  # p, b, s, n
+
+    _neighbors = neighbors.clone()
+    _neighbors[neighbors_mask] = 0
+    _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).expand(
+        n_metrics, -1, -1, episode_steps, 1)  # p, b, s, n
+
+    _neighbors_mask = neighbors_mask.unsqueeze(0).unsqueeze(3) \
+        .expand(n_metrics, -1, -1, episode_steps, 1)  # p, b, s, n
+
+    local_metrics = th.gather(_metric, -1, _neighbors)  # t, p, b, s, n
+    local_metrics[_neighbors_mask] = 0
+    local_metrics = local_metrics.sum(-1) / (~_neighbors_mask).sum(-1)
+    return local_metrics
+
+
 class NetworkGame():
     """
     An multiagent environment. Agents are placed on a undirected network. On each
@@ -59,10 +93,14 @@ class NetworkGame():
 
 
     Indices:
-        n: nodes [0..n_nodes]
+        t: agent types [0..1]
+        p: positions / nodes [0..n_nodes]
         a: actions [0..n_actions]
-        s: episode step [0..episode_steps]
+        s: episode step [0..episode_steps (+ 1)]
         h: history position [0..max_history]
+        b: batch idx [0..batch_size]
+        n: neighbors [0..max_neighbors (+ 1)]
+        m: metrics [0..len(metric_names)]
     """
 
     def __init__(
@@ -105,7 +143,8 @@ class NetworkGame():
         self.n_actions = n_actions
         self.episode = -1
         # maximum number of neighbors
-        self.max_degree = determine_max_degree(n_nodes=n_nodes, **graph_args)
+        self.max_neighbors = determine_max_degree(n_nodes=n_nodes, **graph_args)
+
         self.out_dir = out_dir
         self.device = device
         self.init_history()
@@ -120,26 +159,46 @@ class NetworkGame():
 
     # untested
     def init_history(self):
+        # shape0 = (self.max_history,)
+        # shape1 = (len(self.agent_types), self.n_nodes, self.max_history, self.episode_steps + 1)
+        # shape2 = (len(self.agent_types), self.n_nodes, self.max_history, self.episode_steps)
+        # shape3 = (self.n_nodes, self.max_history, self.max_neighbors + 1)
+        # shape4 = (self.n_nodes, self.max_history)
+        # shape5 = (self.n_nodes, self.max_history, self.episode_steps + 1, len(self.metric_names))
+        # shape6 = (self.n_nodes, self.max_history, self.episode_steps + 1)
+
+        # newshape0 = (self.max_history,)  # h
+        # newshape1 = (self.max_history, self.episode_steps + 1, self.n_nodes,
+        #              len(self.agent_types))  # h e n a .permute(3,2,0,1)
+        # newshape2 = (self.max_history, self.episode_steps, self.n_nodes,
+        #              len(self.agent_types), )  # .permute(3,2,0,1)
+        # newshape3 = (self.max_history, self.n_nodes, self.max_neighbors + 1)  # .permute(1,0,2)
+        # newshape4 = (self.max_history, self.n_nodes)  # .permute(1,0)
+        # newshape5 = (self.max_history, self.episode_steps + 1, self.n_nodes,
+        #              len(self.metric_names))  # .permute(2,0,1,3)
+        # newshape6 = (self.max_history, self.episode_steps + 1, self.n_nodes)  # .permute(2,0,1)
+
         self.history_queue = collections.deque([], maxlen=self.max_history)
-        self.episode_history = th.empty((self.max_history,), dtype=th.int64, device=self.device)
-        self.state_history = th.empty(
-            (len(self.agent_types), self.n_nodes, self.max_history, self.episode_steps + 1), dtype=th.int64, device=self.device)
-        self.reward_history = th.empty(
-            (len(self.agent_types), self.n_nodes, self.max_history, self.episode_steps), dtype=th.float32, device=self.device)
+        self.episode_history = th.empty(
+            (self.max_history,), dtype=th.int64, device=self.device)  # h
+        self.state_history = th.empty((self.max_history, self.episode_steps + 1, self.n_nodes,
+                                       len(self.agent_types)), dtype=th.int64, device=self.device)  # h s+ p t
+        self.reward_history = th.empty((self.max_history, self.episode_steps, self.n_nodes,
+                                        len(self.agent_types), ), dtype=th.float32, device=self.device)  # h s p t
 
         self.neighbors_history = th.empty(
-            (self.n_nodes, self.max_history, self.max_degree + 1), dtype=th.int64, device=self.device)
+            (self.max_history, self.n_nodes, self.max_neighbors + 1), dtype=th.int64, device=self.device)  # h p n+
         self.neighbors_mask_history = th.empty(
-            (self.n_nodes, self.max_history, self.max_degree + 1), dtype=th.bool, device=self.device)
+            (self.max_history, self.n_nodes, self.max_neighbors + 1), dtype=th.bool, device=self.device)  # h p n+
         self.ci_ai_map_history = th.empty(
-            (self.n_nodes, self.max_history), dtype=th.int64, device=self.device)
+            (self.max_history, self.n_nodes), dtype=th.int64, device=self.device)  # h p
 
-        self.metrics_history = th.empty(
-            (self.n_nodes, self.max_history, self.episode_steps + 1, len(self.metric_names)), dtype=th.float, device=self.device)
+        self.metrics_history = th.empty((self.max_history, self.episode_steps + 1, self.n_nodes,
+                                         len(self.metric_names)), dtype=th.float, device=self.device)  # h s+ p m
 
         if gen_secrets(**self.secrete_args):
             self.secretes_history = th.empty(
-                (self.n_nodes, self.max_history, self.episode_steps + 1), dtype=th.int64, device=self.device)
+                (self.max_history, self.episode_steps + 1, self.n_nodes), dtype=th.int64, device=self.device)  # h s+ p
         else:
             self.secretes_history = None
 
@@ -154,7 +213,7 @@ class NetworkGame():
                 (self.network_period > 0) and (self.episode % self.network_period == 0)):
             self.graph, neighbors, adjacency_matrix, self.graph_info = create_graph(
                 n_nodes=self.n_nodes, **self.graph_args)
-            padded_neighbors, neighbors_mask = pad_neighbors(neighbors, self.max_degree)
+            padded_neighbors, neighbors_mask = pad_neighbors(neighbors, self.max_neighbors)
             self.neighbors = th.tensor(padded_neighbors, dtype=th.int64, device=self.device)
             self.neighbors_mask = th.tensor(neighbors_mask, dtype=th.bool, device=self.device)
             self.adjacency_matrix = th.tensor(
@@ -179,15 +238,15 @@ class NetworkGame():
         # add to history
         self.history_queue.appendleft(self.current_hist_idx)
         self.episode_history[self.current_hist_idx] = self.episode
-        self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
-        self.neighbors_history[:, self.current_hist_idx] = self.neighbors
-        self.neighbors_mask_history[:, self.current_hist_idx] = self.neighbors_mask
+        self.state_history[self.current_hist_idx, self.episode_step + 1] = self.state.T
+        self.neighbors_history[self.current_hist_idx] = self.neighbors
+        self.neighbors_mask_history[self.current_hist_idx] = self.neighbors_mask
 
         if self.secretes_history is not None:
-            self.secretes_history[:, self.current_hist_idx, self.episode_step + 1] = self.secretes
-        self.metrics_history[:, self.current_hist_idx, self.episode_step + 1] = self.metrics
+            self.secretes_history[self.current_hist_idx, self.episode_step + 1] = self.secretes
+        self.metrics_history[self.current_hist_idx, self.episode_step + 1] = self.metrics
 
-        self.ci_ai_map_history[:, self.current_hist_idx] = self.ci_ai_map
+        self.ci_ai_map_history[self.current_hist_idx] = self.ci_ai_map
 
         self.info = {
             'graph': self.graph,
@@ -206,15 +265,15 @@ class NetworkGame():
                     'agent_types': self.agent_types,
                     'actions': [string.ascii_uppercase[i] for i in range(self.n_actions)],
                     'agents': [string.ascii_uppercase[i] for i in range(self.n_nodes)],
-                    'state': self.state_history[:, :, :chi],
-                    'reward': self.reward_history[:, :, :chi],
-                    'neighbors': self.neighbors_history[:, :chi],
-                    'neighbors_mask': self.neighbors_mask_history[:, :chi],
-                    'ci_ai_map': self.ci_ai_map_history[:, :chi],
+                    'state': self.state_history.permute(3, 2, 0, 1)[:, :, :chi],
+                    'reward': self.reward_history.permute(3, 2, 0, 1)[:, :, :chi],
+                    'neighbors': self.neighbors_history.permute(1, 0, 2)[:, :chi],
+                    'neighbors_mask': self.neighbors_mask_history.permute(1, 0, 2)[:, :chi],
+                    'ci_ai_map': self.ci_ai_map_history.permute(1, 0)[:, :chi],
                     'episode': self.episode_history[:chi],
-                    'metrics': self.metrics_history[:, :chi],
+                    'metrics': self.metrics_history.permute(2, 0, 1, 3)[:, :chi],
                     'metric_names': self.metric_names,
-                    **({} if self.secretes_history is None else {'secretes': self.secretes_history[:, :chi]}),
+                    **({} if self.secretes_history is None else {'secretes': self.secretes_history.permute(2, 0, 1)[:, :chi]}),
                 },
                 filename
             )
@@ -230,54 +289,51 @@ class NetworkGame():
 
     # TODO: unit test, merge with batch
     def _observe_neighbors(self, agent_type):
-        state = self.state.T.unsqueeze(0).repeat(
-            self.n_nodes, 1, 1)  # repeated, agent, agent_type
+        _state = self.state.unsqueeze(-1).unsqueeze(-1)  # t p * *
+        _neighbors = self.neighbors.unsqueeze(1)  # p * n+
+        _neighbors_mask = self.neighbors_mask.unsqueeze(1)  # p * n+
 
-        _neighbors = self.neighbors.clone()
-        _neighbors[self.neighbors_mask] = 0
-        _neighbors = _neighbors.unsqueeze(-1).repeat(1, 1, 2)
-        obs = th.gather(state, 1, _neighbors)
-        obs[self.neighbors_mask] = -1
+        observations = self.get_observations(_state, _neighbors, _neighbors_mask)  # t p * * n+
+
+        observations = observations.permute(1, 4, 0, 2, 3).squeeze(-1).squeeze(-1)  # p n+ t
 
         if agent_type == 'ci':
-            return obs, self.neighbors_mask
+            return observations, self.neighbors_mask
         elif agent_type == 'ai':
-            return obs[self.ci_ai_map], self.neighbors_mask[self.ci_ai_map]
+            return observations[self.ci_ai_map], self.neighbors_mask[self.ci_ai_map]
         else:
             raise ValueError(f'Unkown agent_type {agent_type}')
 
     # TODO: unit test
     def _batch_neighbors(self, episode_idx, agent_type):
-        eps_states = self.state_history[:, :, episode_idx]
+        _states = self.state_history.permute(3, 2, 0, 1)[:, :, episode_idx]  # h s+ p t => t p b s+
+        _neighbors = self.neighbors_history.permute(1, 0, 2)[:, episode_idx]  # h p n+ => p b n+
+        _neighbors_mask = self.neighbors_mask_history.permute(
+            1, 0, 2)[:, episode_idx]  # h p n+ => p b n+
 
-        eps_states = eps_states.permute(2, 3, 1, 0).unsqueeze(0).repeat(self.n_nodes, 1, 1, 1, 1)
+        observations = self.get_observations(_states, _neighbors, _neighbors_mask)  # t p b s+ n+
 
-        _mask = self.neighbors_mask_history[:, episode_idx]
-        _neighbors = self.neighbors_history[:, episode_idx].clone()
-        _neighbors[_mask] = 0
-        _neighbors = _neighbors.unsqueeze(
-            2).unsqueeze(-1).repeat(1, 1, self.episode_steps + 1, 1, 2)
-        _mask = _mask.unsqueeze(-2).repeat(1, 1, self.episode_steps + 1, 1)
-
-        obs = th.gather(eps_states, -2, _neighbors)
-        obs[_mask] = -1
+        _neighbors_mask = _neighbors_mask.unsqueeze(-2) \
+            .expand(-1, -1, self.episode_steps + 1, -1)  # p b s+ n+
+        obs = observations.permute(1, 2, 3, 4, 0)  # p b s+ n+ t
         if agent_type == 'ci':
             pass
         elif agent_type == 'ai':
-            _ci_ai_map_history = self.ci_ai_map_history[:, episode_idx] \
+            _ci_ai_map_history = self.ci_ai_map_history.permute(1, 0)[:, episode_idx] \
                 .unsqueeze(-1) \
                 .unsqueeze(-1) \
                 .unsqueeze(-1) \
-                .repeat(1, 1, obs.shape[2], obs.shape[3], obs.shape[4])
-            obs = th.gather(obs, 0, _ci_ai_map_history)
-            _mask = th.gather(_mask, 0, _ci_ai_map_history[:, :, :, :, 0])
+                .expand(-1, -1, obs.shape[2], obs.shape[3], obs.shape[4])  # p b s+ n+ t
+            obs = th.gather(obs, 0, _ci_ai_map_history)  # p b s+ n+ t
+            _neighbors_mask = th.gather(
+                _neighbors_mask, 0, _ci_ai_map_history[:, :, :, :, 0])  # p b s+ n+
         else:
             raise ValueError(f'Unkown agent_type {agent_type}')
 
-        prev_observations = obs[:, :, :-1]
-        observations = obs[:, :, 1:]
-        prev_mask = _mask[:, :, :-1]
-        mask = _mask[:, :, 1:]
+        prev_observations = obs[:, :, :-1]  # p b s n+ t
+        observations = obs[:, :, 1:]  # p b s n+ t
+        prev_mask = _neighbors_mask[:, :, :-1]  # p b s n+
+        mask = _neighbors_mask[:, :, 1:]  # p b s n+
 
         assert prev_observations.max() <= self.n_actions - 1
         assert observations.max() <= self.n_actions - 1
@@ -285,43 +341,46 @@ class NetworkGame():
         return (prev_observations, prev_mask), (observations, mask)
 
     def _observe_matrix(self, agent_type):
+        raise NotImplementedError('Not tested, currently not supported')
         ci_state = self.state[self.agent_types_idx['ci']]
 
         if (agent_type == 'ai') and (self.mapping_period > 0):
             raise NotImplementedError("Matrix observation only implemented with fixed mapping")
 
         links = th.stack([
-            self.neighbors[:, [0]].repeat(1, self.neighbors.shape[-1] - 1),
+            self.neighbors[:, [0]].expand(-1, self.neighbors.shape[-1] - 1),
             self.neighbors[:, 1:]
         ], dim=-1)
 
         return ci_state, links, self.neighbors_mask[:, 1:]
 
     def _batch_matrix(self, episode_idx, agent_type):
+        raise NotImplementedError('Not tested, currently not supported')
         if (agent_type == 'ai') and (self.mapping_period > 0):
             raise NotImplementedError("Matrix observation only implemented with fixed mapping")
 
-        ci_state = self.state_history[self.agent_types_idx['ci'], :, episode_idx]
-        mask = self.neighbors_mask_history[:, episode_idx]
-        neighbors = self.neighbors_history[:, episode_idx]
+        ci_state = self.state_history.permute(
+            3, 2, 0, 1)[self.agent_types_idx['ci'], :, episode_idx]
+        mask = self.neighbors_mask_history.permute(1, 0, 2)[:, episode_idx]
+        neighbors = self.neighbors_history.permute(1, 0, 2)[:, episode_idx]
         links = th.stack([
-            neighbors[:, :, [0]].repeat(1, 1, neighbors.shape[-1] - 1),
+            neighbors[:, :, [0]].expand(-1, -1, neighbors.shape[-1] - 1),
             neighbors[:, :, 1:]
         ], dim=-1)
-        links = links.unsqueeze(2).repeat(1, 1, self.episode_steps, 1, 1)
-        mask = mask[:, :, 1:].unsqueeze(2).repeat(1, 1, self.episode_steps, 1)
+        links = links.unsqueeze(2).expand(-1, -1, self.episode_steps, -1, -1)
+        mask = mask[:, :, 1:].unsqueeze(2).expand(-1, -1, self.episode_steps, -1)
         prev_states = ci_state[:, :, :-1]
         this_states = ci_state[:, :, 1:]
         return (prev_states, links, mask), (this_states, links, mask)
 
     def get_observation_shapes(self, agent_type):
         return {
-            'neighbors_with_mask': ((self.n_nodes, self.max_degree + 1, 2), (self.n_nodes, self.max_degree + 1)),
-            'neighbors': (self.n_nodes, self.max_degree + 1, 2),
-            'matrix': ((self.n_nodes,), (self.n_nodes, self.max_degree, 2)),
+            'neighbors_with_mask': ((self.n_nodes, self.max_neighbors + 1, 2), (self.n_nodes, self.max_neighbors + 1)),
+            'neighbors': (self.n_nodes, self.max_neighbors + 1, 2),
+            'matrix': ((self.n_nodes,), (self.n_nodes, self.max_neighbors, 2)),
             'neighbors_mask_secret_envinfo': (
-                {'shape': (self.n_nodes, self.max_degree + 1, 2), 'maxval': self.n_actions},
-                {'shape': (self.n_nodes, self.max_degree + 1), 'maxval': 1},
+                {'shape': (self.n_nodes, self.max_neighbors + 1, 2), 'maxval': self.n_actions},
+                {'shape': (self.n_nodes, self.max_neighbors + 1), 'maxval': 1},
                 get_secrets_shape(n_nodes=self.n_nodes,
                                   agent_type=agent_type, **self.secrete_args),
                 {'shape': (self.n_nodes, len(self.metric_names)),
@@ -374,13 +433,13 @@ class NetworkGame():
                 obs = obs[0]
             elif mode == 'neighbors_mask_secret_envinfo':
                 if self.metrics_history is not None:
-                    all_env_state = self.metrics_history[:, episode_idx]
+                    all_env_state = self.metrics_history.permute(2, 0, 1, 3)[:, episode_idx]
                     prev_env_state = all_env_state[:, :, :-1]
                     env_state = all_env_state[:, :, 1:]
                 else:
                     prev_env_state, env_state = None, None
                 if show_agent_type_secrets(agent_type=agent_type, **self.secrete_args):
-                    all_secrets = self.secretes_history[:, episode_idx]
+                    all_secrets = self.secretes_history.permute(2, 0, 1)[:, episode_idx]
                     prev_secrets = all_secrets[:, :, :-1]
                     secrets = all_secrets[:, :, 1:]
                 else:
@@ -394,12 +453,14 @@ class NetworkGame():
         else:
             raise NotImplementedError(f'Mode {mode} is not implemented.')
 
-        actions = self.state_history[self.agent_types_idx[agent_type], :, episode_idx, 1:]
-        rewards = self.reward_history[self.agent_types_idx[agent_type], :, episode_idx]
+        actions = self.state_history.permute(
+            3, 2, 0, 1)[self.agent_types_idx[agent_type], :, episode_idx, 1:]
+        rewards = self.reward_history.permute(
+            3, 2, 0, 1)[self.agent_types_idx[agent_type], :, episode_idx]
         if agent_type == 'ai':
-            _ci_ai_map_history = self.ci_ai_map_history[:, episode_idx] \
+            _ci_ai_map_history = self.ci_ai_map_history.permute(1, 0)[:, episode_idx] \
                 .unsqueeze(-1) \
-                .repeat(1, 1, self.episode_steps)
+                .expand(-1, -1, self.episode_steps)
             actions = th.gather(actions, 0, _ci_ai_map_history)
             rewards = th.gather(rewards, 0, _ci_ai_map_history)
 
@@ -414,57 +475,116 @@ class NetworkGame():
     def _map_outgoing(self, values):
         return {'ai': values['ai'][self.ci_ai_map], 'ci': values['ci']}
 
+    # new api
     @staticmethod
-    def __get_observations(state, neighbors, neighbors_mask, **_):
-        # state: agent_type, agents, batch, episode_step
-        # neighbors: agents, batch, max_neighbors
-        # neighbors_mask: agents, batch, max_neighbors
-        n_agent_types, n_agents, batch_size, episode_steps = state.shape
-        n_agents_2, batch_size_2, max_neighbors = neighbors.shape
+    def get_observations(state, neighbors, neighbors_mask, **_):
+        # state: t, p, b, s
+        # neighbors: p, b, n
+        # neighbors_mask: p, b, n
+        o_observations = o_get_observations(
+            state, neighbors, neighbors_mask, **_)
 
-        assert n_agents == n_agents_2
-        assert n_agents == n_agents_2
+        _state = state.permute(2, 3, 1, 0)  # h s+ p t
+        _neighbors = neighbors.permute(1, 0, 2)  # h p n+
+        _neighbors_mask = neighbors_mask.permute(1, 0, 2)  # h p n+
+        n_observations = NetworkGame.n_get_observations(
+            _state, _neighbors, _neighbors_mask)  # b s p n+ t
+        n_observations = n_observations.permute(4, 2, 0, 1, 3)  # t, p, b, s, n
+        assert (o_observations == n_observations).all()
+        return n_observations
 
-        # permutation needed because we map neighbors on agents
-        _state = state.permute(0, 2, 3, 1) \
-            .unsqueeze(1).repeat(1, n_agents, 1, 1, 1)  # agent_type, agents, batch, episode_step, neighbors
+    # new api
+    @staticmethod
+    def n_get_observations(state, neighbors, neighbors_mask, **_):
+        # state: t, p, b, s ==> b s p t
+        # neighbors: p, b, n ==> b p n+
+        # neighbors_mask: p, b, n ==> b p n+
+        batch_size, episode_steps, n_nodes, n_agent_types = state.shape
+        batch_size_2, n_nodes_2, max_neighbors = neighbors.shape
+        assert n_nodes == n_nodes_2
+        assert batch_size == batch_size_2
+
+        # agent position on neighbor position
+        neighbor_state = state.unsqueeze(-2).expand(-1, -1, -1, -1, n_nodes, -1)  # b s p t
 
         _neighbors = neighbors.clone()
         _neighbors[neighbors_mask] = 0
-        _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).repeat(
-            n_agent_types, 1, 1, episode_steps, 1)  # agent_type, agents, batch, episode_step, neighbors
+        _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).expand(
+            n_agent_types, -1, -1, episode_steps, -1)  # t, p, b, s, n
+
+        observations = th.gather(_state, -1, _neighbors)  # b s p n t
+        observations[_neighbors_mask] = -1  # b s p n t
+
+        .permute(0, 2, 3, 1)  # t, b, s, p,
+        _state = _state.unsqueeze(1).expand(-1, n_nodes, -1, -1, -1)  # t, p, b, s, n
+
+        _state = state.permute(0, 2, 3, 1)  # t, p, b, s
+        _state = _state.unsqueeze(1).expand(-1, n_nodes, -1, -1, -1)  # t, p, b, s, n
 
         _neighbors_mask = neighbors_mask \
             .unsqueeze(0).unsqueeze(3) \
-            .repeat(n_agent_types, 1, 1, episode_steps, 1)  # agent_type, agents, batch, episode_step, neighbors
+            .expand(n_agent_types, -1, -1, episode_steps, -1)  # t, p, b, s, n
 
-        # agent_type, agents, batch, episode_step, neighbors
-        observations = th.gather(_state, -1, _neighbors)
-        observations[_neighbors_mask] = -1
-        return observations
+        observations = th.gather(_state, -1, _neighbors)  # t, p, b, s, n
+        observations[_neighbors_mask] = -1  # t, p, b, s, n
+        return observations  # t, p, b, s, n
+
+    # old api
+    @staticmethod
+    def o_get_observations(state, neighbors, neighbors_mask, **_):
+        # state: t, p, b, s
+        # neighbors: p, b, n
+        # neighbors_mask: p, b, n
+        n_agent_types, n_nodes, batch_size, episode_steps = state.shape
+        n_nodes_2, batch_size_2, max_neighbors = neighbors.shape
+
+        assert n_nodes == n_nodes_2
+        assert n_nodes == n_nodes_2
+
+        # permutation needed because we map neighbors on agents
+        _state = state.permute(0, 2, 3, 1) \
+            .unsqueeze(1).expand(-1, n_nodes, -1, -1, -1)  # t, p, b, s, n
+
+        _neighbors = neighbors.clone()
+        _neighbors[neighbors_mask] = 0
+        _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).expand(
+            n_agent_types, -1, -1, episode_steps, -1)  # t, p, b, s, n
+
+        _neighbors_mask = neighbors_mask \
+            .unsqueeze(0).unsqueeze(3) \
+            .expand(n_agent_types, -1, -1, episode_steps, -1)  # t, p, b, s, n
+
+        observations = th.gather(_state, -1, _neighbors)  # t, p, b, s, n
+        observations[_neighbors_mask] = -1  # t, p, b, s, n
+        return observations  # t, p, b, s, n
 
     @staticmethod
-    def __get_reward(observations):
-        observations = get_observations(state, neighbors, neighbors_mask)
+    def get_metrics(observations, neighbors, neighbors_mask, ci_idx, ai_idx):
+        """
+            Args:
+                observations: b s p n+ t
+                neighbors:
 
-        self_agent_types = [at_map['ci'], at_map['random_ci']]
-        other_agent_types = [at_map['ci'], at_map['random_ci']]
-        self_color = observations[self_agent_types][:, :, :, :, [0]]
-        other_colors = observations[other_agent_types][:, :, :, :, 1:]
+            Returns:
+                b s p m
+        """
+        ci_color = observations[:, :, :, 0, ci_idx]  # b s p
+        ai_color = observations[:, :, :, 0, ai_idx]  # b s p
+        ci_neighbor_colors = observations[:, :, :, 1:, ci_idx]  # b s p n
 
-        coordination = (self_color != other_colors).all(-1).type(th.float)
+        ci_anticoor = (ci_color.unsqueeze(-1) != ci_neighbor_colors) \
+            .all(-1).type(th.float)  # b s p
+        ci_coor = (ci_color.unsqueeze(-1) == ci_neighbor_colors) \
+            .all(-1).type(th.float)  # b s p
+        catch = (ai_color == ci_color).type(th.float)  # b s p
+        ind_metrics = th.stack([ci_anticoor, ci_coor, catch], dim=-1)  # b s p m/3
 
-        local_coordination = local_aggregation(coordination, neighbors, neighbors_mask)
+        local_metrics = local_aggregation(ind_metrics, neighbors, neighbors_mask)  # b s p m/3
+        global_metrics = global_aggregation(ind_metrics)  # b s p m/3
 
-        self_agent_types = [at_map['ci'], at_map['random_ci']]
-        other_agent_types = [at_map['ai'], at_map['random_ai']]
-        self_color = observations[self_agent_types, :, :, :, 0]
-        other_color = observations[other_agent_types, :, :, :, 0]
-        catch = (self_color == other_color).type(th.float)
+        metrics = th.stack([ind_metrics, local_metrics, global_metrics], dim=-1)  # b s p m
 
-        local_catch = local_aggregation(catch, neighbors, neighbors_mask)
-
-        rec_metrics = th.stack([coordination, local_coordination, catch, local_catch], dim=-1)
+        return metrics  # b s p m
 
     # TODO: Unit test.
 
@@ -486,6 +606,7 @@ class NetworkGame():
         ad_matrix_float = ad_matrix_float / ad_matrix_float.sum(0)
         local_coordination = ind_coordination @ ad_matrix_float
         local_catch = ind_catch @ ad_matrix_float
+
         # assert (local_catch <= 1).all()
         # assert (local_coordination <= 1).all()
 
@@ -509,6 +630,31 @@ class NetworkGame():
             [metrics[k] * v for k, v in self.rewards_args['ai'].items()]).sum(0)*metrics['rewarded']
 
         metrics_stacked = th.stack([metrics[k] for k in self.metric_names], dim=1)
+
+        _state = self.state.unsqueeze(-1).unsqueeze(-1)  # t p * *
+        _neighbors = self.neighbors.unsqueeze(1)  # p * n+
+        _neighbors_mask = self.neighbors_mask.unsqueeze(1)  # p * n+
+
+        observations = self._get_observations(_state, _neighbors, _neighbors_mask)  # t, p, b, s, n
+
+        _state = self.state.unsqueeze(-1).unsqueeze(-1)  # t p * *
+        _neighbors = self.neighbors.unsqueeze(1)  # p * n+
+        _neighbors_mask = self.neighbors_mask.unsqueeze(1)  # p * n+
+        metrics_stacked2 = self.get_metrics(
+            _observations, _neighbors, _neighbors_mask,
+            self.agent_types_idx['ci'], self.agent_types_idx['ai'])
+
+        import ipdb
+        ipdb.set_trace()
+
+        _metrics_stacked2 = metrics_stacked2[:, :, :, [0, 6, 3, 5, 2, 8]]  # b s p m
+
+        assert _metrics_stacked2 == metrics_stacked[:, :, :, ]
+
+        # self.metric_names = [
+        #     'ind_coordination', 'avg_coordination', 'local_coordination', 'local_catch',
+        #     'ind_catch', 'avg_catch', 'rewarded'
+        # ]
 
         return ci_reward, ai_reward, metrics_stacked
 
@@ -537,14 +683,14 @@ class NetworkGame():
 
         self._update_secrets()
 
-        self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
-        self.reward_history[self.agent_types_idx['ci'], :,
-                            self.current_hist_idx, self.episode_step] = ci_reward
-        self.reward_history[self.agent_types_idx['ai'], :,
-                            self.current_hist_idx, self.episode_step] = ai_reward
-        self.metrics_history[:, self.current_hist_idx, self.episode_step + 1] = self.metrics
+        self.state_history[self.current_hist_idx, self.episode_step + 1] = self.state.T
+        self.reward_history[self.current_hist_idx, self.episode_step,
+                            :, self.agent_types_idx['ci']] = ci_reward
+        self.reward_history[self.current_hist_idx, self.episode_step,
+                            :, self.agent_types_idx['ai']] = ai_reward
+        self.metrics_history[self.current_hist_idx, self.episode_step + 1] = self.metrics
         if self.secretes_history is not None:
-            self.secretes_history[:, self.current_hist_idx, self.episode_step + 1] = self.secretes
+            self.secretes_history[self.current_hist_idx, self.episode_step + 1] = self.secretes
 
         rewards = {
             'ai': ai_reward[self.ci_ai_map],
