@@ -1,8 +1,10 @@
 import torch as th
+import random
+from itertools import count
 from aci.envs.network_game import NetworkGame
 
 
-def general_test(config):
+def _test_general(config):
     device = th.device('cpu')
     env = NetworkGame(**config, device=device)
     env.init_episode()
@@ -29,14 +31,14 @@ def general_test(config):
                 assert env.adjacency_matrix[i, neighbor] == True
 
     # TEST: ai reward
-    if (setting['n_nodes'] == 6):
-        ai_color = th.tensor([0, 1, 0, 1, 2, 2])[env.ci_ai_map]
-        ci_color = th.tensor([2, 2, 2, 1, 2, 2])
-        expected_rewards = th.tensor([0.25, 0.25, 0.25, 0.75, 0.75, 0.75])[env.ci_ai_map]
-        rewards, done, info = env.step(
-            {'ai': ai_color, 'ci': ci_color}
-        )
-        assert (rewards['ai'] == expected_rewards).all()
+    assert env.n_nodes == 6
+    ai_color = th.tensor([0, 1, 0, 1, 2, 2])[env.ci_ai_map]
+    ci_color = th.tensor([2, 2, 2, 1, 2, 2])
+    expected_rewards = th.tensor([0.25, 0.25, 0.25, 0.75, 0.75, 0.75])[env.ci_ai_map]
+    rewards, done, info = env.step(
+        {'ai': ai_color, 'ci': ci_color}
+    )
+    assert (rewards['ai'] == expected_rewards).all()
 
     # TEST: ci reward
     test_agent = random.randint(0, n_nodes-1)
@@ -69,4 +71,4 @@ def general_test(config):
         )
         if done:
             break
-    assert i == setting['episode_steps'] - 1
+    assert i == config['episode_steps'] - 1

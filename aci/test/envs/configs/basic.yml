@@ -2,7 +2,7 @@ n_nodes: 6
 n_actions: 3
 episode_steps: 50
 network_period: 1
-mapping_period: 1
+mapping_period: 0 # other values currently not supported
 reward_period: 1
 max_history: 100
 graph_args:

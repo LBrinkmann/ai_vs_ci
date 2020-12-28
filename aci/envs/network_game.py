@@ -105,7 +105,7 @@ class NetworkGame():
         self.n_actions = n_actions
         self.episode = -1
         # maximum number of neighbors
-        self.max_degree = determine_max_degree(n_nodes=n_nodes, **graph_args)
+        self.max_neighbors = determine_max_degree(n_nodes=n_nodes, **graph_args)
         self.out_dir = out_dir
         self.device = device
         self.init_history()
@@ -128,9 +128,9 @@ class NetworkGame():
             (len(self.agent_types), self.n_nodes, self.max_history, self.episode_steps), dtype=th.float32, device=self.device)
 
         self.neighbors_history = th.empty(
-            (self.n_nodes, self.max_history, self.max_degree + 1), dtype=th.int64, device=self.device)
+            (self.n_nodes, self.max_history, self.max_neighbors + 1), dtype=th.int64, device=self.device)
         self.neighbors_mask_history = th.empty(
-            (self.n_nodes, self.max_history, self.max_degree + 1), dtype=th.bool, device=self.device)
+            (self.n_nodes, self.max_history, self.max_neighbors + 1), dtype=th.bool, device=self.device)
         self.ci_ai_map_history = th.empty(
             (self.n_nodes, self.max_history), dtype=th.int64, device=self.device)
 
@@ -154,7 +154,7 @@ class NetworkGame():
                 (self.network_period > 0) and (self.episode % self.network_period == 0)):
             self.graph, neighbors, adjacency_matrix, self.graph_info = create_graph(
                 n_nodes=self.n_nodes, **self.graph_args)
-            padded_neighbors, neighbors_mask = pad_neighbors(neighbors, self.max_degree)
+            padded_neighbors, neighbors_mask = pad_neighbors(neighbors, self.max_neighbors)
             self.neighbors = th.tensor(padded_neighbors, dtype=th.int64, device=self.device)
             self.neighbors_mask = th.tensor(neighbors_mask, dtype=th.bool, device=self.device)
             self.adjacency_matrix = th.tensor(
@@ -316,12 +316,12 @@ class NetworkGame():
 
     def get_observation_shapes(self, agent_type):
         return {
-            'neighbors_with_mask': ((self.n_nodes, self.max_degree + 1, 2), (self.n_nodes, self.max_degree + 1)),
-            'neighbors': (self.n_nodes, self.max_degree + 1, 2),
-            'matrix': ((self.n_nodes,), (self.n_nodes, self.max_degree, 2)),
+            'neighbors_with_mask': ((self.n_nodes, self.max_neighbors + 1, 2), (self.n_nodes, self.max_neighbors + 1)),
+            'neighbors': (self.n_nodes, self.max_neighbors + 1, 2),
+            'matrix': ((self.n_nodes,), (self.n_nodes, self.max_neighbors, 2)),
             'neighbors_mask_secret_envinfo': (
-                {'shape': (self.n_nodes, self.max_degree + 1, 2), 'maxval': self.n_actions},
-                {'shape': (self.n_nodes, self.max_degree + 1), 'maxval': 1},
+                {'shape': (self.n_nodes, self.max_neighbors + 1, 2), 'maxval': self.n_actions},
+                {'shape': (self.n_nodes, self.max_neighbors + 1), 'maxval': 1},
                 get_secrets_shape(n_nodes=self.n_nodes,
                                   agent_type=agent_type, **self.secrete_args),
                 {'shape': (self.n_nodes, len(self.metric_names)),
