@@ -35,7 +35,6 @@ class GRUAgentWrapper(nn.Module):
                  global_control=[], mix_weights_args=None, action_permutation=False, **kwargs):
         super(GRUAgentWrapper, self).__init__()
         assert multi_type in ['shared_weights', 'individual_weights']
-
         self.control_size = len(global_control)
         self.control_type = control_type
         if observation_shapes[2] is not None:
@@ -180,19 +179,19 @@ class GRUAgentWrapper(nn.Module):
                 d.reshape(1, d.shape[0]*d.shape[1], *d.shape[2:])
                 for d in data
             )
+        return data
+        # q = [
+        #     model(*d)
+        #     for model, *d in zip(self.models, *data)
+        # ]
+        # q = th.stack(q)
 
-        q = [
-            model(*d)
-            for model, *d in zip(self.models, *data)
-        ]
-        q = th.stack(q)
+        # if self.multi_type == 'shared_weights':
+        #     q = q.reshape(*x.shape[:3], -1)
 
-        if self.multi_type == 'shared_weights':
-            q = q.reshape(*x.shape[:3], -1)
-
-        if self.control_type == 'permute':
-            permutations = self.permuations[secret]
-            q = th.gather(q, -1, permutations)
+        # if self.control_type == 'permute':
+        #     permutations = self.permuations[secret]
+        #     q = th.gather(q, -1, permutations)
 
         return q
 

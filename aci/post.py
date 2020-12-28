@@ -7,6 +7,7 @@ Outputs:
     ....
 """
 
+from aci.envs.network_game import NetworkGame
 import string
 from docopt import docopt
 import os
@@ -149,8 +150,9 @@ def recalcuate_metrics(state, episode, neighbors, neighbors_mask, metrics, metri
 
     at_map = {k: v for v, k in enumerate(agent_types)}
 
-    observations = get_observations(state, neighbors, neighbors_mask)
+    observations = NetworkGame.get_observations(state, neighbors, neighbors_mask)
 
+    # m = NetworkGame.__get_reward()
     self_agent_types = [at_map['ci'], at_map['random_ci']]
     other_agent_types = [at_map['ci'], at_map['random_ci']]
     self_color = observations[self_agent_types][:, :, :, :, [0]]

@@ -3,10 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 from aci.utils.store import load
-
-
-def get_subfiles(d):
-    return [o for o in os.listdir(d)]
+from aci.utils.io import get_subfiles
 
 
 def compare_folder(folder, ref_folder):

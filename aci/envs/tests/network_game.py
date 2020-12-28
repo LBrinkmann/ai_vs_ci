@@ -132,7 +132,7 @@ def test_general(setting):
 
     # TEST: neighbors
     for i in range(env.n_nodes):
-        for j in range(env.max_degree):
+        for j in range(env.max_neighbors):
             neighbor = env.neighbors[i, j+1]
             if neighbor == -1:
                 assert env.neighbors_mask[i, j+1] == True
@@ -195,9 +195,9 @@ def test_sampling(setting, agent_type, device):
     batch_size = 3
 
     test_observations = th.empty(
-        (env.n_nodes, batch_size, env.episode_steps, env.max_degree + 1, 2), dtype=th.int64)
+        (env.n_nodes, batch_size, env.episode_steps, env.max_neighbors + 1, 2), dtype=th.int64)
     test_mask = th.empty((env.n_nodes, batch_size, env.episode_steps,
-                          env.max_degree + 1), dtype=th.int64)
+                          env.max_neighbors + 1), dtype=th.int64)
     test_actions = th.empty((env.n_nodes, batch_size, env.episode_steps), dtype=th.int64)
     test_rewards = th.empty((env.n_nodes, batch_size, env.episode_steps), dtype=th.float32)
 
