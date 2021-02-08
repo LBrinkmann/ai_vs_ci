@@ -1,11 +1,3 @@
-"""Usage: test.py RUN_FOLDER
-
-Arguments:
-    RUN_FOLDER
-
-Outputs:
-    ....
-"""
 import os
 import shutil
 from docopt import docopt
@@ -33,6 +25,4 @@ def test_train(run_folder='runs/tests/seed'):
 
 
 if __name__ == "__main__":
-    arguments = docopt(__doc__)
-    run_folder = arguments['RUN_FOLDER']
-    test_train(run_folder)
+    test_train()

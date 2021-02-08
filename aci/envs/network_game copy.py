@@ -9,7 +9,6 @@ import string
 import os
 from .utils.graph import create_graph, determine_max_degree, pad_neighbors
 from ..utils.io import ensure_dir
-import aci.envs.transformer as trf
 
 
 def show_agent_type_secrets(agent_type=None, agent_types=None, n_seeds=None, **kwargs):
@@ -113,20 +112,7 @@ class NetworkGame():
         if out_dir is not None:
             ensure_dir(out_dir)
 
-        self.info2 = {
-            'n_agent_types': len(self.agent_types),
-            'n_actions': self.n_actions,
-            'n_nodes': self.n_nodes,
-            'episode_steps': self.episode_steps,
-            'metric_names': self.metric_names,
-            'actions': [string.ascii_uppercase[i] for i in range(self.n_actions)],
-            'agents': [string.ascii_uppercase[i] for i in range(self.n_nodes)],
-            'agent_types': self.agent_types,
-            'metric_names': self.metric_names,
-        }
-
     # TODO: understand and document
-
     def _update_secrets(self):
         if do_update_secrets(episode_step=self.episode_step, **self.secrete_args):
             self.secretes = get_secrets(
@@ -210,27 +196,6 @@ class NetworkGame():
             'ci_ai_map': self.ci_ai_map.tolist()
         }
 
-    def get_history(self):
-        return {
-            'state': self.state_history,
-            'reward': self.reward_history,
-            'neighbors': self.neighbors_history,
-            'neighbors_mask': self.neighbors_mask_history,
-            'ci_ai_map': self.ci_ai_map_history,
-            'metrics': self.metrics_history,
-            **({} if self.secretes_history is None else {'secretes': self.secretes_history}),
-        }
-
-    def get_current(self):
-        return {
-            'state': self.state,
-            'neighbors': self.neighbors,
-            'neighbors_mask': self.neighbors_mask,
-            'ci_ai_map': self.ci_ai_map,
-            'metrics': self.metrics,
-            **({} if self.secretes is None else {'secretes': self.secretes}),
-        }
-
     # untested
     def write_history(self):
         if self.out_dir is not None:
@@ -265,46 +230,89 @@ class NetworkGame():
 
     # TODO: unit test, merge with batch
     def _observe_neighbors(self, agent_type):
-        current = self.get_current()
-        current = trf.add_dimensions_to_current(**current)
-        neighbors_states, neighbors_mask = trf.neighbors_states(**current, **self.info2)
-        neighbors_states, neighbors_mask = trf.map_ci_agents(
-            neighbors_states, neighbors_mask, agent_type=agent_type, **current)
-        return neighbors_states.squeeze(1).squeeze(1), neighbors_mask.squeeze(1).squeeze(1)
+        state = self.state.T.unsqueeze(0).repeat(
+            self.n_nodes, 1, 1)  # repeated, agent, agent_type
 
-        # state = self.state.T.unsqueeze(0).repeat(
-        #     self.n_nodes, 1, 1)  # repeated, agent, agent_type
+        _neighbors = self.neighbors.clone()
+        _neighbors[self.neighbors_mask] = 0
+        _neighbors = _neighbors.unsqueeze(-1).repeat(1, 1, 2)
+        obs = th.gather(state, 1, _neighbors)
+        obs[self.neighbors_mask] = -1
 
-        # _neighbors = self.neighbors.clone()
-        # _neighbors[self.neighbors_mask] = 0
-        # _neighbors = _neighbors.unsqueeze(-1).repeat(1, 1, 2)
-        # obs = th.gather(state, 1, _neighbors)
-        # obs[self.neighbors_mask] = -1
-
-        # if agent_type == 'ci':
-        #     return obs, self.neighbors_mask
-        # elif agent_type == 'ai':
-        #     return obs[self.ci_ai_map], self.neighbors_mask[self.ci_ai_map]
-        # else:
-        #     raise ValueError(f'Unkown agent_type {agent_type}')
+        if agent_type == 'ci':
+            return obs, self.neighbors_mask
+        elif agent_type == 'ai':
+            return obs[self.ci_ai_map], self.neighbors_mask[self.ci_ai_map]
+        else:
+            raise ValueError(f'Unkown agent_type {agent_type}')
 
     # TODO: unit test
     def _batch_neighbors(self, episode_idx, agent_type):
-        history = self.get_history()
-        selected_history = trf.select_from_history(
-            **history, episode_idx=episode_idx)
-        neighbors_states, neighbors_mask = trf.neighbors_states(**selected_history, **self.info2)
-        neighbors_states, neighbors_mask = trf.map_ci_agents(
-            neighbors_states, neighbors_mask, agent_type=agent_type, **selected_history)
-        previous, current = trf.shift_obs(neighbors_states, neighbors_mask)
+        eps_states = self.state_history[:, :, episode_idx]
 
-        return previous, current
+        eps_states = eps_states.permute(2, 3, 1, 0).unsqueeze(0).repeat(self.n_nodes, 1, 1, 1, 1)
+
+        _mask = self.neighbors_mask_history[:, episode_idx]
+        _neighbors = self.neighbors_history[:, episode_idx].clone()
+        _neighbors[_mask] = 0
+        _neighbors = _neighbors.unsqueeze(
+            2).unsqueeze(-1).repeat(1, 1, self.episode_steps + 1, 1, 2)
+        _mask = _mask.unsqueeze(-2).repeat(1, 1, self.episode_steps + 1, 1)
+
+        obs = th.gather(eps_states, -2, _neighbors)
+        obs[_mask] = -1
+        if agent_type == 'ci':
+            pass
+        elif agent_type == 'ai':
+            _ci_ai_map_history = self.ci_ai_map_history[:, episode_idx] \
+                .unsqueeze(-1) \
+                .unsqueeze(-1) \
+                .unsqueeze(-1) \
+                .repeat(1, 1, obs.shape[2], obs.shape[3], obs.shape[4])
+            obs = th.gather(obs, 0, _ci_ai_map_history)
+            _mask = th.gather(_mask, 0, _ci_ai_map_history[:, :, :, :, 0])
+        else:
+            raise ValueError(f'Unkown agent_type {agent_type}')
+
+        prev_observations = obs[:, :, :-1]
+        observations = obs[:, :, 1:]
+        prev_mask = _mask[:, :, :-1]
+        mask = _mask[:, :, 1:]
+
+        assert prev_observations.max() <= self.n_actions - 1
+        assert observations.max() <= self.n_actions - 1
+
+        return (prev_observations, prev_mask), (observations, mask)
 
     def _observe_matrix(self, agent_type):
-        pass
+        ci_state = self.state[self.agent_types_idx['ci']]
+
+        if (agent_type == 'ai') and (self.mapping_period > 0):
+            raise NotImplementedError("Matrix observation only implemented with fixed mapping")
+
+        links = th.stack([
+            self.neighbors[:, [0]].repeat(1, self.neighbors.shape[-1] - 1),
+            self.neighbors[:, 1:]
+        ], dim=-1)
+
+        return ci_state, links, self.neighbors_mask[:, 1:]
 
     def _batch_matrix(self, episode_idx, agent_type):
-        pass
+        if (agent_type == 'ai') and (self.mapping_period > 0):
+            raise NotImplementedError("Matrix observation only implemented with fixed mapping")
+
+        ci_state = self.state_history[self.agent_types_idx['ci'], :, episode_idx]
+        mask = self.neighbors_mask_history[:, episode_idx]
+        neighbors = self.neighbors_history[:, episode_idx]
+        links = th.stack([
+            neighbors[:, :, [0]].repeat(1, 1, neighbors.shape[-1] - 1),
+            neighbors[:, :, 1:]
+        ], dim=-1)
+        links = links.unsqueeze(2).repeat(1, 1, self.episode_steps, 1, 1)
+        mask = mask[:, :, 1:].unsqueeze(2).repeat(1, 1, self.episode_steps, 1)
+        prev_states = ci_state[:, :, :-1]
+        this_states = ci_state[:, :, 1:]
+        return (prev_states, links, mask), (this_states, links, mask)
 
     def get_observation_shapes(self, agent_type):
         return {
