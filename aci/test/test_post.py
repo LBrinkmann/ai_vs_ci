@@ -14,10 +14,7 @@ from aci.utils.compare import compare_folder
 from aci.utils.io import load_yaml
 
 
-def main():
-    arguments = docopt(__doc__)
-    run_folder = arguments['RUN_FOLDER']
-
+def test_post(run_folder='runs/tests/seed'):
     parameter_file = os.path.join(run_folder, 'test_post.yml')
 
     test_dir = os.path.join(run_folder, 'test_post')
@@ -37,4 +34,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    arguments = docopt(__doc__)
+    run_folder = arguments['RUN_FOLDER']
+    test_post(run_folder)
