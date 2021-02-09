@@ -135,29 +135,27 @@ class NetworkGame():
     # untested
     def init_history(self):
         self.history_queue = collections.deque([], maxlen=self.max_history)
-        self.episode_history = th.empty((self.max_history,), dtype=th.int64, device=self.device)
-        self.state_history = th.empty(
-            (len(self.agent_types), self.n_nodes, self.max_history, self.episode_steps + 1), dtype=th.int64, device=self.device)
-        self.reward_history = th.empty(
-            (len(self.agent_types), self.n_nodes, self.max_history, self.episode_steps), dtype=th.float32, device=self.device)
-
-        self.neighbors_history = th.empty(
-            (self.n_nodes, self.max_history, self.max_neighbors + 1), dtype=th.int64, device=self.device)
-        self.neighbors_mask_history = th.empty(
-            (self.n_nodes, self.max_history, self.max_neighbors + 1), dtype=th.bool, device=self.device)
-        self.ci_ai_map_history = th.empty(
-            (self.n_nodes, self.max_history), dtype=th.int64, device=self.device)
-
-        self.metrics_history = th.empty(
-            (self.n_nodes, self.max_history, self.episode_steps + 1, len(self.metric_names)), dtype=th.float, device=self.device)
-
+        self.history = {
+            'episode': th.empty((self.max_history,), dtype=th.int64, device=self.device),
+            'state': th.empty(
+                (len(self.agent_types), self.n_nodes, self.max_history, self.episode_steps + 1), dtype=th.int64, device=self.device),
+            'reward': th.empty(
+                (len(self.agent_types), self.n_nodes, self.max_history, self.episode_steps), dtype=th.float32, device=self.device),
+            'neighbors': th.empty(
+                (self.n_nodes, self.max_history, self.max_neighbors + 1), dtype=th.int64, device=self.device),
+            'neighbors_mask': th.empty(
+                (self.n_nodes, self.max_history, self.max_neighbors + 1), dtype=th.bool, device=self.device),
+            'ci_ai_map': th.empty(
+                (self.n_nodes, self.max_history), dtype=th.int64, device=self.device),
+            'metrics': th.empty(
+                (self.n_nodes, self.max_history, self.episode_steps + 1, len(self.metric_names)), dtype=th.float, device=self.device)
+        }
         if gen_secrets(**self.secrete_args):
-            self.secretes_history = th.empty(
+            self.history['secretes'] = th.empty(
                 (self.n_nodes, self.max_history, self.episode_steps + 1), dtype=th.int64, device=self.device)
-        else:
-            self.secretes_history = None
 
     # untested
+
     def init_episode(self):
         self.episode += 1
         self.episode_step = -1
@@ -192,16 +190,17 @@ class NetworkGame():
         self.metrics = metrics
         # add to history
         self.history_queue.appendleft(self.current_hist_idx)
-        self.episode_history[self.current_hist_idx] = self.episode
-        self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
-        self.neighbors_history[:, self.current_hist_idx] = self.neighbors
-        self.neighbors_mask_history[:, self.current_hist_idx] = self.neighbors_mask
+        self.history['episode'][self.current_hist_idx] = self.episode
+        self.history['state'][:, :, self.current_hist_idx, self.episode_step + 1] = self.state
+        self.history['neighbors'][:, self.current_hist_idx] = self.neighbors
+        self.history['neighbors_mask'][:, self.current_hist_idx] = self.neighbors_mask
 
-        if self.secretes_history is not None:
-            self.secretes_history[:, self.current_hist_idx, self.episode_step + 1] = self.secretes
-        self.metrics_history[:, self.current_hist_idx, self.episode_step + 1] = self.metrics
+        if 'secretes' in self.history:
+            self.history['secretes'][:, self.current_hist_idx,
+                                     self.episode_step + 1] = self.secretes
+        self.history['metrics'][:, self.current_hist_idx, self.episode_step + 1] = self.metrics
 
-        self.ci_ai_map_history[:, self.current_hist_idx] = self.ci_ai_map
+        self.history['ci_ai_map'][:, self.current_hist_idx] = self.ci_ai_map
 
         self.info = {
             'graph': self.graph,
@@ -211,14 +210,13 @@ class NetworkGame():
         }
 
     def get_history(self):
+        names = ['state', 'reward', 'neighbors', 'neighbors_mask', 'ci_ai_map', 'metrics']
+        if 'secretes' in self.history:
+            names.append('secretes')
+
         return {
-            'state': self.state_history,
-            'reward': self.reward_history,
-            'neighbors': self.neighbors_history,
-            'neighbors_mask': self.neighbors_mask_history,
-            'ci_ai_map': self.ci_ai_map_history,
-            'metrics': self.metrics_history,
-            **({} if self.secretes_history is None else {'secretes': self.secretes_history}),
+            n: self.history[n]
+            for n in names
         }
 
     def get_current(self):
@@ -241,15 +239,15 @@ class NetworkGame():
                     'agent_types': self.agent_types,
                     'actions': [string.ascii_uppercase[i] for i in range(self.n_actions)],
                     'agents': [string.ascii_uppercase[i] for i in range(self.n_nodes)],
-                    'state': self.state_history[:, :, :chi],
-                    'reward': self.reward_history[:, :, :chi],
-                    'neighbors': self.neighbors_history[:, :chi],
-                    'neighbors_mask': self.neighbors_mask_history[:, :chi],
-                    'ci_ai_map': self.ci_ai_map_history[:, :chi],
-                    'episode': self.episode_history[:chi],
-                    'metrics': self.metrics_history[:, :chi],
+                    'state': self.history['state'][:, :, :chi],
+                    'reward': self.history['reward'][:, :, :chi],
+                    'neighbors': self.history['neighbors'][:, :chi],
+                    'neighbors_mask': self.history['neighbors_mask'][:, :chi],
+                    'ci_ai_map': self.history['ci_ai_map'][:, :chi],
+                    'episode': self.history['episode'][:chi],
+                    'metrics': self.history['metrics'][:, :chi],
                     'metric_names': self.metric_names,
-                    **({} if self.secretes_history is None else {'secretes': self.secretes_history[:, :chi]}),
+                    **({} if 'secretes' not in self.history else {'secretes': self.history['secretes'][:, :chi]}),
                 },
                 filename
             )
@@ -267,44 +265,23 @@ class NetworkGame():
     def _observe_neighbors(self, agent_type):
         current = self.get_current()
         current = trf.add_dimensions_to_current(**current)
-        neighbors_states, neighbors_mask = trf.neighbors_states(**current, **self.info2)
-        neighbors_states, neighbors_mask = trf.map_ci_agents(
-            neighbors_states, neighbors_mask, agent_type=agent_type, **current)
-        return neighbors_states.squeeze(1).squeeze(1), neighbors_mask.squeeze(1).squeeze(1)
-
-        # state = self.state.T.unsqueeze(0).repeat(
-        #     self.n_nodes, 1, 1)  # repeated, agent, agent_type
-
-        # _neighbors = self.neighbors.clone()
-        # _neighbors[self.neighbors_mask] = 0
-        # _neighbors = _neighbors.unsqueeze(-1).repeat(1, 1, 2)
-        # obs = th.gather(state, 1, _neighbors)
-        # obs[self.neighbors_mask] = -1
-
-        # if agent_type == 'ci':
-        #     return obs, self.neighbors_mask
-        # elif agent_type == 'ai':
-        #     return obs[self.ci_ai_map], self.neighbors_mask[self.ci_ai_map]
-        # else:
-        #     raise ValueError(f'Unkown agent_type {agent_type}')
+        _current = trf.neighbors_states(**current, **self.info2)
+        _current = trf.map_ci_agents(
+            **_current, agent_type=agent_type)
+        neighbors_states = _current['neighbors_states'].squeeze(1).squeeze(1)
+        neighbors_mask = _current['neighbors_states_mask'].squeeze(1).squeeze(1)
+        return neighbors_states, neighbors_mask
 
     # TODO: unit test
     def _batch_neighbors(self, episode_idx, agent_type):
         history = self.get_history()
         selected_history = trf.select_from_history(
             **history, episode_idx=episode_idx)
-        neighbors_states, neighbors_mask = trf.neighbors_states(**selected_history, **self.info2)
-        neighbors_states, neighbors_mask = trf.map_ci_agents(
-            neighbors_states, neighbors_mask, agent_type=agent_type, **selected_history)
-        previous, current = trf.shift_obs(neighbors_states, neighbors_mask)
+        _selected_history = trf.neighbors_states(**selected_history, **self.info2)
+        _selected_history = trf.map_ci_agents(
+            **_selected_history, agent_type=agent_type)
 
-        return previous, current
-
-    def _observe_matrix(self, agent_type):
-        pass
-
-    def _batch_matrix(self, episode_idx, agent_type):
-        pass
+        return _selected_history
 
     def get_observation_shapes(self, agent_type):
         return {
@@ -336,8 +313,6 @@ class NetworkGame():
             return obs, mask, secretes, self.metrics
         elif mode == 'neighbors':
             return self._observe_neighbors(**kwarg)[0]
-        elif mode == 'matrix':
-            return self._observe_matrix(**kwarg)
         else:
             raise NotImplementedError(f'Mode {mode} is not implemented.')
 
@@ -358,107 +333,53 @@ class NetworkGame():
 
         episode_idx = th.tensor([self.history_queue[pidx] for pidx in pos_idx], dtype=th.int64)
 
-        if mode in ['neighbors_with_mask', 'neighbors', 'neighbors_mask_secret_envinfo']:
-            prev_obs, obs = self._batch_neighbors(
-                episode_idx=episode_idx, agent_type=agent_type, **kwarg)
-            if mode == 'neighbors':
-                prev_obs = prev_obs[0]
-                obs = obs[0]
-            elif mode == 'neighbors_mask_secret_envinfo':
-                if self.metrics_history is not None:
-                    all_env_state = self.metrics_history[:, episode_idx]
-                    prev_env_state = all_env_state[:, :, :-1]
-                    env_state = all_env_state[:, :, 1:]
-                else:
-                    prev_env_state, env_state = None, None
-                if show_agent_type_secrets(agent_type=agent_type, **self.secrete_args):
-                    all_secrets = self.secretes_history[:, episode_idx]
-                    prev_secrets = all_secrets[:, :, :-1]
-                    secrets = all_secrets[:, :, 1:]
-                else:
-                    prev_secrets = None
-                    secrets = None
-                obs = (*obs, secrets, env_state)
-                prev_obs = (*prev_obs, prev_secrets, prev_env_state)
-        elif mode == 'matrix':
-            prev_obs, obs = self._batch_matrix(
-                episode_idx=episode_idx, agent_type=agent_type, **kwarg)
-        else:
-            raise NotImplementedError(f'Mode {mode} is not implemented.')
+        _selected_history = self._batch_neighbors(
+            episode_idx=episode_idx, agent_type=agent_type, **kwarg)
 
-        actions = self.state_history[self.agent_types_idx[agent_type], :, episode_idx, 1:]
-        rewards = self.reward_history[self.agent_types_idx[agent_type], :, episode_idx]
-        if agent_type == 'ai':
-            _ci_ai_map_history = self.ci_ai_map_history[:, episode_idx] \
-                .unsqueeze(-1) \
-                .repeat(1, 1, self.episode_steps)
-            actions = th.gather(actions, 0, _ci_ai_map_history)
-            rewards = th.gather(rewards, 0, _ci_ai_map_history)
+        modes_names = {
+            'neighbors_mask_secret_envinfo': ['neighbors_states', 'neighbors_states_mask', 'secretes', 'metrics'],
+            'neighbors_with_mask': ['neighbors_states', 'neighbors_states_mask']
+        }
 
-        assert actions.max() <= self.n_actions - 1
-        return prev_obs, obs, actions, rewards
+        # TODO: should be simplified
+        block = [] if agent_type in self.secrete_args.get('agent_types', []) else ['secretes']
+        previous, current = trf.shift_obs(
+            _selected_history, modes_names[mode], block)
 
-    # TODO: End-to-End test
-    def _map_incoming(self, values):
-        return {'ai': values['ai'][self.ai_ci_map], 'ci': values['ci']}
+        actions = _selected_history['state'][self.agent_types_idx[agent_type], :, :, 1:]
+        rewards = _selected_history['reward'][self.agent_types_idx[agent_type]]
 
-    # TODO: End-to-End test
-    def _map_outgoing(self, values):
-        return {'ai': values['ai'][self.ci_ai_map], 'ci': values['ci']}
-
-    @staticmethod
-    def __get_observations(state, neighbors, neighbors_mask, **_):
-        # state: agent_type, agents, batch, episode_step
-        # neighbors: agents, batch, max_neighbors
-        # neighbors_mask: agents, batch, max_neighbors
-        n_agent_types, n_agents, batch_size, episode_steps = state.shape
-        n_agents_2, batch_size_2, max_neighbors = neighbors.shape
-
-        assert n_agents == n_agents_2
-        assert n_agents == n_agents_2
-
-        # permutation needed because we map neighbors on agents
-        _state = state.permute(0, 2, 3, 1) \
-            .unsqueeze(1).repeat(1, n_agents, 1, 1, 1)  # agent_type, agents, batch, episode_step, neighbors
-
-        _neighbors = neighbors.clone()
-        _neighbors[neighbors_mask] = 0
-        _neighbors = _neighbors.unsqueeze(0).unsqueeze(3).repeat(
-            n_agent_types, 1, 1, episode_steps, 1)  # agent_type, agents, batch, episode_step, neighbors
-
-        _neighbors_mask = neighbors_mask \
-            .unsqueeze(0).unsqueeze(3) \
-            .repeat(n_agent_types, 1, 1, episode_steps, 1)  # agent_type, agents, batch, episode_step, neighbors
-
-        # agent_type, agents, batch, episode_step, neighbors
-        observations = th.gather(_state, -1, _neighbors)
-        observations[_neighbors_mask] = -1
-        return observations
-
-    @staticmethod
-    def __get_reward(observations):
-        observations = get_observations(state, neighbors, neighbors_mask)
-
-        self_agent_types = [at_map['ci'], at_map['random_ci']]
-        other_agent_types = [at_map['ci'], at_map['random_ci']]
-        self_color = observations[self_agent_types][:, :, :, :, [0]]
-        other_colors = observations[other_agent_types][:, :, :, :, 1:]
-
-        coordination = (self_color != other_colors).all(-1).type(th.float)
-
-        local_coordination = local_aggregation(coordination, neighbors, neighbors_mask)
-
-        self_agent_types = [at_map['ci'], at_map['random_ci']]
-        other_agent_types = [at_map['ai'], at_map['random_ai']]
-        self_color = observations[self_agent_types, :, :, :, 0]
-        other_color = observations[other_agent_types, :, :, :, 0]
-        catch = (self_color == other_color).type(th.float)
-
-        local_catch = local_aggregation(catch, neighbors, neighbors_mask)
-
-        rec_metrics = th.stack([coordination, local_coordination, catch, local_catch], dim=-1)
+        return previous, current, actions, rewards
 
     # TODO: Unit test.
+
+    def _get_rewards2(self):
+        current = self.get_current()
+        current = trf.add_dimensions_to_current(**current)
+        _current = trf.neighbors_states(**current, **self.info2)
+        metrics = trf.calc_metrics(**_current)
+
+        metrics = metrics.squeeze(1).squeeze(1)
+
+        metrics_names = [f'{agg}_{m}' for agg in ['ind', 'local', 'avg']
+                         for m in ['catch', 'coordination']]
+        metrics_agent_idx = [j for i in range(3) for j in [1, 0]]
+
+        ci_vec = th.tensor([self.rewards_args['ci'].get(m, 0)
+                            for m in metrics_names], dtype=th.float)
+        ai_vec = th.tensor([self.rewards_args['ai'].get(m, 0)
+                            for m in metrics_names], dtype=th.float)
+
+        ci_reward = metrics[:, metrics_agent_idx, range(6)] @ ci_vec
+        ai_reward = metrics[:, metrics_agent_idx, range(6)] @ ai_vec
+
+        m_idx = [metrics_names.index(mn) for mn in self.metric_names[:-1]]
+
+        metrics = metrics[:, self.agent_types_idx['ci'], m_idx]
+
+        metrics = th.cat([metrics, th.ones((*metrics.shape[:-1], 1))], dim=-1)
+
+        return ci_reward, ai_reward, metrics
 
     def _get_rewards(self):
         ci_state = self.state[self.agent_types_idx['ci']]
@@ -505,6 +426,7 @@ class NetworkGame():
         return ci_reward, ai_reward, metrics_stacked
 
     # TODO: End-to-End test
+
     def step(self, actions):
         self.episode_step += 1
 
@@ -524,19 +446,25 @@ class NetworkGame():
         self.state[self.agent_types_idx['ai']] = actions['ai'][self.ai_ci_map]
 
         ci_reward, ai_reward, metrics = self._get_rewards()
+        ci_reward2, ai_reward2, metrics2 = self._get_rewards2()
+
+        assert ((metrics - metrics2).abs() < 0.000001) .all()
+        assert (ci_reward == ci_reward2).all()
+        assert (ai_reward == ai_reward2).all()
 
         self.metrics = metrics
 
         self._update_secrets()
 
-        self.state_history[:, :, self.current_hist_idx, self.episode_step + 1] = self.state
-        self.reward_history[self.agent_types_idx['ci'], :,
-                            self.current_hist_idx, self.episode_step] = ci_reward
-        self.reward_history[self.agent_types_idx['ai'], :,
-                            self.current_hist_idx, self.episode_step] = ai_reward
-        self.metrics_history[:, self.current_hist_idx, self.episode_step + 1] = self.metrics
-        if self.secretes_history is not None:
-            self.secretes_history[:, self.current_hist_idx, self.episode_step + 1] = self.secretes
+        self.history['state'][:, :, self.current_hist_idx, self.episode_step + 1] = self.state
+        self.history['reward'][self.agent_types_idx['ci'], :,
+                               self.current_hist_idx, self.episode_step] = ci_reward
+        self.history['reward'][self.agent_types_idx['ai'], :,
+                               self.current_hist_idx, self.episode_step] = ai_reward
+        self.history['metrics'][:, self.current_hist_idx, self.episode_step + 1] = self.metrics
+        if 'secretes' in self.history:
+            self.history['secretes'][:, self.current_hist_idx,
+                                     self.episode_step + 1] = self.secretes
 
         rewards = {
             'ai': ai_reward[self.ci_ai_map],

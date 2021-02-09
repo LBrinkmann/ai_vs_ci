@@ -31,3 +31,7 @@ def test_sample():
         _test_sampling_v1(config, 'ci')
         _test_sampling_v2(config, 'ai')
         _test_sampling_v2(config, 'ci')
+
+
+if __name__ == "__main__":
+    test_sample()
