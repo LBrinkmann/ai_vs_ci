@@ -106,7 +106,6 @@ def calc_metrics(neighbors_states, neighbors, neighbors_mask, **_):
     anticoordination = (self_color.unsqueeze(-2) != neighbor_color).all(-2).type(th.float)
     ind_metrics = th.stack([catch, anticoordination], dim=-1)
 
-    # TODO: temporary workaround
     loc_metrics = local_aggregation(ind_metrics, neighbors, neighbors_mask)
     glob_metrics = global_aggregation(ind_metrics)
     metrics = th.cat([ind_metrics, loc_metrics, glob_metrics], dim=-1)

@@ -7,20 +7,12 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.nn as nn
 from aci.neural_modules import NETS
+import aci.controller.transformer as trf
 
 
 def binary(x, bits):
     mask = 2**th.arange(bits).to(x.device, x.dtype)
     return (x+1).unsqueeze(-1).bitwise_and(mask).ne(0).byte()
-
-
-def onehot(x, m, input_size, device):
-    onehot = th.zeros(*x.shape, input_size, dtype=th.float32, device=device)
-    x_ = x.clone()
-    x_[m] = 0
-    onehot.scatter_(-1, x_.unsqueeze(-1), 1)
-    onehot[m] = 0
-    return onehot
 
 
 def map_to_idx(to_map, names):
@@ -113,8 +105,10 @@ class GRUAgentWrapper(nn.Module):
             s: agents, episode, episode_step
             e: 1, episode, episode_step
         """
-        x_ci_oh = onehot(x[:, :, :, :, 0], mask, self.input_size, self.device)
+        # on hot encode
+        x_ci_oh = trf.onehot(x[:, :, :, :, 0], mask, self.input_size, self.device)
 
+        # add globalx
         if len(self.global_input_idx) != 0:
             x_ci_oh[:, :, :, :, -len(self.global_input_idx):] = globalx[:,
                                                                         :, :, self.global_input_idx].unsqueeze(-2)
@@ -202,40 +196,6 @@ class GRUAgentWrapper(nn.Module):
             m.reset()
 
 
-class OneHotTransformer(nn.Module):
-    def __init__(self, batch_size, observation_shape, n_agents, n_actions, model, device):
-        super(OneHotTransformer, self).__init__()
-        self.model = model
-        self.device = device
-        self.n_actions = n_actions
-
-    def forward(self, x, links, mask):
-        n_agents, batch_size, seq_length = x.shape
-
-        shift_end = seq_length * batch_size * n_agents
-
-        shift = th.arange(start=0, end=shift_end, step=n_agents, device=self.device)
-        shift = shift.reshape(batch_size, seq_length).unsqueeze(0).repeat(n_agents, 1, 1)
-
-        edge_index = links + shift.unsqueeze(-1).unsqueeze(-1)
-        edge_index = edge_index[~mask].permute(1, 0)
-        x = x.reshape(-1)
-
-        onehot = th.zeros(len(x), self.n_actions, dtype=th.float32, device=self.device)
-        x_ = x.clone()
-        onehot.scatter_(-1, x_.unsqueeze(-1), 1)
-        y = self.model(onehot, edge_index)
-        y = y.reshape(n_agents, batch_size, seq_length, -1)
-        return y
-
-    def log(self, *args, **kwargs):
-        self.model.log(*args, **kwargs)
-
-    def reset(self):
-        if getattr(self.model, "reset", False):
-            self.model.reset()
-
-
 class MADQN:
     def __init__(
             self, observation_shapes, n_agents, n_actions, model_args, opt_args, sample_args, agent_type,
@@ -244,22 +204,14 @@ class MADQN:
         self.n_actions = n_actions
         self.n_agents = n_agents
         self.device = device
-        if model_args['net_type'] != 'gcn':
-            self.observation_mode = 'neighbors_mask_secret_envinfo'
-            observation_shapes = observation_shapes[self.observation_mode]
-            self.policy_net = GRUAgentWrapper(
-                observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
-            self.target_net = GRUAgentWrapper(
-                observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
-        else:
-            self.observation_mode = 'matrix'
-            model_args.pop('net_type')
-            target_model = NETS['gcn'](n_actions=n_actions, device=device, **model_args).to(device)
-            policy_model = NETS['gcn'](n_actions=n_actions, device=device, **model_args).to(device)
-            self.policy_net = OneHotTransformer(
-                model=target_model, batch_size=batch_size, observation_shape=(1,), n_agents=n_agents, n_actions=n_actions, device=device)
-            self.target_net = OneHotTransformer(
-                model=policy_model, batch_size=batch_size, observation_shape=(1,), n_agents=n_agents, n_actions=n_actions, device=device)
+
+        self.observation_mode = 'neighbors_mask_secret_envinfo'
+        observation_shapes = observation_shapes[self.observation_mode]
+        self.policy_net = GRUAgentWrapper(
+            observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
+        self.target_net = GRUAgentWrapper(
+            observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
+
         self.target_net.eval()
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), **opt_args)
         self.gamma = gamma
