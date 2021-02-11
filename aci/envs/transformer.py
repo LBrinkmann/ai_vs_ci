@@ -1,110 +1,100 @@
 import torch as th
 
-
-def select_from_history(state, neighbors, neighbors_mask, ci_ai_map, episode_idx, reward, metrics, secretes=None,  **other):
-    return {
-        # **other,
-        'state': state[:, :, episode_idx],
-        'neighbors': neighbors[:, episode_idx],
-        'neighbors_mask': neighbors_mask[:, episode_idx],
-        'ci_ai_map': ci_ai_map[:, episode_idx],
-        'reward': reward[:, :, episode_idx],
-        'secretes': secretes[:, episode_idx] if secretes is not None else None,
-        'metrics': metrics[:, episode_idx]}
+METRIC_NAMES = [f'{agg}_{m}' for agg in ['ind', 'local', 'avg']
+                for m in ['crosscoordination', 'coordination', 'anticoordination']]
 
 
-def add_dimensions_to_current(state, neighbors, neighbors_mask, ci_ai_map, **other):
-    return {
-        # **other,
-        'state': state.unsqueeze(-1).unsqueeze(-1),
-        'neighbors': neighbors.unsqueeze(1),
-        'neighbors_mask': neighbors_mask.unsqueeze(1),
-        'ci_ai_map': ci_ai_map.unsqueeze(-1)
-    }
+def calc_metrics_reward(state, neighbors, neighbors_mask, n_nodes, reward_vec):
+    """
+    Args:
+        state: h s+ p t
+        neighbors: h p n+
+        neighbors_mask: h p n+
+        reward_vec: m t
+    Returns:
+        metrics: h s+ p m t
+        rewards: h s+ p t
+    """
+    metrics = calc_metrics(neighbors_states, neighbors, neighbors_mask)  # h s+ p m t
+    reward = calc_reward(metrics, reward_vec)  # h s+ p t
+    return metrics, reward
 
 
-def neighbors_states(state, neighbors, neighbors_mask, n_nodes, **other):
-    episode_steps = state.shape[-1]
+def create_reward_vec(agent_types, device, **at_metrics):
+    """
+    Returns:
+        reward_vec: A 2-D matrix of type `th.float` and shape `[t,m,t']` to map
+            from the metrics to the reward. `t` is the agent type of the reward,
+            `t'` is the agent type of the metric.
+    """
+    return th.tensor([
+        [at_metrics[at][m] for m in METRIC_NAMES]
+        for at in agent_types
+    ], dtype=th.float, device=device)
 
-    _state = state.permute(2, 3, 1, 0).unsqueeze(0).repeat(n_nodes, 1, 1, 1, 1)
+
+def calc_reward(metrics, reward_vec):
+    """
+    Args:
+        metrics: h s+ p m t
+        reward_vec: m t
+    Returns:
+        reward: h s+ p t
+    """
+    reward = th.einsum('hspmt,mt->hspt', metrics, reward_vec)  # h s+ p t
+    return reward
+
+
+def project_on_neighbors(tensor, neighbors, neighbors_mask):
+    """
+    Args:
+        tensor: h s+ p t ?
+        neighbors: h p n+
+        neighbors_mask: h p n+
+    Returns:
+        nb_tensor: h s+ p n t
+    """
+    h, s, p, t = tensor.shape[:4]
+    _neighbors = neighbors.unsqueeze(1).unsqueeze(-1).expand(-1, s, -1, -1, t)  # h s+ p n+ t
+    _neighbors_mask = neighbors_mask.unsqueeze(1).expand(-1, s, -1, -1)  # h s+ p n+
+
+    # note change in index (p -> n`), states will be mapped on neighbors
+    nb_tensor = tensor  # h s+ n` t ?
+    nb_tensor = nb_tensor.unsqueeze(2)  # h s+ * n` t ?
+    nb_tensor = nb_tensor.expand(-1, -1, p, -1, -1)  # h s+ p n` t ?
 
     _neighbors = neighbors.clone()
-    _neighbors[neighbors_mask] = 0
-    _neighbors = _neighbors.unsqueeze(
-        2).unsqueeze(-1).repeat(1, 1, episode_steps, 1, 2)
-    neighbors_states_mask = neighbors_mask.unsqueeze(-2).repeat(1, 1, episode_steps, 1)
+    _neighbors[_neighbors_mask] = 0
 
-    neighbors_states = th.gather(_state, -2, _neighbors)
-    neighbors_states[neighbors_states_mask] = -1
+    nb_tensor = th.gather(nb_tensor, 3, _neighbors)  # h s+ p n+ t ?
+    nb_tensor[_neighbors_mask] = -1  # h s+ p n+ t ?
 
-    return {
-        **other,
-        'neighbors': neighbors,
-        'state': state,
-        'neighbors_mask': neighbors_mask,
-        'neighbors_states': neighbors_states,
-        'neighbors_states_mask': neighbors_states_mask
-    }
+    return nb_tensor  # h s+ p n+ t ?
 
 
-def shift_obs(tensor_dict, names, block):
+def calc_metrics(state, neighbors, neighbors_mask):
     """
+    Args:
+        state: h s+ p t
+        neighbors: h p n+
+        neighbors_mask: h p n+
+    Returns:
     """
-    previous = (tensor_dict[n][:, :, :-1] if n not in block else None for n in names)
-    current = (tensor_dict[n][:, :, 1:] if n not in block else None for n in names)
-    return previous, current
+    h, s, p, t = state
 
+    neighbors_states = project_on_neighbors(
+        state, neighbors, neighbors_mask)  # h s+ p n t
 
-# TODO: mapping of secrets, envstate, ... is missing
-def map_ci_agents(neighbors_states, neighbors_states_mask, ci_ai_map, agent_type, state=None, reward=None,  **other):
-    if agent_type == 'ci':
-        pass
-    elif agent_type == 'ai':
-        _ci_ai_map = ci_ai_map \
-            .unsqueeze(-1) \
-            .unsqueeze(-1) \
-            .unsqueeze(-1) \
-            .repeat(1, 1, *neighbors_states.shape[2:])
-        neighbors_states = th.gather(neighbors_states, 0, _ci_ai_map)
-        neighbors_states_mask = th.gather(neighbors_states_mask, 0, _ci_ai_map[:, :, :, :, 0])
+    self_cross = state.unsqueeze(-1).expand(-1, -1, -1, -1, t)  # h s+ p t t'
+    other_cross = state.unsqueeze(-2).expand(-1, -1, -1, t, -1)  # h s+ p t t'
+    cross_coordination = (self_cross == other_cross).all(-1).type(th.float)  # h s+ p t
 
-        # TODO: this is temporary
-        if (state is not None) and (state.shape[2] > 1):
-
-            _ci_ai_map = ci_ai_map.unsqueeze(0)\
-                .unsqueeze(-1) \
-                .expand(state.shape[0], -1, -1, state.shape[3])
-            state = th.gather(state, 1, _ci_ai_map)
-        else:
-            state = None
-
-        if reward is not None:
-            _ci_ai_map = ci_ai_map.unsqueeze(0)\
-                .unsqueeze(-1) \
-                .expand(reward.shape[0], -1, -1, reward.shape[3])
-            reward = th.gather(reward, 1, _ci_ai_map)
-        else:
-            reward = None
-    else:
-        raise ValueError(f'Unkown agent_type {agent_type}')
-    return {
-        **other,
-        'neighbors_states': neighbors_states,
-        'neighbors_states_mask': neighbors_states_mask,
-        'state': state,
-        'reward': reward
-    }
-
-
-def calc_metrics(neighbors_states, neighbors, neighbors_mask, **_):
-    self_color = neighbors_states[:, :, :, 0]
-    neighbor_color = neighbors_states[:, :, :, 1:]
-    other_color = th.flip(self_color, [-1])
-
-    catch = (self_color == other_color).type(th.float)
-    # coordination = (self_color == neighbor_color).all(-1).type(th.float)
-    anticoordination = (self_color.unsqueeze(-2) != neighbor_color).all(-2).type(th.float)
-    ind_metrics = th.stack([catch, anticoordination], dim=-1)
+    neighbor_coordination = (state.unsqueeze(-2) ==
+                             neighbors_states).all(-2).type(th.float)  # h s+ p t
+    neighbor_anticoordination = (state.unsqueeze(-2) !=
+                                 neighbors_states).all(-2).type(th.float)  # h s+ p t
+    ind_metrics = th.stack([cross_coordination, neighbor_coordination,
+                            neighbor_anticoordination], dim=-1)  # h s+ p t m
 
     loc_metrics = local_aggregation(ind_metrics, neighbors, neighbors_mask)
     glob_metrics = global_aggregation(ind_metrics)
@@ -112,35 +102,26 @@ def calc_metrics(neighbors_states, neighbors, neighbors_mask, **_):
     return metrics
 
 
-#  (self.n_nodes, self.max_history, self.episode_steps + 1, len(self.metric_names)
-
-
 def global_aggregation(metrics):
-    n_nodes = metrics.shape[0]
-    return metrics.mean(0, keepdim=True).expand(n_nodes, *[-1]*(len(metrics.shape)-1))
+    """
+    Args:
+        metrics: h s+ p t m
+    Returns:
+        global_metrics: h s+ p t m
+    """
+    h, s, p, t, m = metrics.shape
+    return metrics.mean(2, keepdim=True).expand(-1, -1, p, -1, -1)
 
 
-# TODO: this needs to be checked
 def local_aggregation(metrics, neighbors, neighbors_mask):
-
-    n_nodes, batch_size, episode_steps, n_agent_types, n_metrics = metrics.shape
-    n_nodes2, batch_size_2, max_neighbors = neighbors.shape
-
-    assert n_nodes == n_nodes2
-    assert batch_size == batch_size_2
-
-    # permutation needed because we map neighbors on agents
-    _metric = metrics.unsqueeze(0).expand(n_nodes, -1, -1, -1, -1, -1).permute(1, 0, 2, 3, 4, 5)
-
-    _neighbors = neighbors.clone()
-    _neighbors[neighbors_mask] = 0
-    _neighbors = _neighbors.permute(2, 0, 1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).expand(
-        -1, -1, -1, episode_steps, n_agent_types, n_metrics)
-    _neighbors_mask = neighbors_mask.permute(2, 0, 1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).expand(
-        -1, -1, -1, episode_steps, n_agent_types, n_metrics)
-
-    # agent_type, agents, batch, episode_step, neighbors
-    local_metrics = th.gather(_metric, 0, _neighbors)
-    local_metrics[_neighbors_mask] = 0
-    local_metrics = local_metrics.sum(0) / (~_neighbors_mask).sum(0)
-    return local_metrics
+    """
+    Args:
+        metrics: h s+ p t m
+        neighbors: h p n+
+        neighbors_mask: h p n+
+    Returns:
+        local_metrics: h s+ p t m
+    """
+    nb_metrics = project_on_neighbors(metrics, neighbors, neighbors_mask)  # h s+ p n t m
+    local_metrics = nb_metrics.sum(3) / (~neighbors_mask).sum(-1)  # h s+ p t m
+    return local_metrics  # h s+ p t m
