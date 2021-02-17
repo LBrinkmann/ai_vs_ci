@@ -63,10 +63,10 @@ def run_episode(*, episode, env, controller, observer, eps, training, **__):
             for agent_type, a_controller in controller.items():
                 if training[agent_type]:
                     states, actions, rewards = env.sample(
-                        batch_size=a_controller.batch_size, agent_type=agent_type)
+                        batch_size=a_controller.sample_args, agent_type=agent_type)
                     observations = observer[agent_type](states)
                     # controller do not get reward directly, but a callback to env.sample
-                    a_controller.update(observations, actions, rewards, episode)
+                    a_controller.optimize(observations, actions, rewards)
             break
 
     env.finish_episode()

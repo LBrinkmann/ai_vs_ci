@@ -9,7 +9,7 @@ import string
 import os
 from .utils.graph import create_graph, determine_max_degree, pad_neighbors
 from ..utils.io import ensure_dir
-from aci.envs.reward_metrics import calc_metrics, calc_reward, create_reward_vec
+from aci.envs.reward_metrics import calc_metrics, calc_reward, create_reward_vec, METRIC_NAMES
 
 
 def create_map(mapping_type, n_nodes, **_):
@@ -19,13 +19,13 @@ def create_map(mapping_type, n_nodes, **_):
         return th.arange(n_nodes)
 
 
-def create_maps(agent_types, agent_type_args, n_nodes, episode):
+def create_maps(agent_type_args, n_nodes, episode):
     """
     Mapping between agent_idx and network position.
     """
     return th.stack([
-        create_map(**agent_type_args[at], n_nodes=n_nodes)
-        for at in agent_types
+        create_map(**ata, n_nodes=n_nodes)
+        for ata in agent_type_args.values()
     ])
 
 
@@ -79,8 +79,8 @@ class NetworkGame():
 
     def __init__(
             self, *, n_nodes, n_actions, episode_steps, max_history,
-            network_period, mapping_period, reward_period,
-            rewards_metrics, graph_args, secrete_args={},
+            network_period, mapping_period,
+            agent_type_args, graph_args, secrete_args={},
             out_dir=None, device):
         """
         Args:
@@ -90,43 +90,38 @@ class NetworkGame():
             max_history: Maximum number of episodes to memorize.
             network_period: Period of episodes to resample a new network.
             mapping_period: Period of episodes to remap agents between the two types.
-            reward_period: Period of steps to reward agents.
-            rewards_metrics: Settings for calculation of rewards.
             graph_args: Settings for the network creation.
             secrete_args: Settings for calculation of secrets.
             out_dir: Folder to store data.
             device: A torch device.
         """
+        self.device = device
 
-        self.metric_names = [
-            'ind_coordination', 'avg_coordination', 'local_coordination', 'local_catch',
-            'ind_catch', 'avg_catch', 'rewarded'
-        ]
-
-        self.episode_steps = episode_steps
         self.mapping_period = mapping_period
         self.network_period = network_period
-        self.reward_period = reward_period
         self.max_history = max_history
         self.graph_args = graph_args
         self.secrete_args = secrete_args
-        self.agent_types = ['ci', 'ai']
-        self.agent_types_idx = {'ci': 0, 'ai': 1}
+        self.agent_types = list(agent_type_args.keys())
+        self.agent_types_idx = {v: i for i, v in enumerate(self.agent_types)}
+        self.agent_type_args = agent_type_args
+        self.metric_names = METRIC_NAMES
+
+        self.episode_steps = episode_steps
         self.n_nodes = n_nodes
         self.n_actions = n_actions
         self.n_agent_types = len(self.agent_types)
         self.n_control = self.control_args.get('n_control', 0)
-
-        self.episode = -1
         # maximum number of neighbors
         self.max_neighbors = determine_max_degree(n_nodes=n_nodes, **graph_args)
+
+        self.episode = -1
         self.out_dir = out_dir
-        self.device = device
         if out_dir is not None:
             ensure_dir(out_dir)
         self.init_history()
 
-        self.reward_vec = create_reward_vec(self.agent_types, self.device, rewards_metrics)
+        self.reward_vec = create_reward_vec(self.agent_type_args, self.device)
 
         self.info = {
             'n_agent_types': self.n_agent_types,
@@ -176,19 +171,24 @@ class NetworkGame():
                 (self.network_period > 0) and (self.episode % self.network_period == 0)):
             self.graph, neighbors, adjacency_matrix, self.graph_info = create_graph(
                 n_nodes=self.n_nodes, **self.graph_args)
-            self.neighbors, self.neighbors_mask = pad_neighbors(neighbors, self.max_neighbors)
+            neighbors, neighbors_mask = pad_neighbors(neighbors, self.max_neighbors)
 
         # mapping between network and agents
         if (self.episode == 0) or (
                 (self.network_period > 0) and (self.episode % self.network_period == 0)):
-            self.agent_map = create_maps(
+            agent_map = create_maps(
                 self.agent_types, self.agent_type_args, self.n_nodes, self.episode)
 
-        self.history_queue.appendleft(self.current_hist_idx)
+        episode_state = {
+            'neighbors': neighbors,
+            'neighbors_mask': neighbors_mask,
+            'agent_map': agent_map
+        }
 
+        self.history_queue.appendleft(self.current_hist_idx)
         # add episode attributes to history
-        for k in self.episode_history.keys():
-            self.episode_history[k][self.current_hist_idx] = self.__dict__[k]
+        for k, v in episode_state.items():
+            self.episode_history[k][self.current_hist_idx] = v
 
         # random init action
         init_actions = th.tensor(
@@ -211,29 +211,31 @@ class NetworkGame():
         else:
             done = False
 
-        self.actions = actions
-        _actions = self.actions.unsqueeze(0).unsqueeze(0)
-        _neighbors = self.neighbors.unsqueeze(0)
-        _neighbors_mask = self.neighbors_mask.unsqueeze(0)
-
-        _metrics = calc_metrics(_actions, _neighbors, _neighbors_mask)  # h s+ p m t
-
-        _reward = calc_reward(_metrics, self.reward_vec)  # h s+ p t
-        self.metrics = _metrics.squeeze(0).squeeze(0)
-        self.reward = _reward.squeeze(0).squeeze(0)
-
-        self.control_int = create_control(
+        episode_state = {
+            k: v[[self.current_hist_idx]]
+            for k, v in self.episode_history.items()
+            if v is not None
+        }
+        neighbors = episode_state['neighbors']
+        neighbors_mask = episode_state['neighbors_mask']
+        metrics = calc_metrics(actions, neighbors, neighbors_mask)  # h s+ p m t
+        reward = calc_reward(metrics, self.reward_vec)
+        control_int = create_control(
             n_nodes=self.n_nodes, n_agents=self.n_agents,
-            **self.control_args, device=self.device)  # p t
+            **self.control_args, device=self.device).squeeze(0).squeeze(0)  # h s+ p t
+
+        step_state = {
+            'metrics': metrics,
+            'reward': reward,
+            'actions': actions,
+            'control_int': control_int
+        }
 
         # add step attributes to history
-        for k in self.step_history.keys():
-            self.step_history[k][self.current_hist_idx, self.episode_step] = self.__dict__[k]
+        for k, v in self.step_state.items():
+            self.step_history[k][self.current_hist_idx, self.episode_step] = v[0, 0]
 
-        state = {
-            self.__dict__[k]
-            for k in self.step_history.keys()
-        }
+        state = {**step_state, **episode_state}
         return state, self.reward,  done
 
     def from_history(self, hist_idx):
@@ -268,15 +270,11 @@ class NetworkGame():
         if self.current_hist_idx == self.max_history - 1:
             self.write_history()
 
-    def observe(self):
-        keys = ['actions', 'metrics', 'control_int', 'neighbors', 'neighbors_mask', 'agent_map']
-        return {
-            n: self.__dict__[n] for n in keys
-        }
-
-    def sample(self, mode, batch_size, horizon=None, last=False, **kwarg):
+    def sample(self, batch_size, agent_type, horizon=None, last=False,  **kwarg):
         if batch_size > len(self.history_queue):
             return
+
+        agent_type_idx = self.agent_types_idx[agent_type]
 
         if not last:
             assert horizon is not None
@@ -292,10 +290,14 @@ class NetworkGame():
 
         keys = ['actions', 'metrics', 'control_int', 'neighbors', 'neighbors_mask', 'agent_map']
 
-        return {
+        state = {
             **{k: v[hist_idx] for k, v in self.episode_history if k in keys},
             **{k: v[hist_idx] for k, v in self.step_history if k in keys},
         }
+        actions = self.step_history['actions'].select(-1, agent_type_idx)
+        reward = self.step_history['actions'].select(-1, agent_type_idx)
+
+        return state, actions, reward
 
     # TODO: Unit test.
 

@@ -4,7 +4,7 @@ METRIC_NAMES = [f'{agg}_{m}' for agg in ['ind', 'local', 'avg']
                 for m in ['crosscoordination', 'coordination', 'anticoordination']]
 
 
-def create_reward_vec(agent_types, device, reward_metrics):
+def create_reward_vec(agent_type_args, device):
     """
     Returns:
         reward_vec: A 3-D matrix of type `th.float` and shape `[t,m,o']` to map
@@ -13,10 +13,10 @@ def create_reward_vec(agent_types, device, reward_metrics):
     """
     return th.tensor([
         [
-            [reward_metrics[t].get(o, {}).get(m, 0) for o in agent_types]
+            [ata['reward'].get(m, 0).get(o, {}) for o in agent_type_args.keys()]
             for m in METRIC_NAMES
         ]
-        for t in agent_types
+        for ata in agent_type_args.values()
     ], dtype=th.float, device=device)
 
 

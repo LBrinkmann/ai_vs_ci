@@ -56,22 +56,22 @@ def view_encoder(
 
 class ViewEncoder():
     def __init__(self, state_view, metric_view, control_view, env_info, device):
-        self.view_shape = 0
         self.n_actions = env_info['n_actions']
         self.device = device
         n_control = env_info['n_control']
         agent_types = env_info['agent_types']
 
+        self.shape = 0
         if state_view is not None:
             self.at_idx = [i for i, n in enumerate(agent_types) if n in state_view]
-            self.view_shape += len(state_view) * self.n_actions
+            self.shape += len(state_view) * self.n_actions
         else:
             self.at_idx = None
 
         if metric_view is not None:
             self.metric_at_idx = [agent_types.index(vm['agent_type']) for vm in metric_view]
             self.metric_m_idx = [agent_types.index(vm['metric_names']) for vm in metric_view]
-            self.view_shape += len(metric_view)
+            self.shape += len(metric_view)
         else:
             self.metric_at_idx = None
             self.metric_m_idx = None
@@ -79,7 +79,7 @@ class ViewEncoder():
         if control_view is not None:
             self.control_size = int(np.log2(n_control + 1))
             self.control_at_idx = agent_types.index(control_view)
-            self.view_shape += self.control_size
+            self.shape += self.control_size
         else:
             self.control_size = None
             self.control_at_idx = None
@@ -123,6 +123,17 @@ class NeighborView():
 
         self.neighbor_encoder = ViewEncoder(**neighbor_view_args, env_info=env_info, device=device)
         self.control_encoder = ViewEncoder(**control_view_args, env_info=env_info, device=device)
+
+        n_nodes = env_info['n_nodes']
+        max_neighbors = env_info['max_neigbors']
+
+        self.shape = {
+            'view': (-1, -1, n_nodes, max_neighbors, self.neighbor_encoder.shape),
+            'control': (-1, -1, n_nodes, self.control_encoder.shape),
+            'mask': (-1, -1, n_nodes, max_neighbors),
+            'agent_map': (-1, -1, n_nodes),
+            'control_int': (-1, -1, n_nodes)
+        }
 
     def __call__(self, **state):
         h, s, p, t = state['state'].shape

@@ -1,6 +1,5 @@
 from itertools import permutations
 import torch as th
-import numpy as np
 
 
 def shift_obs(tensor_dict):
@@ -27,26 +26,26 @@ def map_agents_back(agent_map, *tensors):
 class MultiAgentWrapper(nn.Module):
     def __init__(
             self, *, weight_sharing, mix_weights_args=None, action_permutation=False, env_info,
-            observation_shape):
-
+            observation_shape, net_type, **kwargs):
         super(MultiAgentWrapper, self).__init__()
-        self.view_size = view_size
-        self.control_size = control_size
         self.weight_sharing = weight_sharing
-
-        self.n_agents = 1 if weight_sharing else n_agents
-
-        self.models = nn.ModuleList([
-            NETS[net_type](
-                n_inputs=self.n_inputs, input_size=self.input_size, n_actions=n_actions, device=device,
-                control_size=self.control_size, **kwargs)
-            for n in range(effective_agents)
-        ])
-        self.multi_type = multi_type
-        self.n_actions = n_actions
-        self.n_agents = n_agents
         self.device = device
         self.mix_weights_args = mix_weights_args
+
+        n_neighbors = env_info['n_neighbors']
+        n_actions = env_info['n_actions']
+        n_agents = env_info['n_agents']
+
+        view_size = observation_shape['view'][-1]
+        control_size = observation_shape['control'][-1]
+
+        effective_agents = 1 if self.weight_sharing else n_agents
+        self.models = nn.ModuleList([
+            NETS[net_type](
+                n_neighbors=n_neighbors, n_actions=n_actions, view_size=view_size,
+                control_size=control_size, device=device, **kwargs)
+            for n in range(effective_agents)
+        ])
 
         # align all weights
         if mix_weights_args is not None:
@@ -55,16 +54,12 @@ class MultiAgentWrapper(nn.Module):
                 m.load_state_dict(ref_model)
         if action_permutation:
             self.permutations = th.tensor(list(permutations(range(n_actions))), device=device)
-
-    def pre_optimise(episode,):
-        self.policy_net.reset()
-        if (self.mix_freq is not None) and training and (episode % self.mix_freq == 0):
-            self.policy_net.mix_weights()
-        if training and (episode % self.target_update_freq == 0):
-            self._update_target()
+        else:
+            self.permutations = None
 
     def mix_weights(self):
-        return self._mix_weights(**self.mix_weights_args)
+        if self.mix_weighs_args is not None:
+            return self._mix_weights(**self.mix_weights_args)
 
     def _mix_weights(self, noise_factor=0.1, mixing_factor=0.8):
         """
@@ -112,12 +107,12 @@ class MultiAgentWrapper(nn.Module):
             q = map_agents_back(agent_map, q)
         else:
             q = [
-                model(view[:, :, i], mask[:, :, i], control[:, :, i])
+                self.models[0](view[:, :, i], mask[:, :, i], control[:, :, i])
                 for i in range(p)
             ]
             q = th.stack(q)
 
-        if self.control_type == 'permute':
+        if self.permutations is not None:
             assert control_int.max() < len(self.permutations), \
                 'Max seed needs to be smaller then the factorial of actions.'
             permutations = self.permutations[control_int]
