@@ -9,10 +9,8 @@ import string
 import os
 from .utils.graph import create_graph, determine_max_degree, pad_neighbors
 from ..utils.io import ensure_dir
-import aci.envs.transformer as trf
+from aci.envs.reward_metrics import calc_metrics, calc_reward, create_reward_vec
 
-
-#############################
 
 def create_map(mapping_type, n_nodes, **_):
     if mapping_type == 'random':
@@ -32,94 +30,29 @@ def create_maps(agent_types, agent_type_args, n_nodes, episode):
 
 
 def create_control(
-        n_nodes, n_agents, n_seeds=None, correlated=None, cross_correlated=None,
+        n_nodes, n_agent_types, n_control=None, correlated=None, cross_correlated=None,
         device=None, **kwargs):
-    if n_seeds is None:
+    """
+    Args:
+        control: p, t
+    """
+    if n_control is None:
         return None
     assert (n_nodes is not None)
     assert (correlated is not None)
     assert (cross_correlated is not None)
     if correlated and cross_correlated:
-        c = th.randint(low=0, high=n_seeds, size=(1, 1), device=device).expand(n_nodes, n_agents)
+        c = th.randint(low=0, high=n_control, size=(1, 1), device=device)\
+            .expand(n_nodes, n_agent_types)
     if correlated and not cross_correlated:
-        c = th.randint(low=0, high=n_seeds, size=(1, n_agents), device=device).expand(n_nodes, -1)
+        c = th.randint(low=0, high=n_control, size=(1, n_agent_types),
+                       device=device).expand(n_nodes, -1)
     if not correlated and cross_correlated:
-        c = th.randint(low=0, high=n_seeds, size=(n_nodes, 1), device=device).expand(-1, n_agents)
+        c = th.randint(low=0, high=n_control, size=(n_nodes, 1),
+                       device=device).expand(-1, n_agent_types)
     if not correlated and not cross_correlated:
-        c = th.randint(low=0, high=n_seeds, size=(n_nodes, n_agents), device=device)
+        c = th.randint(low=0, high=n_control, size=(n_nodes, n_agent_types), device=device)
     return c
-
-
-#############################
-
-
-# TODO: mapping of secrets, envstate, ... is missing
-def map_ci_agents(neighbors_states, neighbors_states_mask, ci_ai_map, agent_type, state=None, reward=None,  **other):
-    if agent_type == 'ci':
-        pass
-    elif agent_type == 'ai':
-        _ci_ai_map = ci_ai_map \
-            .unsqueeze(-1) \
-            .unsqueeze(-1) \
-            .unsqueeze(-1) \
-            .repeat(1, 1, *neighbors_states.shape[2:])
-        neighbors_states = th.gather(neighbors_states, 0, _ci_ai_map)
-        neighbors_states_mask = th.gather(neighbors_states_mask, 0, _ci_ai_map[:, :, :, :, 0])
-
-        # TODO: this is temporary
-        if (state is not None) and (state.shape[2] > 1):
-
-            _ci_ai_map = ci_ai_map.unsqueeze(0)\
-                .unsqueeze(-1) \
-                .expand(state.shape[0], -1, -1, state.shape[3])
-            state = th.gather(state, 1, _ci_ai_map)
-        else:
-            state = None
-
-        if reward is not None:
-            _ci_ai_map = ci_ai_map.unsqueeze(0)\
-                .unsqueeze(-1) \
-                .expand(reward.shape[0], -1, -1, reward.shape[3])
-            reward = th.gather(reward, 1, _ci_ai_map)
-        else:
-            reward = None
-    else:
-        raise ValueError(f'Unkown agent_type {agent_type}')
-    return {
-        **other,
-        'neighbors_states': neighbors_states,
-        'neighbors_states_mask': neighbors_states_mask,
-        'state': state,
-        'reward': reward
-    }
-
-
-def shift_obs(tensor_dict, names, block):
-    """
-    """
-    previous = (tensor_dict[n][:, :, :-1] if n not in block else None for n in names)
-    current = (tensor_dict[n][:, :, 1:] if n not in block else None for n in names)
-    return previous, current
-
-
-###############################
-
-# def get_secrets_shape(n_nodes, n_seeds=None, agent_type=None, agent_types=None, **kwargs):
-#     if (n_seeds is not None) and (agent_type in agent_types):
-#         return {'shape': (n_nodes,), 'maxval': n_seeds - 1}
-#     else:
-#         return None
-
-
-# def do_update_secrets(episode_step, secret_period=None, **kwars):
-#     return (secret_period is None) or (episode_step % secret_period == 0) or (episode_step == 0)
-
-
-# def gen_secrets(n_seeds=None, **kwargs):
-#     if (n_seeds is not None):
-#         return True
-#     else:
-#         return False
 
 
 class NetworkGame():
@@ -147,7 +80,7 @@ class NetworkGame():
     def __init__(
             self, *, n_nodes, n_actions, episode_steps, max_history,
             network_period, mapping_period, reward_period,
-            rewards_args, graph_args, secrete_args={},
+            rewards_metrics, graph_args, secrete_args={},
             out_dir=None, device):
         """
         Args:
@@ -158,7 +91,7 @@ class NetworkGame():
             network_period: Period of episodes to resample a new network.
             mapping_period: Period of episodes to remap agents between the two types.
             reward_period: Period of steps to reward agents.
-            rewards_args: Settings for calculation of rewards.
+            rewards_metrics: Settings for calculation of rewards.
             graph_args: Settings for the network creation.
             secrete_args: Settings for calculation of secrets.
             out_dir: Folder to store data.
@@ -176,13 +109,14 @@ class NetworkGame():
         self.reward_period = reward_period
         self.max_history = max_history
         self.graph_args = graph_args
-        self.rewards_args = rewards_args
         self.secrete_args = secrete_args
         self.agent_types = ['ci', 'ai']
         self.agent_types_idx = {'ci': 0, 'ai': 1}
         self.n_nodes = n_nodes
         self.n_actions = n_actions
         self.n_agent_types = len(self.agent_types)
+        self.n_control = self.control_args.get('n_control', 0)
+
         self.episode = -1
         # maximum number of neighbors
         self.max_neighbors = determine_max_degree(n_nodes=n_nodes, **graph_args)
@@ -191,13 +125,14 @@ class NetworkGame():
         if out_dir is not None:
             ensure_dir(out_dir)
         self.init_history()
-        self.agent_map = th.empty((self.n_nodes, self.n_agent_types),
-                                  dtype=th.int64, device=self.device)
+
+        self.reward_vec = create_reward_vec(self.agent_types, self.device, rewards_metrics)
 
         self.info = {
             'n_agent_types': self.n_agent_types,
             'n_actions': self.n_actions,
             'n_nodes': self.n_nodes,
+            'n_control': self.n_control,
             'episode_steps': self.episode_steps,
             'metric_names': self.metric_names,
             'actions': [string.ascii_uppercase[i] for i in range(self.n_actions)],
@@ -210,8 +145,8 @@ class NetworkGame():
     def init_history(self):
         self.history_queue = collections.deque([], maxlen=self.max_history)
         self.step_history = {
-            'state': th.empty((self.max_history, self.episode_steps + 1, self.n_nodes,
-                               self.n_agent_types), dtype=th.int64, device=self.device),  # h s+ p t
+            'actions': th.empty((self.max_history, self.episode_steps + 1, self.n_nodes,
+                                 self.n_agent_types), dtype=th.int64, device=self.device),  # h s+ p t
             'reward': th.empty((self.max_history, self.episode_steps + 1, self.n_nodes,
                                 self.n_agent_types, ), dtype=th.float32, device=self.device),  # h s p t
             'metrics': th.empty((self.max_history, self.episode_steps + 1, self.n_nodes,
@@ -261,7 +196,7 @@ class NetworkGame():
             dtype=th.int64, device=self.device)
 
         # init step
-        self.step(init_actions)
+        return self.step(init_actions)
 
     def step(self, actions):
         self.episode_step += 1
@@ -276,17 +211,30 @@ class NetworkGame():
         else:
             done = False
 
-        self.state = actions
-        self.reward, self.metrics = self.get_rewards()
+        self.actions = actions
+        _actions = self.actions.unsqueeze(0).unsqueeze(0)
+        _neighbors = self.neighbors.unsqueeze(0)
+        _neighbors_mask = self.neighbors_mask.unsqueeze(0)
+
+        _metrics = calc_metrics(_actions, _neighbors, _neighbors_mask)  # h s+ p m t
+
+        _reward = calc_reward(_metrics, self.reward_vec)  # h s+ p t
+        self.metrics = _metrics.squeeze(0).squeeze(0)
+        self.reward = _reward.squeeze(0).squeeze(0)
 
         self.control_int = create_control(
-            n_nodes=self.n_nodes, n_agents=self.n_agents, **self.control_args, device=self.device)
+            n_nodes=self.n_nodes, n_agents=self.n_agents,
+            **self.control_args, device=self.device)  # p t
 
         # add step attributes to history
         for k in self.step_history.keys():
             self.step_history[k][self.current_hist_idx, self.episode_step] = self.__dict__[k]
 
-        return self.reward, done, {}
+        state = {
+            self.__dict__[k]
+            for k in self.step_history.keys()
+        }
+        return state, self.reward,  done
 
     def from_history(self, hist_idx):
         return {
@@ -321,12 +269,11 @@ class NetworkGame():
             self.write_history()
 
     def observe(self):
-        keys = ['state', 'metrics', 'control_int', 'neighbors', 'neighbors_mask', 'agent_map']
+        keys = ['actions', 'metrics', 'control_int', 'neighbors', 'neighbors_mask', 'agent_map']
         return {
             n: self.__dict__[n] for n in keys
         }
 
-    # TODO: End-to-End test
     def sample(self, mode, batch_size, horizon=None, last=False, **kwarg):
         if batch_size > len(self.history_queue):
             return
@@ -343,7 +290,7 @@ class NetworkGame():
 
         hist_idx = th.tensor([self.history_queue[pidx] for pidx in pos_idx], dtype=th.int64)
 
-        keys = ['state', 'metrics', 'control_int', 'neighbors', 'neighbors_mask', 'agent_map']
+        keys = ['actions', 'metrics', 'control_int', 'neighbors', 'neighbors_mask', 'agent_map']
 
         return {
             **{k: v[hist_idx] for k, v in self.episode_history if k in keys},

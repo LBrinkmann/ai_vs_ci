@@ -7,7 +7,7 @@ import torch as th
 import numpy as np
 import pandas as pd
 
-from aci.components.simple_observation_cache import SimpleCache
+from .utils.simple_observation_cache import SimpleCache
 from aci.utils.array_to_df import using_multiindex, map_columns, to_alphabete
 
 
@@ -34,7 +34,8 @@ def create_combinations_map(cache_size, observation_shape, n_actions):
     possible_single_node_traces = list(itertools.product(
         *itertools.repeat(list(range(n_actions)), cache_size)))
 
-    neighbor_pos = itertools.combinations_with_replacement(possible_single_node_traces, n_neighbors)
+    neighbor_pos = itertools.combinations_with_replacement(
+        possible_single_node_traces, n_neighbors)
     self_pos = possible_single_node_traces
     all_possible_obs = itertools.product(self_pos, neighbor_pos)
     lookup = {
@@ -49,10 +50,11 @@ def create_combinations_map(cache_size, observation_shape, n_actions):
 def discretisation(cache_size, observation_shape, n_actions, n_bins, minmax):
     assert len(minmax) == observation_shape[0]
     minmax = np.array(minmax)
-    totrange = minmax[:,1] - minmax[:,0] + 0.0000001
+    totrange = minmax[:, 1] - minmax[:, 0] + 0.0000001
 
     def func(ob):
-        disc = tuple(tuple(int(((oo - minmax[i,0]) / totrange[i]) * n_bins) for j, oo in enumerate(o)) for i, o in enumerate(ob))
+        disc = tuple(tuple(int(((oo - minmax[i, 0]) / totrange[i]) * n_bins)
+                           for j, oo in enumerate(o)) for i, o in enumerate(ob))
         return disc
     return func
 
@@ -60,6 +62,7 @@ def discretisation(cache_size, observation_shape, n_actions, n_bins, minmax):
 def discrete_product(cache_size, observation_shape, n_actions, n_bins, minmax):
     dis = discretisation(cache_size, observation_shape, n_actions, n_bins, minmax)
     lfunc, lookup = create_product_map(cache_size, observation_shape, n_bins)
+
     def func(ob):
         ob = dis(ob)
         return lfunc(ob)
@@ -90,12 +93,14 @@ class TabularQ:
             q_start, obs_map, cache_size, device, share_table=False, map_args={}):
         self.n_actions = n_actions
         self.device = device
-        self.obs_idx_map, self.lookup = MAPS[obs_map](cache_size, observation_shape, n_actions, **map_args)
+        self.obs_idx_map, self.lookup = MAPS[obs_map](
+            cache_size, observation_shape, n_actions, **map_args)
 
         n_q_tables = 1 if share_table else n_agents
         self.q_table = th.ones((n_q_tables, len(self.lookup), n_actions), device=device) * q_start
 
-        print(f'Created lookup table with {len(self.lookup)} entries for each of {n_agents} agents.')
+        print(
+            f'Created lookup table with {len(self.lookup)} entries for each of {n_agents} agents.')
         print(cache_size)
 
         self.n_agents = n_agents
@@ -105,7 +110,7 @@ class TabularQ:
         self.share_table = share_table
 
     def get_q(self, observations, training=False):
-        """ Retrieves q values for all possible actions. 
+        """ Retrieves q values for all possible actions.
 
         If observations are given, they are used. Otherwise last observations are used.
 
@@ -116,7 +121,8 @@ class TabularQ:
             historized_obs = self.cache.add_get(observations)
 
         observations_idx = get_idx(historized_obs, self.obs_idx_map)
-        q_table_idxs = np.zeros(self.n_agents, dtype=int) if self.share_table else np.arange(self.n_agents)
+        q_table_idxs = np.zeros(
+            self.n_agents, dtype=int) if self.share_table else np.arange(self.n_agents)
         q_value = self.q_table[q_table_idxs, observations_idx]
         return q_value
 
@@ -130,14 +136,16 @@ class TabularQ:
         prev_observations_idx = get_idx(self.cache.get(), self.obs_idx_map)
         observations_idx = get_idx(self.cache.add_get(observations), self.obs_idx_map)
 
-        q_table_idxs = np.zeros(self.n_agents, dtype=int) if self.share_table else np.arange(self.n_agents)
+        q_table_idxs = np.zeros(
+            self.n_agents, dtype=int) if self.share_table else np.arange(self.n_agents)
         old_q_values = self.q_table[q_table_idxs, prev_observations_idx, actions]
         next_max_q_val = self.q_table[q_table_idxs, observations_idx].max(-1)[0]
-        new_q_value = (1 - self.alpha) * old_q_values + self.alpha * (rewards + self.gamma * next_max_q_val)
+        new_q_value = (1 - self.alpha) * old_q_values + self.alpha * \
+            (rewards + self.gamma * next_max_q_val)
 
         if self.share_table:
             # currently this is ill behaving. There could be two subagents with the same prev_obs_id and actions, and it
-            # is not clear of which agent the value is taken. 
+            # is not clear of which agent the value is taken.
             self.q_table[0, prev_observations_idx, actions] = new_q_value
         else:
             self.q_table[q_table_idxs, prev_observations_idx, actions] = new_q_value

@@ -7,35 +7,34 @@ Outputs:
     ....
 """
 
-
-# Taken from:
-# https://github.com/pytorch/tutorials/blob/master/intermediate_source/reinforcement_q_learning.py
-
 from itertools import count
 from docopt import docopt
-from aci.components.scheduler import Scheduler, select_action
-
+from aci.scheduler.scheduler import Scheduler
 from aci.envs import ENVIRONMENTS
 from aci.controller import CONTROLLERS
+from aci.observer import OBSERVER
+from aci.controller.selector import eps_greedy
+
 from aci.utils.io import load_yaml
+from aci.utils.random import set_seeds
 import torch as th
 import numpy as np
 import os
-import random
 
 
-def run(envs, controller, scheduler):
+def run(envs, controller, observer, scheduler):
     for episode in scheduler:
         print(f'Start episode {episode["episode"]} in mode {episode["mode"]}.')
         env = envs[episode['mode']]
         run_episode(
             env=env,
             controller=controller,
+            observer=observer,
             **episode)
 
 
-def run_episode(*, episode, env, controller, eps, training, **__):
-    env.init_episode()
+def run_episode(*, episode, env, controller, observer, eps, training, **__):
+    state, rewards, done = env.init_episode()
 
     # initialize episode for all controller
     for agent_type, a_controller in controller.items():
@@ -43,24 +42,31 @@ def run_episode(*, episode, env, controller, eps, training, **__):
 
     for step in count():
         # collect actions of all controller here
-        actions = {}
+        actions = []
         for agent_type, a_controller in controller.items():
-            # Get observations for agent type from environment
-            obs = env.observe(mode=a_controller.observation_mode, agent_type=agent_type)
+            # Get observations for agent type
+            obs = observer[agent_type](state)
+
             # Get q values from controller
             q_values = a_controller.get_q(obs, training=training[agent_type])
+
             # Sample a action
-            selected_action = select_action(q_values=q_values, eps=eps[agent_type])
-            actions[agent_type] = selected_action
+            selected_action = eps_greedy(q_values=q_values, eps=eps[agent_type])
+            actions.append(selected_action)
+        actions = th.stack(actions, dim=-1)
 
         # pass actions to environment and advance by one step
-        rewards, done, info = env.step(actions)
+        state, rewards, done = env.step(actions)
 
-        # allow all controller to update themself
-        for agent_type, a_controller in controller.items():
-            # controller do not get reward directly, but a callback to env.sample
-            a_controller.update(done, env.sample, training=training[agent_type])
         if done:
+            # allow all controller to update themself
+            for agent_type, a_controller in controller.items():
+                if training[agent_type]:
+                    states, actions, rewards = env.sample(
+                        batch_size=a_controller.batch_size, agent_type=agent_type)
+                    observations = observer[agent_type](states)
+                    # controller do not get reward directly, but a callback to env.sample
+                    a_controller.update(observations, actions, rewards, episode)
             break
 
     env.finish_episode()
@@ -69,12 +75,7 @@ def run_episode(*, episode, env, controller, eps, training, **__):
 def _main(*, output_path, agent_types, env_class, env_args, meta,
           run_args={}, scheduler_args, device_name, seed=None):
 
-    # Set seed
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
-        th.manual_seed(seed)
-        th.set_deterministic(True)
+    set_seeds(seed)
 
     # Set threads
     if 'num_threads' in run_args:
@@ -94,18 +95,26 @@ def _main(*, output_path, agent_types, env_class, env_args, meta,
     }
 
     scheduler = Scheduler(**scheduler_args)
+    observer = {
+        name: OBSERVER[args['observer_class']](
+            env_info=envs['train'].info,
+            agent_type=name,
+            **args['observer_args'],
+            device=device)
+        for name, args in agent_types.items()
+    }
+
     controller = {
         name: CONTROLLERS[args['controller_class']](
-            observation_shapes=envs['train'].get_observation_shapes(agent_type=name),
-            n_actions=envs['train'].n_actions,
+            observation_shape=observer[name].shape,
+            env_info=envs['train'].info,
             agent_type=name,
-            n_agents=envs['train'].n_nodes,
             **args['controller_args'],
             device=device)
         for name, args in agent_types.items()
     }
 
-    run(envs, controller, scheduler)
+    run(envs, controller, observer, scheduler)
 
 
 def main():

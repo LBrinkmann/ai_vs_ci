@@ -4,44 +4,31 @@ METRIC_NAMES = [f'{agg}_{m}' for agg in ['ind', 'local', 'avg']
                 for m in ['crosscoordination', 'coordination', 'anticoordination']]
 
 
-def calc_metrics_reward(state, neighbors, neighbors_mask, n_nodes, reward_vec):
-    """
-    Args:
-        state: h s+ p t
-        neighbors: h p n+
-        neighbors_mask: h p n+
-        reward_vec: m t
-    Returns:
-        metrics: h s+ p m t
-        rewards: h s+ p t
-    """
-    metrics = calc_metrics(neighbors_states, neighbors, neighbors_mask)  # h s+ p m t
-    reward = calc_reward(metrics, reward_vec)  # h s+ p t
-    return metrics, reward
-
-
-def create_reward_vec(agent_types, device, **at_metrics):
+def create_reward_vec(agent_types, device, reward_metrics):
     """
     Returns:
-        reward_vec: A 2-D matrix of type `th.float` and shape `[t,m,t']` to map
+        reward_vec: A 3-D matrix of type `th.float` and shape `[t,m,o']` to map
             from the metrics to the reward. `t` is the agent type of the reward,
             `t'` is the agent type of the metric.
     """
     return th.tensor([
-        [at_metrics[at][m] for m in METRIC_NAMES]
-        for at in agent_types
+        [
+            [reward_metrics[t].get(o, {}).get(m, 0) for o in agent_types]
+            for m in METRIC_NAMES
+        ]
+        for t in agent_types
     ], dtype=th.float, device=device)
 
 
 def calc_reward(metrics, reward_vec):
     """
     Args:
-        metrics: h s+ p m t
-        reward_vec: m t
+        metrics: h s+ p m o
+        reward_vec: t m o
     Returns:
         reward: h s+ p t
     """
-    reward = th.einsum('hspmt,mt->hspt', metrics, reward_vec)  # h s+ p t
+    reward = th.einsum('hspmo,tmo->hspt', metrics, reward_vec)  # h s+ p t
     return reward
 
 
@@ -58,7 +45,7 @@ def project_on_neighbors(tensor, neighbors, neighbors_mask):
     _neighbors = neighbors.unsqueeze(1).unsqueeze(-1).expand(-1, s, -1, -1, t)  # h s+ p n+ t
     _neighbors_mask = neighbors_mask.unsqueeze(1).expand(-1, s, -1, -1)  # h s+ p n+
 
-    # note change in index (p -> n`), states will be mapped on neighbors
+    # note change in index (p -> n`), actions will be mapped on neighbors
     nb_tensor = tensor  # h s+ n` t ?
     nb_tensor = nb_tensor.unsqueeze(2)  # h s+ * n` t ?
     nb_tensor = nb_tensor.expand(-1, -1, p, -1, -1)  # h s+ p n` t ?
@@ -72,27 +59,27 @@ def project_on_neighbors(tensor, neighbors, neighbors_mask):
     return nb_tensor  # h s+ p n+ t ?
 
 
-def calc_metrics(state, neighbors, neighbors_mask):
+def calc_metrics(actions, neighbors, neighbors_mask):
     """
     Args:
-        state: h s+ p t
+        actions: h s+ p t
         neighbors: h p n+
         neighbors_mask: h p n+
     Returns:
     """
-    h, s, p, t = state
+    h, s, p, t = actions
 
-    neighbors_states = project_on_neighbors(
-        state, neighbors, neighbors_mask)  # h s+ p n t
+    neighbors_actions = project_on_neighbors(
+        actions, neighbors, neighbors_mask)  # h s+ p n t
 
-    self_cross = state.unsqueeze(-1).expand(-1, -1, -1, -1, t)  # h s+ p t t'
-    other_cross = state.unsqueeze(-2).expand(-1, -1, -1, t, -1)  # h s+ p t t'
+    self_cross = actions.unsqueeze(-1).expand(-1, -1, -1, -1, t)  # h s+ p t t'
+    other_cross = actions.unsqueeze(-2).expand(-1, -1, -1, t, -1)  # h s+ p t t'
     cross_coordination = (self_cross == other_cross).all(-1).type(th.float)  # h s+ p t
 
-    neighbor_coordination = (state.unsqueeze(-2) ==
-                             neighbors_states).all(-2).type(th.float)  # h s+ p t
-    neighbor_anticoordination = (state.unsqueeze(-2) !=
-                                 neighbors_states).all(-2).type(th.float)  # h s+ p t
+    neighbor_coordination = (actions.unsqueeze(-2) ==
+                             neighbors_actions).all(-2).type(th.float)  # h s+ p t
+    neighbor_anticoordination = (actions.unsqueeze(-2) !=
+                                 neighbors_actions).all(-2).type(th.float)  # h s+ p t
     ind_metrics = th.stack([cross_coordination, neighbor_coordination,
                             neighbor_anticoordination], dim=-1)  # h s+ p t m
 

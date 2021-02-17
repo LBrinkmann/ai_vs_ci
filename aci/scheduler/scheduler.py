@@ -1,27 +1,3 @@
-# derived from https://github.com/oxwhirl/pymarl/blob/master/src/components/action_selectors.py
-
-
-import torch as th
-from torch.distributions import Categorical
-import math
-import random
-
-
-def select_action(q_values, eps):
-
-    avail_actions = th.ones_like(q_values)
-
-    masked_q_values = q_values
-    masked_q_values[avail_actions == 0.0] = -float("inf")  # should never be selected!
-
-    random_numbers = th.rand_like(q_values[:, 0])
-    pick_random = (random_numbers < eps).long()
-    random_actions = Categorical(avail_actions.float()).sample().long()
-    picked_actions = pick_random * random_actions + \
-        (1 - pick_random) * masked_q_values.max(dim=-1)[1]
-    return picked_actions
-
-
 class Scheduler():
     def __init__(self, phases, eval_period, eval_setting, episodes):
         self.phases = {p['episode']: p['setting'] for p in phases}
