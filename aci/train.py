@@ -45,7 +45,7 @@ def run_episode(*, episode, env, controller, observer, eps, training, **__):
         actions = []
         for agent_type, a_controller in controller.items():
             # Get observations for agent type
-            obs = observer[agent_type](state)
+            obs = observer[agent_type](**state)
 
             # Get q values from controller
             q_values = a_controller.get_q(obs, training=training[agent_type])
@@ -64,7 +64,7 @@ def run_episode(*, episode, env, controller, observer, eps, training, **__):
                 if training[agent_type]:
                     states, actions, rewards = env.sample(
                         batch_size=a_controller.sample_args, agent_type=agent_type)
-                    observations = observer[agent_type](states)
+                    observations = observer[agent_type](**states)
                     # controller do not get reward directly, but a callback to env.sample
                     a_controller.optimize(observations, actions, rewards)
             break
@@ -72,7 +72,19 @@ def run_episode(*, episode, env, controller, observer, eps, training, **__):
     env.finish_episode()
 
 
-def _main(*, output_path, agent_types, env_class, env_args, meta,
+def get_environment(class_name, **kwargs):
+    return ENVIRONMENTS[class_name](**kwargs)
+
+
+def get_observer(class_name, **kwargs):
+    return OBSERVER[class_name](**kwargs)
+
+
+def get_controller(class_name, **kwargs):
+    return CONTROLLERS[class_name](**kwargs)
+
+
+def _main(*, output_path, environment_args, observer_args, controller_args, meta,
           run_args={}, scheduler_args, device_name, seed=None):
 
     set_seeds(seed)
@@ -88,30 +100,30 @@ def _main(*, output_path, agent_types, env_class, env_args, meta,
 
     # Create train and eval environment
     envs = {
-        tm: ENVIRONMENTS[env_class](
-            **env_args, device=device, out_dir=os.path.join(output_path, 'env', tm)
+        tm: get_environment(
+            **environment_args, device=device, out_dir=os.path.join(output_path, 'env', tm)
         )
         for tm in ['train', 'eval']
     }
 
     scheduler = Scheduler(**scheduler_args)
     observer = {
-        name: OBSERVER[args['observer_class']](
+        name: get_observer(
             env_info=envs['train'].info,
             agent_type=name,
-            **args['observer_args'],
+            **args,
             device=device)
-        for name, args in agent_types.items()
+        for name, args in observer_args.items()
     }
 
     controller = {
-        name: CONTROLLERS[args['controller_class']](
+        name: get_controller(
             observation_shape=observer[name].shape,
             env_info=envs['train'].info,
             agent_type=name,
-            **args['controller_args'],
+            **args,
             device=device)
-        for name, args in agent_types.items()
+        for name, args in controller_args.items()
     }
 
     run(envs, controller, observer, scheduler)

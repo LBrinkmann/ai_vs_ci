@@ -18,6 +18,6 @@ def eps_greedy(q_values, eps):
     # random number which determine whether to take the random action
     random_numbers = th.rand(size=actions_shape)
     select_random = (random_numbers < eps).long()
-    picked_actions = select_random * random_actions + (1 - pick_random) * greedy_actions
+    picked_actions = select_random * random_actions + (1 - select_random) * greedy_actions
 
     return picked_actions

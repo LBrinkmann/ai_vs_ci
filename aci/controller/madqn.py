@@ -1,18 +1,31 @@
 import torch as th
-import numpy as np
-from aci.neural_modules import NETS
 from .mawrapper import MultiAgentWrapper
 
 
-class MADQN:
+def shift_obs(tensor_dict):
+    """
+    Creates previous and current observations.
+
+    Args:
+        tensor_dict: each tensor need to have the episode dimension at second position
+    """
+    previous = {k: v[:, :-1] for k, v in tensor_dict.items()}
+    current = {k: v[:, 1:] for k, v in tensor_dict.items()}
+    return previous, current
+
+
+class MADQN():
     def __init__(
-            self, observation_shapes, n_agents, n_actions, model_args, opt_args,
-            gamma, sample_args, target_update_freq, mix_freq=None, device):
+            self, *, observation_shape, env_info, wrapper_args, model_args, opt_args,
+            gamma, sample_args, target_update_freq, agent_type, mix_freq=None, device):
         self.device = device
+
         self.policy_net = MultiAgentWrapper(
-            observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
+            observation_shape=observation_shape, env_info=env_info, device=device,
+            model_args=model_args, **wrapper_args).to(device)
         self.target_net = MultiAgentWrapper(
-            observation_shapes, n_agents, n_actions, device=device, **model_args).to(device)
+            observation_shape=observation_shape, env_info=env_info, device=device,
+            model_args=model_args, **wrapper_args).to(device)
 
         self.target_net.eval()
         self.optimizer = th.optim.RMSprop(self.policy_net.parameters(), **opt_args)
@@ -20,8 +33,9 @@ class MADQN:
         self.sample_args = sample_args
         self.target_update_freq = target_update_freq
         self.mix_freq = mix_freq
+        self.agent_type = agent_type
 
-    def init_episode(episode, training):
+    def init_episode(self, episode, training):
         if (self.mix_freq is not None) and (episode % self.mix_freq == 0):
             self.policy_net.mix_weights()
         if (episode % self.target_update_freq == 0):
@@ -32,7 +46,7 @@ class MADQN:
 
     def get_q(self, observations):
         with th.no_grad():
-            return self.policy_net(**_observations)
+            return self.policy_net(**observations)
 
     def optimize(self, observations, actions, rewards):
         previous_obs, current_obs = shift_obs(observations)

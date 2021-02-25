@@ -1,37 +1,55 @@
-from aci.envs.network_game import NetworkGame
-from aci.test.utils import load_configs
-from subtests.general import _test_general
-from subtests.obs_shape import _test_obs_shape
-from subtests.neighbors import _test_neighbors_v1, _test_neighbors_v2
-from subtests.sample import _test_sampling_v1, _test_sampling_v2
+import torch as th
+from aci.envs.network_game import create_maps, create_control
 
 
-def test_general():
-    for config in load_configs(['basic'], __file__):
-        _test_general(config)
+def test_create_maps():
+    n_nodes = 1000
+    agent_type_args = {
+        'ci': {'mapping_type': 'random'},
+        'ai': {}
+    }
+    mapping = create_maps(agent_type_args, n_nodes)
+    assert mapping.shape == (n_nodes, len(agent_type_args))
+    assert (mapping[:, 1] == th.arange(n_nodes)).all()
+    assert (mapping[:, 0] != th.arange(n_nodes)).any()
 
 
-def test_env_shape():
-    for config in load_configs(['basic'], __file__):
-        _test_obs_shape(config, 'ai')
-        _test_obs_shape(config, 'ci')
+def test_control():
+    device = th.device('cpu')
+    n_nodes = 10000
+    n_agent_types = 2
+    n_control = 5
 
+    correlated = True
+    cross_correlated = True
+    control = create_control(n_nodes, n_agent_types, n_control,
+                             correlated, cross_correlated, device)
+    assert control.shape == (n_nodes, n_agent_types)
+    assert (control[:, 0] == control[:, 1]).all()
+    assert (control[th.randint(0, n_nodes, (n_nodes,)), 0] ==
+            control[th.randint(0, n_nodes, (n_nodes,)), 0]).all()
 
-def test_neighbors():
-    for config in load_configs(['basic'], __file__):
-        _test_neighbors_v1(config, 'ai')
-        _test_neighbors_v1(config, 'ci')
-        _test_neighbors_v2(config, 'ai')
-        _test_neighbors_v2(config, 'ci')
+    correlated = False
+    cross_correlated = True
+    control = create_control(n_nodes, n_agent_types, n_control,
+                             correlated, cross_correlated, device)
+    assert (control[:, 0] == control[:, 1]).all()
+    assert (control[th.randint(0, n_nodes, (n_nodes,)), 0] !=
+            control[th.randint(0, n_nodes, (n_nodes,)), 0]).any()
 
+    correlated = True
+    cross_correlated = False
+    control = create_control(n_nodes, n_agent_types, n_control,
+                             correlated, cross_correlated, device)
+    assert (control[:, 0] != control[:, 1]).any()
+    assert (control[th.randint(0, n_nodes, (n_nodes,)), 0] ==
+            control[th.randint(0, n_nodes, (n_nodes,)), 0]).all()
 
-def test_sample():
-    for config in load_configs(['basic'], __file__):
-        _test_sampling_v1(config, 'ai')
-        _test_sampling_v1(config, 'ci')
-        _test_sampling_v2(config, 'ai')
-        _test_sampling_v2(config, 'ci')
-
-
-if __name__ == "__main__":
-    test_sample()
+    correlated = False
+    cross_correlated = False
+    control = create_control(n_nodes, n_agent_types, n_control,
+                             correlated, cross_correlated, device)
+    assert control.max() == (n_control - 1)
+    assert (control[:, 0] != control[:, 1]).any()
+    assert (control[th.randint(0, n_nodes, (n_nodes,)), 0] !=
+            control[th.randint(0, n_nodes, (n_nodes,)), 0]).any()

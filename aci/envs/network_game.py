@@ -7,26 +7,31 @@ import numpy as np
 import collections
 import string
 import os
-from .utils.graph import create_graph, determine_max_degree, pad_neighbors
+from .utils.graph import create_graph, determine_max_degree
 from ..utils.io import ensure_dir
 from aci.envs.reward_metrics import calc_metrics, calc_reward, create_reward_vec, METRIC_NAMES
 
 
-def create_map(mapping_type, n_nodes, **_):
+def create_map(n_nodes, mapping_type=None,  **_):
     if mapping_type == 'random':
-        th.randperm(n_nodes)
-    else:
+        return th.randperm(n_nodes)
+    elif mapping_type == 'fixed':
         return th.arange(n_nodes)
+    else:
+        raise ValueError('Unkown mapping type.')
 
 
-def create_maps(agent_type_args, n_nodes, episode):
+def create_maps(agent_type_args, n_nodes):
     """
     Mapping between agent_idx and network position.
+
+    Returns:
+        mapping: A tensor of shape ``
     """
     return th.stack([
         create_map(**ata, n_nodes=n_nodes)
         for ata in agent_type_args.values()
-    ])
+    ], dim=-1)
 
 
 def create_control(
@@ -55,6 +60,21 @@ def create_control(
     return c
 
 
+def pad_neighbors(neighbors, max_degree, device):
+    padded_neighbors = [
+        [i] + n + [-1]*(max_degree - len(n))
+        for i, n in enumerate(neighbors)
+    ]
+    mask = [
+        [False]*(len(n)+1) + [True]*(max_degree - len(n))
+        for i, n in enumerate(neighbors)
+    ]
+    return (
+        th.tensor(padded_neighbors, dtype=th.int64, device=device),
+        th.tensor(mask, dtype=th.bool, device=device)
+    )
+
+
 class NetworkGame():
     """
     An multiagent environment. Agents are placed on a undirected network. On each
@@ -80,7 +100,7 @@ class NetworkGame():
     def __init__(
             self, *, n_nodes, n_actions, episode_steps, max_history,
             network_period, mapping_period,
-            agent_type_args, graph_args, secrete_args={},
+            reward_args, agent_type_args, graph_args, control_args,
             out_dir=None, device):
         """
         Args:
@@ -90,8 +110,9 @@ class NetworkGame():
             max_history: Maximum number of episodes to memorize.
             network_period: Period of episodes to resample a new network.
             mapping_period: Period of episodes to remap agents between the two types.
+            agent_type_args: Settings for each agent type.
+            control_args: Settings for the control integer.
             graph_args: Settings for the network creation.
-            secrete_args: Settings for calculation of secrets.
             out_dir: Folder to store data.
             device: A torch device.
         """
@@ -101,7 +122,6 @@ class NetworkGame():
         self.network_period = network_period
         self.max_history = max_history
         self.graph_args = graph_args
-        self.secrete_args = secrete_args
         self.agent_types = list(agent_type_args.keys())
         self.agent_types_idx = {v: i for i, v in enumerate(self.agent_types)}
         self.agent_type_args = agent_type_args
@@ -111,6 +131,7 @@ class NetworkGame():
         self.n_nodes = n_nodes
         self.n_actions = n_actions
         self.n_agent_types = len(self.agent_types)
+        self.control_args = control_args
         self.n_control = self.control_args.get('n_control', 0)
         # maximum number of neighbors
         self.max_neighbors = determine_max_degree(n_nodes=n_nodes, **graph_args)
@@ -121,13 +142,14 @@ class NetworkGame():
             ensure_dir(out_dir)
         self.init_history()
 
-        self.reward_vec = create_reward_vec(self.agent_type_args, self.device)
+        self.reward_vec = create_reward_vec(reward_args, self.device)
 
         self.info = {
             'n_agent_types': self.n_agent_types,
             'n_actions': self.n_actions,
             'n_nodes': self.n_nodes,
             'n_control': self.n_control,
+            'max_neighbors': self.max_neighbors,
             'episode_steps': self.episode_steps,
             'metric_names': self.metric_names,
             'actions': [string.ascii_uppercase[i] for i in range(self.n_actions)],
@@ -148,7 +170,8 @@ class NetworkGame():
                                  self.n_agent_types, len(self.metric_names)),
                                 dtype=th.float, device=self.device),  # h s+ p t m
             'control_int': th.empty(
-                (self.max_history, self.episode_steps + 1, self.n_nodes), dtype=th.int64, device=self.device)  # h s+ p
+                (self.max_history, self.episode_steps + 1, self.n_nodes, self.n_agent_types),
+                dtype=th.int64, device=self.device)  # h s+ p
         }
         self.episode_history = {
             'episode': th.empty(
@@ -158,7 +181,7 @@ class NetworkGame():
             'neighbors_mask': th.empty(
                 (self.max_history, self.n_nodes, self.max_neighbors + 1), dtype=th.bool, device=self.device),  # h p n+
             'agent_map': th.empty(
-                (self.max_history, self.n_nodes), dtype=th.int64, device=self.device)  # h p
+                (self.max_history, self.n_nodes, self.n_agent_types), dtype=th.int64, device=self.device)  # h p
         }
 
     def init_episode(self):
@@ -169,15 +192,13 @@ class NetworkGame():
         # create new graph (either only on first episode, or every network_period episode)
         if (self.episode == 0) or (
                 (self.network_period > 0) and (self.episode % self.network_period == 0)):
-            self.graph, neighbors, adjacency_matrix, self.graph_info = create_graph(
-                n_nodes=self.n_nodes, **self.graph_args)
-            neighbors, neighbors_mask = pad_neighbors(neighbors, self.max_neighbors)
+            neighbors = create_graph(n_nodes=self.n_nodes, **self.graph_args)
+            neighbors, neighbors_mask = pad_neighbors(neighbors, self.max_neighbors, self.device)
 
         # mapping between network and agents
         if (self.episode == 0) or (
-                (self.network_period > 0) and (self.episode % self.network_period == 0)):
-            agent_map = create_maps(
-                self.agent_types, self.agent_type_args, self.n_nodes, self.episode)
+                (self.mapping_period > 0) and (self.episode % self.mapping_period == 0)):
+            agent_map = create_maps(self.agent_type_args, self.n_nodes)
 
         episode_state = {
             'neighbors': neighbors,
@@ -218,11 +239,13 @@ class NetworkGame():
         }
         neighbors = episode_state['neighbors']
         neighbors_mask = episode_state['neighbors_mask']
+        actions = actions.unsqueeze(0).unsqueeze(0)
+        print(actions.shape, neighbors.shape, neighbors_mask.shape)
         metrics = calc_metrics(actions, neighbors, neighbors_mask)  # h s+ p m t
         reward = calc_reward(metrics, self.reward_vec)
         control_int = create_control(
-            n_nodes=self.n_nodes, n_agents=self.n_agents,
-            **self.control_args, device=self.device).squeeze(0).squeeze(0)  # h s+ p t
+            n_nodes=self.n_nodes, n_agent_types=self.n_agent_types, **self.control_args,
+            device=self.device)  # h s+ p t
 
         step_state = {
             'metrics': metrics,
@@ -232,11 +255,11 @@ class NetworkGame():
         }
 
         # add step attributes to history
-        for k, v in self.step_state.items():
+        for k, v in step_state.items():
             self.step_history[k][self.current_hist_idx, self.episode_step] = v[0, 0]
 
         state = {**step_state, **episode_state}
-        return state, self.reward,  done
+        return state, reward,  done
 
     def from_history(self, hist_idx):
         return {

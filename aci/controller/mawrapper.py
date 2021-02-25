@@ -1,49 +1,41 @@
 from itertools import permutations
 import torch as th
+from aci.utils.tensor_op import map_tensors, map_tensors_back
+from aci.neural_modules import NETS
 
 
-def shift_obs(tensor_dict):
-    """
-    Creates previous and current observations.
-
-    Args:
-        tensor_dict: each tensor need to have the episode dimension at second position
-    """
-    previous = {k: v[:, :-1] for k, v in tensor_dict}
-    current = {k: v[:, 1:] for k, v in tensor_dict}
-    return previous, current
+def apply_permutations(tensor, control_int, permutations):
+    assert control_int.max() < len(permutations), \
+        'Max seed needs to be smaller then the factorial of actions.'
+    permutations = permutations[control_int]
+    tensor = th.gather(tensor, -1, permutations)
+    return tensor
 
 
-def map_agents(agent_map, *tensors):
-    return (th.gather(t, 2, agent_map) for t in tensors)
+def create_permutations(n_actions, device):
+    return th.tensor(list(permutations(range(n_actions))), device=device)
 
 
-def map_agents_back(agent_map, *tensors):
-    agent_map_inv = th.argsort(agent_map, dim=-1)
-    return (th.gather(t, 2, agent_map_inv) for t in tensors)
-
-
-class MultiAgentWrapper(nn.Module):
+class MultiAgentWrapper(th.nn.Module):
     def __init__(
             self, *, weight_sharing, mix_weights_args=None, action_permutation=False, env_info,
-            observation_shape, net_type, **kwargs):
+            observation_shape, net_type, device, model_args):
         super(MultiAgentWrapper, self).__init__()
         self.weight_sharing = weight_sharing
-        self.device = device
         self.mix_weights_args = mix_weights_args
 
-        n_neighbors = env_info['n_neighbors']
+        n_neighbors = env_info['max_neighbors']
         n_actions = env_info['n_actions']
-        n_agents = env_info['n_agents']
+        n_agents = env_info['n_nodes']
 
         view_size = observation_shape['view'][-1]
         control_size = observation_shape['control'][-1]
 
         effective_agents = 1 if self.weight_sharing else n_agents
-        self.models = nn.ModuleList([
+        self.models = th.nn.ModuleList([
             NETS[net_type](
                 n_neighbors=n_neighbors, n_actions=n_actions, view_size=view_size,
-                control_size=control_size, device=device, **kwargs)
+                control_size=control_size, device=device, **model_args)
             for n in range(effective_agents)
         ])
 
@@ -53,15 +45,15 @@ class MultiAgentWrapper(nn.Module):
             for m in self.models:
                 m.load_state_dict(ref_model)
         if action_permutation:
-            self.permutations = th.tensor(list(permutations(range(n_actions))), device=device)
+            self.permutations = create_permutations(n_actions, device)
         else:
             self.permutations = None
 
     def mix_weights(self):
-        if self.mix_weighs_args is not None:
+        if self.mix_weights_args is not None:
             return self._mix_weights(**self.mix_weights_args)
 
-    def _mix_weights(self, noise_factor=0.1, mixing_factor=0.8):
+    def _mix_weights(self, noise_factor, mixing_factor):
         """
         """
         stacked_state_dict = {}
@@ -98,25 +90,24 @@ class MultiAgentWrapper(nn.Module):
         h, s, p, n, i = view.shape
 
         if self.share_weights:
-            _view, _mask, _control = map_agents(agent_map, view, mask, control)
+            _view, _mask, _control = map_tensors(agent_map, view, mask, control)
             q = [
                 model(_view[:, :, i], _mask[:, :, i], _control[:, :, i])
                 for i, model in enumerate(self.models)
             ]
             q = th.stack(q)
-            q = map_agents_back(agent_map, q)
+            assert (h, s, p) == q.shape[-1]
+            q, = map_tensors_back(agent_map, q)
         else:
             q = [
                 self.models[0](view[:, :, i], mask[:, :, i], control[:, :, i])
                 for i in range(p)
             ]
             q = th.stack(q)
+            assert (h, s, p) == q.shape[-1]
 
         if self.permutations is not None:
-            assert control_int.max() < len(self.permutations), \
-                'Max seed needs to be smaller then the factorial of actions.'
-            permutations = self.permutations[control_int]
-            q = th.gather(q, -1, permutations)
+            q = apply_permutations(q, control_int, permutations)
 
         return q
 
