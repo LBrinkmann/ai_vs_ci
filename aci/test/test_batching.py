@@ -1,8 +1,9 @@
 from aci.train import get_environment, get_observer
 import yaml
 import torch as th
+from itertools import count
 
-settings = """
+SETTINGS = """
 environment_args:
     class_name: network_game
     n_nodes: 20
@@ -17,7 +18,7 @@ environment_args:
             connected: True
         graph_args:
             p: 0.2
-            graph_type: erdos_renyi
+        graph_type: erdos_renyi
     reward_args:
         ci:
             local_coordination:
@@ -40,31 +41,30 @@ observer_args:
         neighbor_view_args:
             actions_view: ["ci"]
         control_view_args:
-        metric_view:
-            -   agent_type: ci
-                metric_name: global_coordination
-            -   agent_type: ci
-                metric_name: local_coordination
-        control_view: "ci"
+            metric_view:
+                -   agent_type: ci
+                    metric_name: global_coordination
+                -   agent_type: ci
+                    metric_name: local_coordination
+            control_view: "ci"
     ai:
         class_name: neighbor
         neighbor_view_args:
             actions_view: ["ci"]
 """
 
-BATCH_SIZE = 100
+BATCH_SIZE = 10
 DEVICE = th.device("cpu")
 
 
 def random_action(n_nodes, n_agent_types, n_actions, **_):
-    return th.randint(0, n_actions, (n_nodes, n_agent_types))
+    return th.randint(0, n_actions, (1, 1, n_nodes, n_agent_types), dtype=th.int64, device=DEVICE)
 
 
 def test_sampling():
-    settings = yaml.safe_load(settings)
+    settings = yaml.safe_load(SETTINGS)
 
     env = get_environment(**settings['environment_args'], device=DEVICE)
-    env.init_episode()
     observer = {
         name: get_observer(
             env_info=env.info,
@@ -79,35 +79,57 @@ def test_sampling():
     test_observations = []
 
     for i in range(BATCH_SIZE):
-        env.init_episode()
+        print(env.episode)
+        state, rewards, done = env.init_episode()
+        _test_states = [state]
+        _test_rewards = []
+        _test_actions = []
+        _test_observations = [{
+            name: obs(**state)
+            for name, obs in observer.items()
+        }]
         for j in count():
-            actions = random_action(env.info)
+            actions = random_action(**env.info)
 
             state, rewards, done = env.step(actions)
 
-            test_states.append(state)
-            test_actions.append(actions)
-            test_rewards.append(test_rewards)
-            test_observations.append(
+            _test_states.append(state)
+            _test_actions.append(actions)
+            _test_rewards.append(rewards)
+            _test_observations.append(
                 {
                     name: obs(**state)
                     for name, obs in observer.items()
                 }
             )
+            if done:
+                break
+        test_states.append(_test_states)
+        test_rewards.append(_test_rewards)
+        test_actions.append(_test_actions)
+        test_observations.append(_test_observations)
 
     for atidx, (name, obs) in enumerate(observer.items()):
         states, actions, rewards = env.sample(
             batch_size=BATCH_SIZE, last=True, agent_type=name)
 
-        observations = obs(states)
+        observations = obs(**states)
 
         for i in range(BATCH_SIZE):
-            for k, v in states.items():
-                assert th.allclose(v, test_states[i][k])
-            for k, v in observations.items():
-                assert th.allclose(v, test_states[i][name][k])
-            assert th.allclose(actions, test_actions[i][atidx])
-            assert th.allclose(rewards, test_rewards[i][atidx])
+            sample_idx = BATCH_SIZE - i - 1
+
+            for j in range(env.info['episode_steps']):
+                assert th.allclose(actions[sample_idx, j], test_actions[i][j][0, 0, :, atidx])
+                assert th.allclose(rewards[sample_idx, j], test_rewards[i][j][0, 0, :, atidx])
+                for k in ['neighbors', 'neighbors_mask', 'agent_map']:
+                    assert (states[k][sample_idx] == test_states[i][j][k]).all()
+                for k in ['actions', 'metrics', 'control_int']:
+                    assert (states[k][sample_idx, j] == test_states[i][j][k]).all()
+                for k, v in observations.items():
+                    if v is None:
+                        assert test_observations[i][j][name][k] is None
+                    else:
+                        assert (v[sample_idx, j] == test_observations[i][j][name][k]).all()
 
 
 if __name__ == "__main__":

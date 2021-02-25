@@ -18,9 +18,9 @@ def map_tensor(map_idx, tensor):
 
 
 def map_tensors(map_idx, *tensors):
-    return (map_tensor(map_idx, t) for t in tensors)
+    return (map_tensor(map_idx, t) if t is not None else None for t in tensors)
 
 
 def map_tensors_back(map_idx, *tensors):
     inv_map_idx = th.argsort(map_idx, dim=-1)
-    return (map_tensor(inv_map_idx, t) for t in tensors)
+    return (map_tensor(inv_map_idx, t) if t is not None else None for t in tensors)

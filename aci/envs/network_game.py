@@ -57,7 +57,7 @@ def create_control(
                        device=device).expand(-1, n_agent_types)
     if not correlated and not cross_correlated:
         c = th.randint(low=0, high=n_control, size=(n_nodes, n_agent_types), device=device)
-    return c
+    return c.unsqueeze(0).unsqueeze(0)
 
 
 def pad_neighbors(neighbors, max_degree, device):
@@ -187,18 +187,26 @@ class NetworkGame():
     def init_episode(self):
         self.episode += 1
         self.episode_step = -1
+        if self.episode != 0:
+            prev_hist_idx = self.current_hist_idx
         self.current_hist_idx = self.episode % self.max_history
+        episode_state = {}
 
         # create new graph (either only on first episode, or every network_period episode)
         if (self.episode == 0) or (
                 (self.network_period > 0) and (self.episode % self.network_period == 0)):
             neighbors = create_graph(n_nodes=self.n_nodes, **self.graph_args)
             neighbors, neighbors_mask = pad_neighbors(neighbors, self.max_neighbors, self.device)
+        else:
+            neighbors = self.episode_history['neighbors'][prev_hist_idx]
+            neighbors_mask = self.episode_history['neighbors_mask'][prev_hist_idx]
 
-        # mapping between network and agents
+            # mapping between network and agents
         if (self.episode == 0) or (
                 (self.mapping_period > 0) and (self.episode % self.mapping_period == 0)):
             agent_map = create_maps(self.agent_type_args, self.n_nodes)
+        else:
+            agent_map = self.episode_history['agent_map'][prev_hist_idx]
 
         episode_state = {
             'neighbors': neighbors,
@@ -213,7 +221,7 @@ class NetworkGame():
 
         # random init action
         init_actions = th.tensor(
-            np.random.randint(0, self.n_actions, (self.n_nodes, self.n_agent_types)),
+            np.random.randint(0, self.n_actions, (1, 1, self.n_nodes, self.n_agent_types)),
             dtype=th.int64, device=self.device)
 
         # init step
@@ -225,9 +233,9 @@ class NetworkGame():
         assert actions.max() <= self.n_actions - 1
         assert actions.dtype == th.int64
 
-        if (self.episode_step + 1 == self.episode_steps):
+        if (self.episode_step == self.episode_steps):
             done = True
-        elif self.episode_step >= self.episode_steps:
+        elif self.episode_step > self.episode_steps:
             raise ValueError('Environment is done already.')
         else:
             done = False
@@ -239,8 +247,6 @@ class NetworkGame():
         }
         neighbors = episode_state['neighbors']
         neighbors_mask = episode_state['neighbors_mask']
-        actions = actions.unsqueeze(0).unsqueeze(0)
-        print(actions.shape, neighbors.shape, neighbors_mask.shape)
         metrics = calc_metrics(actions, neighbors, neighbors_mask)  # h s+ p m t
         reward = calc_reward(metrics, self.reward_vec)
         control_int = create_control(
@@ -283,8 +289,8 @@ class NetworkGame():
                     'actions': [string.ascii_uppercase[i] for i in range(self.n_actions)],
                     'agents': [string.ascii_uppercase[i] for i in range(self.n_nodes)],
                     'metric_names': self.metric_names,
-                    **{k: v[:chi]for k, v in self.episode_history},
-                    **{k: v[:chi]for k, v in self.step_history},
+                    **{k: v[:chi]for k, v in self.episode_history.items()},
+                    **{k: v[:chi]for k, v in self.step_history.items()},
                 },
                 filename
             )
@@ -314,11 +320,11 @@ class NetworkGame():
         keys = ['actions', 'metrics', 'control_int', 'neighbors', 'neighbors_mask', 'agent_map']
 
         state = {
-            **{k: v[hist_idx] for k, v in self.episode_history if k in keys},
-            **{k: v[hist_idx] for k, v in self.step_history if k in keys},
+            **{k: v[hist_idx] for k, v in self.episode_history.items() if k in keys},
+            **{k: v[hist_idx] for k, v in self.step_history.items() if k in keys},
         }
-        actions = self.step_history['actions'].select(-1, agent_type_idx)
-        reward = self.step_history['actions'].select(-1, agent_type_idx)
+        actions = self.step_history['actions'][hist_idx].select(-1, agent_type_idx)[:, 1:]
+        reward = self.step_history['reward'][hist_idx].select(-1, agent_type_idx)[:, 1:]
 
         return state, actions, reward
 

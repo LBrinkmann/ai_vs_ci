@@ -16,6 +16,13 @@ def create_permutations(n_actions, device):
     return th.tensor(list(permutations(range(n_actions))), device=device)
 
 
+def save_select(tensor, idx):
+    if tensor is not None:
+        return tensor[:, :, idx]
+    else:
+        return None
+
+
 class MultiAgentWrapper(th.nn.Module):
     def __init__(
             self, *, weight_sharing, mix_weights_args=None, action_permutation=False, env_info,
@@ -89,22 +96,23 @@ class MultiAgentWrapper(th.nn.Module):
         """
         h, s, p, n, i = view.shape
 
-        if self.share_weights:
+        if not self.weight_sharing:
             _view, _mask, _control = map_tensors(agent_map, view, mask, control)
             q = [
-                model(_view[:, :, i], _mask[:, :, i], _control[:, :, i])
+                model(save_select(_view, i), save_select(_mask, i), save_select(_control, i))
                 for i, model in enumerate(self.models)
             ]
-            q = th.stack(q)
-            assert (h, s, p) == q.shape[-1]
+            q = th.stack(q, dim=2)
+            assert (h, s, p) == q.shape[:-1]
             q, = map_tensors_back(agent_map, q)
         else:
             q = [
-                self.models[0](view[:, :, i], mask[:, :, i], control[:, :, i])
+                self.models[0](save_select(view, i), save_select(
+                    mask, i), save_select(control, i))
                 for i in range(p)
             ]
-            q = th.stack(q)
-            assert (h, s, p) == q.shape[-1]
+            q = th.stack(q, dim=2)
+            assert (h, s, p) == q.shape[:-1]
 
         if self.permutations is not None:
             q = apply_permutations(q, control_int, permutations)

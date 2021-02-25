@@ -9,8 +9,8 @@ def shift_obs(tensor_dict):
     Args:
         tensor_dict: each tensor need to have the episode dimension at second position
     """
-    previous = {k: v[:, :-1] for k, v in tensor_dict.items()}
-    current = {k: v[:, 1:] for k, v in tensor_dict.items()}
+    previous = {k: v[:, :-1] if v is not None else None for k, v in tensor_dict.items()}
+    current = {k: v[:, 1:] if v is not None else None for k, v in tensor_dict.items()}
     return previous, current
 
 
@@ -44,7 +44,7 @@ class MADQN():
         self.policy_net.reset()
         self.target_net.reset()
 
-    def get_q(self, observations):
+    def get_q(self, **observations):
         with th.no_grad():
             return self.policy_net(**observations)
 

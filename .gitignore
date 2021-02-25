@@ -8,3 +8,6 @@ temp.png
 
 logs
 tmp
+
+*.gzip
+*.pt

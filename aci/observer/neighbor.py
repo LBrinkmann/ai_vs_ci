@@ -151,8 +151,6 @@ class NeighborView():
         mask = state['neighbors_mask'].unsqueeze(1).expand(-1, s, -1, -1)  # h s+ p n
         agent_map = state['agent_map'][:, :, agent_type_idx].unsqueeze(
             1).expand(-1, s, -1)  # h s+ p
-        import ipdb
-        ipdb.set_trace()
         control_int = state['control_int'][:, :, :, agent_type_idx]  # h s+ p
         return {
             'view': view,   # h s+ p n i

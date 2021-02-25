@@ -5,8 +5,8 @@ params:
   seed: 42
   device_name: cpu
   scheduler_args:
-    episodes: 4
-    eval_period: 2
+    episodes: 100
+    eval_period: 10
     eval_setting:
       eps:
         ci: 0.0
@@ -28,7 +28,7 @@ params:
     n_nodes: 20
     n_actions: 4
     episode_steps: 20
-    max_history: 50
+    max_history: 20
     network_period: 2
     mapping_period: 5
     graph_args:
@@ -77,8 +77,8 @@ params:
       target_update_freq: 2
       mix_freq: 2
       sample_args:
-        batch_size: 2
-        horizon: 3
+        batch_size: 5
+        horizon: 20
       opt_args:
         lr: 0.001
       wrapper_args:
@@ -100,8 +100,8 @@ params:
       gamma: 0.80
       target_update_freq: 2
       sample_args:
-        horizon: 3
-        batch_size: 2
+        batch_size: 5
+        horizon: 20
       opt_args:
         lr: 0.001
       wrapper_args:

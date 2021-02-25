@@ -48,7 +48,7 @@ def run_episode(*, episode, env, controller, observer, eps, training, **__):
             obs = observer[agent_type](**state)
 
             # Get q values from controller
-            q_values = a_controller.get_q(obs, training=training[agent_type])
+            q_values = a_controller.get_q(**obs)
 
             # Sample a action
             selected_action = eps_greedy(q_values=q_values, eps=eps[agent_type])
@@ -62,11 +62,13 @@ def run_episode(*, episode, env, controller, observer, eps, training, **__):
             # allow all controller to update themself
             for agent_type, a_controller in controller.items():
                 if training[agent_type]:
-                    states, actions, rewards = env.sample(
-                        batch_size=a_controller.sample_args, agent_type=agent_type)
-                    observations = observer[agent_type](**states)
-                    # controller do not get reward directly, but a callback to env.sample
-                    a_controller.optimize(observations, actions, rewards)
+                    sample = env.sample(
+                        agent_type=agent_type, **a_controller.sample_args)
+                    if sample is not None:
+                        states, actions, rewards = sample
+                        observations = observer[agent_type](**states)
+                        # controller do not get reward directly, but a callback to env.sample
+                        a_controller.optimize(observations, actions, rewards)
             break
 
     env.finish_episode()
