@@ -1,6 +1,6 @@
 exec:
   command: train
-  script_name: cpu
+  script_name: local
 labels:
   project: ai_vs_ci
   batch: random_erdos_renyi_20

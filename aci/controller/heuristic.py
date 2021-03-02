@@ -2,12 +2,14 @@ from aci.heuristics import HEURISTICS
 
 
 class HeuristicController:
-    def __init__(self, observation_shape, env_info, device, heuristic_name, agent_args):
+    def __init__(self, observation_shape, env_info, device, heuristic_name, agent_args={}, **_):
         self.heuristic = HEURISTICS[heuristic_name](
             observation_shape, **env_info, **agent_args, device=device)
 
-    def get_q(self, observation, training=None):
-        return self.heuristic.get_q(observation)
+    def get_q(self, **view):
+        import ipdb
+        ipdb.set_trace()
+        return self.heuristic.get_q(**view)
 
     def init_episode(self, *_, **__):
         pass

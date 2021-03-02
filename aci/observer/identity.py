@@ -1,5 +1,7 @@
 class IdentityView():
-    def __init__(self, *_, **_):
+    shape = None
+
+    def __init__(self, *_, **__):
         pass
 
     def __call__(self, **state):
