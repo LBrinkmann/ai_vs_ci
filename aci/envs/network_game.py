@@ -99,9 +99,9 @@ class NetworkGame():
 
     def __init__(
             self, *, n_nodes, n_actions, episode_steps, max_history,
-            network_period, mapping_period,
+            network_period=0, mapping_period=0,
             reward_args, agent_type_args, graph_args, control_args,
-            out_dir=None, device):
+            out_dir=None, save_interval, device):
         """
         Args:
             n_nodes: Number of nodes of the network.
@@ -140,6 +140,7 @@ class NetworkGame():
         self.out_dir = out_dir
         if out_dir is not None:
             ensure_dir(out_dir)
+        self.save_interval = save_interval
         self.init_history()
 
         self.reward_vec = create_reward_vec(reward_args, self.device)
@@ -211,7 +212,8 @@ class NetworkGame():
         episode_state = {
             'neighbors': neighbors,
             'neighbors_mask': neighbors_mask,
-            'agent_map': agent_map
+            'agent_map': agent_map,
+            'episode': self.episode
         }
 
         self.history_queue.appendleft(self.current_hist_idx)
@@ -289,8 +291,8 @@ class NetworkGame():
                     'actions': [string.ascii_uppercase[i] for i in range(self.n_actions)],
                     'agents': [string.ascii_uppercase[i] for i in range(self.n_nodes)],
                     'metric_names': self.metric_names,
-                    **{k: v[:chi]for k, v in self.episode_history.items()},
-                    **{k: v[:chi]for k, v in self.step_history.items()},
+                    **{k: v[:chi:self.save_interval] for k, v in self.episode_history.items()},
+                    **{k: v[:chi:self.save_interval] for k, v in self.step_history.items()},
                 },
                 filename
             )

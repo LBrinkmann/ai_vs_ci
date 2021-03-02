@@ -1,0 +1,13 @@
+params:
+  environment_args:
+    reward_args:
+      ci:
+        ind_anticoordination:
+          ci: 1
+        ind_crosscoordination:
+          ci: -1
+      ai:
+        ind_anticoordination:
+          ci: -1
+        ind_crosscoordination:
+          ci: 1

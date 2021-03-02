@@ -3,6 +3,7 @@ import numpy as np
 from functools import reduce
 from itertools import product
 
+
 def single_filter(s, f):
     if isinstance(f, list):
         w = s.isin(f)
@@ -15,7 +16,7 @@ def single_filter(s, f):
 def selector(df, selectors):
     if len(selectors) > 0:
         return reduce(
-            lambda a,b: a & b,
+            lambda a, b: a & b,
             (single_filter(df[k], v) for k, v in selectors.items())
         )
     else:
@@ -85,7 +86,7 @@ def combine_values(df, combine):
 
 
 def merge_dicts(l):
-    return reduce(lambda x,y: {**x, **y}, l, {})
+    return reduce(lambda x, y: {**x, **y}, l, {})
 
 
 def summarize_df(df, name):
@@ -94,6 +95,8 @@ def summarize_df(df, name):
         if df[col].nunique() < 25:
             values = ', '.join(map(str, df[col].unique()))
             print(f'{name} {col} has the values: {values}')
+        else:
+            print(f'{name} {col} has {df[col].nunique()} unique values.')
 
 
 def preprocess(df, combine=None, selectors={}):

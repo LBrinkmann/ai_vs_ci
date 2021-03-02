@@ -27,6 +27,7 @@ def merge_files(files):
         for f in files
     )
 
+
 def merge(run_folder):
     print(f'Start with {run_folder}')
 
@@ -35,8 +36,8 @@ def merge(run_folder):
 
     ensure_dir(out_folder)
 
-    preprocess_folder = os.path.join(run_folder, 'preprocess')
-    files_g = find_files_with_extension(preprocess_folder , ".parquet")
+    preprocess_folder = os.path.join(run_folder, 'post')
+    files_g = find_files_with_extension(preprocess_folder, ".pgzip")
 
     files_g = list(files_g)
     # print(files_g[1])
@@ -47,8 +48,9 @@ def merge(run_folder):
         files = list(files)
         # print(files)
         df = merge_files(files)
-        filename = os.path.join(out_folder, f'{name}.parquet')
+        filename = os.path.join(out_folder, f'{name}.pgzip')
         df.to_parquet(filename)
+
 
 def main():
     arguments = docopt(__doc__)

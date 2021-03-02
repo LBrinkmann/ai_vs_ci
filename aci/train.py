@@ -22,7 +22,7 @@ import numpy as np
 import os
 
 
-def run(envs, controller, observer, scheduler):
+def run(envs, controller, observer, scheduler, device):
     for episode in scheduler:
         print(f'Start episode {episode["episode"]} in mode {episode["mode"]}.')
         env = envs[episode['mode']]
@@ -30,10 +30,11 @@ def run(envs, controller, observer, scheduler):
             env=env,
             controller=controller,
             observer=observer,
+            device=device,
             **episode)
 
 
-def run_episode(*, episode, env, controller, observer, eps, training, **__):
+def run_episode(*, episode, env, controller, observer, eps, training, device, **__):
     state, rewards, done = env.init_episode()
 
     # initialize episode for all controller
@@ -51,7 +52,7 @@ def run_episode(*, episode, env, controller, observer, eps, training, **__):
             q_values = a_controller.get_q(**obs)
 
             # Sample a action
-            selected_action = eps_greedy(q_values=q_values, eps=eps[agent_type])
+            selected_action = eps_greedy(q_values=q_values, eps=eps[agent_type], device=device)
             actions.append(selected_action)
         actions = th.stack(actions, dim=-1)
 
@@ -87,7 +88,7 @@ def get_controller(class_name, **kwargs):
 
 
 def _main(*, output_path, environment_args, observer_args, controller_args, meta,
-          run_args={}, scheduler_args, device_name, seed=None):
+          run_args={}, scheduler_args, save_interval, device_name, seed=None):
 
     set_seeds(seed)
 
@@ -103,7 +104,8 @@ def _main(*, output_path, environment_args, observer_args, controller_args, meta
     # Create train and eval environment
     envs = {
         tm: get_environment(
-            **environment_args, device=device, out_dir=os.path.join(output_path, 'env', tm)
+            **environment_args, device=device, out_dir=os.path.join(output_path, 'env', tm),
+            save_interval=save_interval[tm]
         )
         for tm in ['train', 'eval']
     }
@@ -128,7 +130,7 @@ def _main(*, output_path, environment_args, observer_args, controller_args, meta
         for name, args in controller_args.items()
     }
 
-    run(envs, controller, observer, scheduler)
+    run(envs, controller, observer, scheduler, device)
 
 
 def main():

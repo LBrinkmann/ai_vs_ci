@@ -1,4 +1,4 @@
-"""Usage: train.py RUN_FOLDER
+"""Usage: train.py RUN_FOLDER [IN_FOLDER]
 
 Arguments:
     RUN_FOLDER
@@ -9,136 +9,150 @@ Outputs:
 
 from docopt import docopt
 import os
-import pandas as pd
 import numpy as np
-import multiprocessing
-import itertools
-import re
-import json
+import torch as th
 import networkx as nx
 import matplotlib.pyplot as plt
-from aci.utils.io import load_yaml
+from aci.utils.io import load_yaml, ensure_dir
 from moviepy.editor import ImageSequenceClip
+from aci.post import get_files
 
 
 N_JOBS = 16
 
 
-def ensure_dir(directory):
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-
-def read_file(args):
-    filename, fullfilename = args
-    return (filename, pd.read_parquet(fullfilename))
-
-
-def find_files_with_match(_dir, patter):
-    for root, dirs, files in os.walk(_dir):
-        for file in files:
-            if re.search(patter, file):
-                yield os.path.join(root, file)
-
-
-def load_graph(run_dir, episode, mode):
-    filename = os.path.join(run_dir, 'train', 'envs', f"{mode}.{episode}.json")
-    with open(filename) as json_file:
-        data = json.load(json_file)
-
-    graph = nx.from_edgelist(data['graph']) 
-    graph_pos = nx.spring_layout(graph)
-
-    return graph, graph_pos
-
-
-def make_video(arrays, episode, out_dir, mode):
-    filename = os.path.join(out_dir, f"{mode}.{episode}.mp4")
-    # array = np.stack(arrays, axis=0)
-    clip = ImageSequenceClip(arrays, fps=1)
-    print(filename)
-    clip.write_videofile(filename)
-
-
-
-def make_frame(df_step_actions, df_step_info, out_dir, graph, graph_pos):
-    # import ipdb; ipdb.set_trace()
-
-    episode, episode_step, mode, _ = df_step_actions.index[0]
-
+def make_frame(
+        actions, reward, metrics, agent_types, metric_names, agents, step, graph, graph_pos, mode,
+        episode, **_):
     fig = plt.figure()
 
-    ci_action = df_step_actions.loc[(episode, episode_step, mode, 'ci')]
-    ai_action = df_step_actions.loc[(episode, episode_step, mode, 'ai')]
+    action_0 = actions[:, 0]
+    action_1 = actions[:, 1]
 
-    node_color_ci = [ci_action[i] for i in graph.nodes()]        
-    node_color_ai = ['black' if ai_action[i] == ci_action[i] else 'white' for i in graph.nodes()]
+    ind_coor_idx = metric_names.index('ind_anticoordination')
 
-    is_coordination = df_step_info.loc['ind_coordination'].values
+    node_color_0 = [action_0[i].item() for i in graph.nodes()]
+    node_color_1 = ['black' if action_0[i] == action_1[i] else 'white' for i in graph.nodes()]
+
+    is_coordination = metrics[:, 0, ind_coor_idx]
     coordination_color = ['green' if is_coordination[i] == 1 else 'red' for i in graph.nodes()]
 
-    nx.draw(graph, graph_pos, node_color=node_color_ai, node_size=500)
+    nx.draw(graph, graph_pos, node_color=node_color_1, node_size=500)
 
-    nx.draw(graph, graph_pos, node_color=node_color_ci, node_size=300, edgelist=[])
+    nx.draw(graph, graph_pos, node_color=node_color_0, node_size=300, edgelist=[])
 
     nx.draw(graph, graph_pos, node_color=coordination_color, node_size=30, edgelist=[])
 
-    coordination = df_step_info.loc['avg_coordination'].sum()
-    catches = df_step_info.loc['avg_catch'].sum()
+    reward_0 = reward[:, 0].mean()
+    reward_1 = reward[:, 1].mean()
 
-    plt.text(
-        100, 100, f"{episode_step} CI:AI {coordination}:{catches}", 
-        fontsize=20, color='black'
-    )
+    text = f"{step} {agent_types[0]}:{agent_types[1]} {reward_0}:{reward_1}"
+    print(text)
+    plt.text(100, 100, text, fontsize=20, color='black')
     fig.canvas.draw()
-    plt.savefig(f'tmp/{mode}.{episode}.{episode_step}.png')
+    plt.savefig(f'tmp/{mode}.{episode}.{step}.png')
     data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
     # import ipdb; ipdb.set_trace()
-    # data = np.moveaxis(data, 2, 0)
+    data = np.moveaxis(data, 2, 0)
     plt.close()
+    plt.clf()
     return data
 
 
+def get_graph(neighbors):
+    edgelist = [[i, j.item()] for i, n in enumerate(neighbors[:, 1:]) for j in n if j != -1]
+    graph = nx.from_edgelist(edgelist)
+    graph_pos = nx.spring_layout(graph)
+    return graph, graph_pos
 
-def _main(out_dir, run_dir, period):
-    action_files = find_files_with_match(run_dir, "actions.*parquet")
-    reward_files = find_files_with_match(run_dir, "^rewards.*parquet")
-    info_files = find_files_with_match(run_dir, "^info.*parquet")
-    df_actions = pd.concat(pd.read_parquet(p) for p in action_files)
-    df_reward = pd.concat(pd.read_parquet(p) for p in reward_files)
-    df_info = pd.concat(pd.read_parquet(p) for p in info_files)
 
-    df_index = df_actions.index.to_frame()
-    for mode, e_period in period.items():
-        dfs = df_actions[(df_index['mode'] == mode) & (df_index['episode'] % e_period == 0)]
-        for episode, df_eps_actions in dfs.groupby('episode'):
-            print(f'Start with episode {episode} and mode {mode}.')
-            frames = []
-            graph, graph_pos = load_graph(run_dir, episode, mode)
+def make_video(episode, neighbors, actions, reward, metrics, outdir, mode, **others):
+    filename = os.path.join(outdir, f"{mode}.{episode}.mp4")
+    graph, graph_pos = get_graph(neighbors)
+    array = [
+        make_frame(
+            actions=a, reward=r, metrics=m, graph=graph, step=i, graph_pos=graph_pos, mode=mode,
+            episode=episode, **others)
+        for i, (a, r, m) in enumerate(zip(actions, reward, metrics))
+    ]
+    # import ipdb
+    # ipdb.set_trace()
+    # array = np.stack(frames, axis=0)
+    clip = ImageSequenceClip(array, fps=1)
+    print(filename)
+    clip.write_videofile(filename)
 
-            for episode_step, df_step_actions in df_eps_actions.groupby('episode_step'):
-                df_step_info = df_info.loc[df_step_actions.iloc[0].name[0:3]]
-                # coordination = df_step_info.sum(1)['avg_coordination']
-                # catch = df_step_info.sum(1)['avg_catch']
-                # ind_coordination = df_step_info.loc['avg_coordination'].values
-                # info = {'coordination': coordination, 'catch': catch, 'ind_coordination': ind_coordination}
-                frames.append(make_frame(df_step_actions, df_step_info, out_dir, graph, graph_pos))
-            make_video(frames, episode=episode, mode=mode, out_dir=out_dir)
+
+def select_episodes(episode, mod_episode, **tensor):
+    for i, e in enumerate(episode):
+        if (e % mod_episode) == 0:
+            copy = ['agent_types', 'agents', 'metric_names']
+            select = ['neighbors', 'actions', 'reward', 'metrics', 'agent_map']
+            yield {
+                'episode': e,
+                **{k: tensor[k] for k in copy},
+                **{k: tensor[k][i] for k in select}
+            }
+
+
+def _preprocess_file(
+        filename, mode, labels, outdir, name, mod_episode):
+    tensors = th.load(filename, map_location=th.device('cpu'))
+    ensure_dir(outdir)
+
+    for selected in select_episodes(**tensors,  mod_episode=mod_episode):
+        make_video(**selected, labels=labels, mode=mode, outdir=outdir)
+
+
+def preprocess_file(args):
+    return _preprocess_file(**args)
+
+
+def _main(job_folder, out_folder, video_args, labels, cores=1, seed=None):
+    # Set seed
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        th.manual_seed(seed)
+        th.set_deterministic(True)
+
+    arg_list = [
+        {
+            'mode': mode, 'filename': filename, 'labels': labels,
+            'outdir': outdir, 'name': name, **video_args[mode]
+        }
+        for mode, name, filename, outdir in get_files(job_folder, out_folder)
+        if mode in video_args
+    ]
+
+    if cores == 1:
+        for al in arg_list:
+            preprocess_file(al)
+    else:
+        pool = Pool(cores)
+        pool.map(preprocess_file, arg_list)
 
 
 def main():
     arguments = docopt(__doc__)
-    run_dir = arguments['RUN_FOLDER']
+    run_folder = arguments['RUN_FOLDER']
+    in_folder = arguments['IN_FOLDER']
 
-    parameter_file = os.path.join(run_dir, 'video.yml')
-    out_dir = os.path.join(run_dir, 'video')
+    print(in_folder)
+
+    parameter_file = os.path.join(run_folder, 'video.yml')
+
+    out_folder = os.path.join(run_folder, 'video')
     parameter = load_yaml(parameter_file)
-    ensure_dir(out_dir)
 
-    _main(run_dir=run_dir, out_dir=out_dir, **parameter)
-
+    if in_folder:
+        _main(job_folder=in_folder, out_folder=out_folder, cores=parameter['exec']['cores'],
+              labels=parameter['labels'], **parameter['params'])
+    else:
+        _main(job_folder=run_folder, out_folder=out_folder, cores=1,
+              labels=parameter['labels'], **parameter['params'])
 
 
 if __name__ == "__main__":

@@ -38,7 +38,7 @@ def add_labels(df, labels):
 
 def save_df(df, labels, name, metric_name, outdir):
     df = add_labels(df, labels)
-    filename = os.path.join(outdir, f"{name}.{metric_name}.parquet.gzip")
+    filename = os.path.join(outdir, f"{name}.{metric_name}.pgzip")
     print(f'Save {filename}.')
     df.to_parquet(filename)
 

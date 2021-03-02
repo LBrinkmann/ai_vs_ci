@@ -32,7 +32,10 @@ def match_tuples(actions, pattern_df, agent_types, agents, episode, bin_size, **
 
         # turn tensor in to dataframe, make dims to columns
         tuple_df = tuple_to_multiindex(tuples, ['episode', 'episode_step', 'agent', 'agent_type'])
-        tuple_df['episode'] = tuple_df['episode'].map(pd.Series(episode))
+
+        # have agent and agent_types as strings
+        tuple_df = map_columns(tuple_df, agent_type=agent_types,
+                               agent=agents, episode=episode.tolist())
 
         # to replace the tuple of action_ids with the pattern_id might speed up things
         tuple_df = this_pattern_df[['pattern_id', 'action_ids']].merge(tuple_df)
@@ -43,10 +46,6 @@ def match_tuples(actions, pattern_df, agent_types, agents, episode, bin_size, **
         tuple_df = aggregation(
             tuple_df, quarter_column='episode_step', quarter_name='episode_part', bin_name='episode_bin',
             bin_column='episode', bin_size=bin_size)
-
-        # have agent and agent_types as strings
-        tuple_df = map_columns(
-            tuple_df, agent_type=agent_types, agent=agents)
 
         # adding total count of all agents
         tuple_df = add_all(

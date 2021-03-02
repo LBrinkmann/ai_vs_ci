@@ -10,7 +10,12 @@ def using_multiindex(A, columns, value_name='value'):
 
 def map_columns(df, **map_columns):
     for col, names in map_columns.items():
-        df[col] = df[col].map({idx: name for idx, name in enumerate(names)}).astype('category')
+        df[col] = df[col].map({idx: name for idx, name in enumerate(names)})
+        # only make non numeric names to category
+        try:
+            int(names[0])
+        except:
+            df[col] = df[col].astype('category')
     return df
 
 

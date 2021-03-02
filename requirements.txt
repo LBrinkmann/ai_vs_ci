@@ -1,6 +1,4 @@
 gym
-torch==1.7.1
-torchvision
 Pillow
 docopt
 PyYAML
@@ -14,7 +12,9 @@ openpyxl
 # dvc
 # boto3
 pyarrow
-torch_geometric
+# torch_geometric
+# torch==1.7.1
+# torchvision
 
 # python -c "import torch; print(torch.__version__)"
 # python -c "import torch; print(torch.version.cuda)"

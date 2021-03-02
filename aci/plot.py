@@ -21,12 +21,18 @@ from aci.utils.io import load_yaml, ensure_dir
 
 
 def _plot(args):
-    plot(args[1].dfs, **args[0])
+    try:
+        plot(args[1].dfs, **args[0])
+    except Exception as e:
+        title = ' | '.join(f"{k}:{v}" for k, v in args[0]
+                           ['selectors'].items() if not isinstance(v, list))
+        print(f'Error plotting {title}.')
+        print(e)
 
 
 def plot(
-    dfs, filename, output_path, name, selectors, x, y, grid=[], baseline=None,
-    hue=None, style=None, idx=None):
+        dfs, filename, output_path, name, selectors, x, y, grid=[], baseline=None,
+        hue=None, style=None, idx=None):
 
     df = dfs[filename]
     w = selector(df, selectors)
@@ -48,19 +54,24 @@ def plot(
     groupby = [c for c in (grid + [hue, style, x]) if c is not None]
 
     dfs = dfs.dropna(subset=groupby)
-    w_baseline = dfs[baseline['column']] == baseline['value']
-    df_wo_baseline = dfs[~w_baseline]
+    if baseline is not None:
+        w_baseline = dfs[baseline['column']] == baseline['value']
+        df_wo_baseline = dfs[~w_baseline]
+    else:
+        df_wo_baseline = dfs
     df_dup = df_wo_baseline.duplicated(subset=groupby, keep=False)
     if df_dup.any():
         dup = df_wo_baseline[df_dup].sort_values(groupby)
         print(dup.head())
         diff = dup.iloc[0] != dup.iloc[1]
-        print(df_nb.loc[:,diff])
+        print(dup.loc[:, diff])
+        # import ipdb
+        # ipdb.set_trace()
         raise ValueError('There are doublicates.')
 
     grid.sort(key=lambda l: dfs[l].nunique())
 
-    grid = {n: g for g, n in zip(grid[::-1], ['col','row'])}
+    grid = {n: g for g, n in zip(grid[::-1], ['col', 'row'])}
 
     grid_order = {
         f'{k}_order': sorted([n for n in dfs[v].unique() if not pd.isnull(n)])
@@ -77,7 +88,6 @@ def plot(
         f'{k}_order': sorted([n for n in dfs[v].unique() if not pd.isnull(n)])
         for k, v in other.items()
     }
-
 
     grid = sns.FacetGrid(
         data=dfs,
@@ -108,20 +118,23 @@ def plot(
 
 
 def single_plot(data, baseline, x, y, color, *args, **kwargs):
-    w_baseline = data[baseline['column']] == baseline['value']
-    baseline_data = data[w_baseline]
-    other_data = data[~w_baseline]
+    if baseline is not None:
+        w_baseline = data[baseline['column']] == baseline['value']
+        baseline_data = data[w_baseline]
+        other_data = data[~w_baseline]
 
-    sns.lineplot(
-        data=baseline_data,
-        x=x,
-        y=y,
-        *args,
-        **kwargs,
-        color='gray',
-        lw=0.5,
-        ci=None
-    )
+        sns.lineplot(
+            data=baseline_data,
+            x=x,
+            y=y,
+            *args,
+            **kwargs,
+            color='gray',
+            lw=0.5,
+            ci=None
+        )
+    else:
+        other_data = data
     sns.lineplot(
         data=other_data,
         x=x,
@@ -145,7 +158,7 @@ def create_plots_args(dfs, plots, **kwargs):
             yield plot_args
 
 
-def _main(*, input_files, clean, preprocess_args=None, plots, output_path):
+def _main(*, input_files, clean, preprocess_args=None, cores=1, plots, output_path):
     if clean:
         shutil.rmtree(output_path, ignore_errors=True)
     ensure_dir(output_path)
@@ -171,13 +184,16 @@ def _main(*, input_files, clean, preprocess_args=None, plots, output_path):
     mgr = Manager()
     ns = mgr.Namespace()
     ns.dfs = dfs
-    pool = Pool(20)
 
     # print(plot_args[0])
     # print(plot_args[1])
-
     data_args = list(zip(plot_args, [ns]*len(plot_args)))
-    pool.map(_plot, data_args)
+    if cores > 1:
+        pool = Pool(cores)
+        pool.map(_plot, data_args)
+    else:
+        for da in data_args:
+            _plot(da)
     # _plot(data_args[0])
     # _plot(data_args[1])
 
