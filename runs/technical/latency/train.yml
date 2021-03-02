@@ -3,34 +3,43 @@ exec:
   script_name: gpu
 labels:
   project: ai_vs_ci
-  batch: madqn_on_off
+  batch: learning_latency
 grid:
-  - - params.controller_args.ci.mix_freq: null
-      params.controller_args.ci.weight_sharing: false
-      labels.mix_freq: no_mixing
-    - params.controller_args.ci.mix_freq: 1
-      params.controller_args.ci.weight_sharing: false
-      labels.mix_freq: one
-    - params.controller_args.ci.mix_freq: 5
-      params.controller_args.ci.weight_sharing: false
-      labels.mix_freq: five
-    - params.controller_args.ci.mix_freq: 50
-      params.controller_args.ci.weight_sharing: false
-      labels.mix_freq: fifty
-    - params.controller_args.ci.mix_freq: 1000
-      params.controller_args.ci.weight_sharing: false
-      labels.mix_freq: thousand
-    - params.controller_args.ci.mix_freq: null
-      params.controller_args.ci.weight_sharing: true
-      labels.mix_freq: shared
+  - - params.controller_args.ci.target_update_freq: 1
+      params.controller_args.ci.sample_args.batch_size: 1
+      params.controller_args.ci.sample_args.horizon: 1
+      labels.stabilizing: quick
+    - params.controller_args.ci.target_update_freq: 10
+      params.controller_args.ci.sample_args.batch_size: 1
+      params.controller_args.ci.sample_args.horizon: 1
+      labels.stabilizing: small
+    - params.controller_args.ci.target_update_freq: 10
+      params.controller_args.ci.sample_args.batch_size: 10
+      params.controller_args.ci.sample_args.horizon: 50
+      labels.stabilizing: medium
+    - params.controller_args.ci.target_update_freq: 100
+      params.controller_args.ci.sample_args.batch_size: 10
+      params.controller_args.ci.sample_args.horizon: 50
+      labels.stabilizing: slow_update
+    - params.controller_args.ci.target_update_freq: 10
+      params.controller_args.ci.sample_args.batch_size: 40
+      params.controller_args.ci.sample_args.horizon: 100
+      labels.stabilizing: big_batch
+    - params.controller_args.ci.target_update_freq: 10
+      params.controller_args.ci.sample_args.batch_size: 10
+      params.controller_args.ci.sample_args.horizon: 500
+      labels.stabilizing: far_horizon
   - params.controller_args.ci.opt_args.lr: [0.001, 0.0003, 0.0001]
     params.controller_args.ai.opt_args.lr: [0.001, 0.0003, 0.0001]
     labels.lr: [0.001, 0.0003, 0.0001]
 params:
-  seed: 42
-  device_name: cpu
+  seed: null
+  device_name: cuda
+  save_interval:
+    train: 10
+    eval: 1
   scheduler_args:
-    episodes: 25000
+    episodes: 15000
     eval_period: 10
     eval_setting:
       eps:
@@ -48,7 +57,7 @@ params:
           training:
             ci: true
             ai: false
-      - episode: 5000
+      - episode: 3000
         setting:
           eps:
             ci: 0.1
@@ -56,7 +65,7 @@ params:
           training:
             ci: false
             ai: true
-      - episode: 10000
+      - episode: 6000
         setting:
           eps:
             ci: 0.1
@@ -64,7 +73,7 @@ params:
           training:
             ci: true
             ai: false
-      - episode: 15000
+      - episode: 9000
         setting:
           eps:
             ci: 0.1
@@ -72,22 +81,21 @@ params:
           training:
             ci: false
             ai: true
-      - episode: 20000
+      - episode: 12000
         setting:
           eps:
             ci: 0.1
             ai: 0.1
           training:
             ci: true
-            ai: false
+            ai: true
   environment_args:
     class_name: network_game
     n_nodes: 20
     n_actions: 4
     episode_steps: 20
     max_history: 5000
-    network_period: 2
-    mapping_period: 5
+    network_period: 1
     graph_args:
       constrains:
         max_max_degree: 8
@@ -120,13 +128,6 @@ params:
       class_name: neighbor
       neighbor_view_args:
         actions_view: ["ci"]
-      # control_view_args:
-      #   metric_view:
-      #     - agent_type: ci
-      #       metric_name: global_coordination
-      #     - agent_type: ci
-      #       metric_name: local_coordination
-      # control_view: "ci"
     ai:
       class_name: neighbor
       neighbor_view_args:
@@ -135,15 +136,14 @@ params:
     ai:
       class_name: madqn
       gamma: 0.80
-      target_update_freq: 10
-      mix_freq: null
+      target_update_freq: 2
       sample_args:
-        batch_size: 10
-        horizon: 20
+        batch_size: 5
+        horizon: 100
       opt_args:
         lr: 0.001
       wrapper_args:
-        weight_sharing: true
+        weight_sharing: false
         net_type: pooling_gru
       model_args:
         linear1: true
@@ -155,19 +155,14 @@ params:
     ci:
       class_name: madqn
       gamma: 0.80
-      target_update_freq: 10
-      mix_freq: null
+      target_update_freq: 2
       sample_args:
-        batch_size: 10
-        horizon: 20
+        batch_size: 5
+        horizon: 100
       opt_args:
         lr: 0.001
       wrapper_args:
-        weight_sharing: false
-        mix_weights_args:
-          noise_factor: 0.0
-          mixing_factor: 1.0
-        # action_permutation: False
+        weight_sharing: True
         net_type: pooling_gru
       model_args:
         linear1: true

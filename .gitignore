@@ -12,3 +12,9 @@ tmp
 
 *.gzip
 *.pt
+
+*/**/post
+*/**/merge
+*/**/train
+*/**/video
+*/**/plot

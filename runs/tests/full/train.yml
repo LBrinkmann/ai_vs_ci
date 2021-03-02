@@ -2,8 +2,10 @@ labels:
   project: ai_vs_ci
   batch: test_full
 params:
-  seed: 42
   device_name: cpu
+  save_interval:
+    train: 1
+    eval: 1
   scheduler_args:
     episodes: 100
     eval_period: 10
