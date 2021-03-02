@@ -1,5 +1,7 @@
 from .neighbor import NeighborView
+from .identity import IdentityView
 
 OBSERVER = {
-    "neighbor": NeighborView
+    "neighbor": NeighborView,
+    "identity": IdentityView
 }

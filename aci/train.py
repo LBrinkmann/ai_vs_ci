@@ -69,7 +69,7 @@ def run_episode(*, episode, env, controller, observer, eps, training, device, **
                         states, actions, rewards = sample
                         observations = observer[agent_type](**states)
                         # controller do not get reward directly, but a callback to env.sample
-                        a_controller.optimize(observations, actions, rewards)
+                        a_controller.update(observations, actions, rewards)
             break
 
     env.finish_episode()

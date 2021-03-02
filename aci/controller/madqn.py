@@ -48,7 +48,7 @@ class MADQN():
         with th.no_grad():
             return self.policy_net(**observations)
 
-    def optimize(self, observations, actions, rewards):
+    def update(self, observations, actions, rewards):
         previous_obs, current_obs = shift_obs(observations)
 
         self.policy_net.reset()

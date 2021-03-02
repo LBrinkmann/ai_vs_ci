@@ -16,5 +16,5 @@ tmp
 */**/post
 */**/merge
 */**/train
-*/**/video
-*/**/plot
+# */**/video
+# */**/plot

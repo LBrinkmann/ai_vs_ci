@@ -16,9 +16,7 @@ import matplotlib.pyplot as plt
 from aci.utils.io import load_yaml, ensure_dir
 from moviepy.editor import ImageSequenceClip
 from aci.post import get_files
-
-
-N_JOBS = 16
+from multiprocessing import Manager, Pool
 
 
 def make_frame(
@@ -32,10 +30,13 @@ def make_frame(
     ind_coor_idx = metric_names.index('ind_anticoordination')
 
     node_color_0 = [action_0[i].item() for i in graph.nodes()]
-    node_color_1 = ['black' if action_0[i] == action_1[i] else 'white' for i in graph.nodes()]
+    node_color_1 = [action_1[i].item() for i in graph.nodes()]
 
     is_coordination = metrics[:, 0, ind_coor_idx]
     coordination_color = ['green' if is_coordination[i] == 1 else 'red' for i in graph.nodes()]
+    catch_color = ['black' if action_0[i] == action_1[i] else 'white' for i in graph.nodes()]
+
+    nx.draw(graph, graph_pos, node_color=catch_color, node_size=600)
 
     nx.draw(graph, graph_pos, node_color=node_color_1, node_size=500)
 
@@ -55,7 +56,7 @@ def make_frame(
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
     # import ipdb; ipdb.set_trace()
-    data = np.moveaxis(data, 2, 0)
+    # data = np.moveaxis(data, 2, 0)
     plt.close()
     plt.clf()
     return data
@@ -80,9 +81,11 @@ def make_video(episode, neighbors, actions, reward, metrics, outdir, mode, **oth
     # import ipdb
     # ipdb.set_trace()
     # array = np.stack(frames, axis=0)
+    # import ipdb
+    # ipdb.set_trace()
     clip = ImageSequenceClip(array, fps=1)
     print(filename)
-    clip.write_videofile(filename)
+    clip.write_videofile(filename, codec='mpeg4')
 
 
 def select_episodes(episode, mod_episode, **tensor):
@@ -97,7 +100,7 @@ def select_episodes(episode, mod_episode, **tensor):
             }
 
 
-def _preprocess_file(
+def _make_videos(
         filename, mode, labels, outdir, name, mod_episode):
     tensors = th.load(filename, map_location=th.device('cpu'))
     ensure_dir(outdir)
@@ -106,17 +109,11 @@ def _preprocess_file(
         make_video(**selected, labels=labels, mode=mode, outdir=outdir)
 
 
-def preprocess_file(args):
-    return _preprocess_file(**args)
+def make_videos(args):
+    return _make_videos(**args)
 
 
-def _main(job_folder, out_folder, video_args, labels, cores=1, seed=None):
-    # Set seed
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
-        th.manual_seed(seed)
-        th.set_deterministic(True)
+def _main(job_folder, out_folder, video_args, labels, cores=1):
 
     arg_list = [
         {
@@ -129,10 +126,10 @@ def _main(job_folder, out_folder, video_args, labels, cores=1, seed=None):
 
     if cores == 1:
         for al in arg_list:
-            preprocess_file(al)
+            make_videos(al)
     else:
         pool = Pool(cores)
-        pool.map(preprocess_file, arg_list)
+        pool.map(make_videos, arg_list)
 
 
 def main():
