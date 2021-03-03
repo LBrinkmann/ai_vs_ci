@@ -35,41 +35,39 @@ def run(envs, controller, observer, scheduler, device):
 
 
 def run_episode(*, episode, env, controller, observer, eps, training, device, **__):
-    state, rewards, done = env.init_episode()
+    actions, state, rewards = env.init_episode()
 
     # initialize episode for all controller
+    observations = {}
     for agent_type, a_controller in controller.items():
-        a_controller.init_episode(episode, training[agent_type])
+        observations[agent_type] = observer[agent_type](**state)
+        a_controller.init_episode(
+            observation=observations[agent_type], action=actions[agent_type],
+            reward=rewards[agent_type], episode=episode)
 
     for step in count():
         # collect actions of all controller here
-        actions = []
-        for agent_type, a_controller in controller.items():
-            # Get observations for agent type
-            obs = observer[agent_type](**state)
 
+        for agent_type, a_controller in controller.items():
             # Get q values from controller
-            q_values = a_controller.get_q(**obs)
+            q_values = a_controller.get_q(**observations[agent_type])
 
             # Sample a action
             selected_action = eps_greedy(q_values=q_values, eps=eps[agent_type], device=device)
-            actions.append(selected_action)
-        actions = th.stack(actions, dim=-1)
+            actions[agent_type] = selected_action
 
         # pass actions to environment and advance by one step
         state, rewards, done = env.step(actions)
 
+        for agent_type, a_controller in controller.items():
+            observations[agent_type] = observer[agent_type](**state)
+
+            # allow controller to update
+            if training[agent_type]:
+                a_controller.update(
+                    observations[agent_type], actions[agent_type], rewards[agent_type], done,
+                    step=step, episode=episode)
         if done:
-            # allow all controller to update themself
-            for agent_type, a_controller in controller.items():
-                if training[agent_type]:
-                    sample = env.sample(
-                        agent_type=agent_type, **a_controller.sample_args)
-                    if sample is not None:
-                        states, actions, rewards = sample
-                        observations = observer[agent_type](**states)
-                        # controller do not get reward directly, but a callback to env.sample
-                        a_controller.update(observations, actions, rewards)
             break
 
     env.finish_episode()

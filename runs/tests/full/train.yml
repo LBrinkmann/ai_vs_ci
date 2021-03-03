@@ -79,6 +79,7 @@ params:
       target_update_freq: 2
       mix_freq: 2
       sample_args:
+        sample_type: random
         batch_size: 5
         horizon: 20
       opt_args:
@@ -102,6 +103,7 @@ params:
       gamma: 0.80
       target_update_freq: 2
       sample_args:
+        sample_type: random
         batch_size: 5
         horizon: 20
       opt_args:

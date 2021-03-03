@@ -14,7 +14,7 @@ NEIGHBOR = th.tensor([
 MASK = NEIGHBOR == -1
 
 ACTIONS = th.tensor([
-    [0, 0], [1, 0], [2, 1], [2, 2], [2, 2]
+    [0, 0], [1, 1], [2, 1], [2, 2], [2, 2]
 ]).unsqueeze(0).unsqueeze(0)
 
 H, S, P, T = ACTIONS.shape
@@ -121,4 +121,7 @@ def test_calc_reward():
 
 
 if __name__ == "__main__":
+    test_project_on_neighbors()
+    test_calc_metrics()
+    test_create_reward_vec()
     test_calc_reward()

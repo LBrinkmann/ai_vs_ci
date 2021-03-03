@@ -2,6 +2,8 @@ import torch as th
 
 from aci.controller.selector import eps_greedy
 
+DEVICE = th.device('cpu')
+
 
 def test_eps_greedy():
     size = 10000
@@ -14,7 +16,7 @@ def test_eps_greedy():
 
     q = q.unsqueeze(0).expand(6, -1, -1)
 
-    action = eps_greedy(q, eps)
+    action = eps_greedy(q, eps, device=DEVICE)
 
     ref_int = ref_int.unsqueeze(0).expand(6, -1)
     match = (action == ref_int).float().mean()
@@ -22,3 +24,7 @@ def test_eps_greedy():
 
     assert miss > expected_range[0]
     assert miss < expected_range[1]
+
+
+if __name__ == "__main__":
+    test_eps_greedy()

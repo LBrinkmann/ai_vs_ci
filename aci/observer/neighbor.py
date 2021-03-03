@@ -152,10 +152,11 @@ class NeighborView():
         agent_map = state['agent_map'][:, :, agent_type_idx].unsqueeze(
             1).expand(-1, s, -1)  # h s+ p
         control_int = state['control_int'][:, :, :, agent_type_idx]  # h s+ p
-        return {
+        view = {
             'view': view,   # h s+ p n i
             'control': control,  # h s+ p c
             'mask': mask,  # h s+ p n
             'agent_map': agent_map,  # h s+ p
             'control_int': control_int  # h s+ p
         }
+        return {k: v for k, v in view.items() if v is not None}

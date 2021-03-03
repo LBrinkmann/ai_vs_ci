@@ -4,10 +4,10 @@ Graph Coloring Environment
 
 import torch as th
 import numpy as np
-import collections
 import string
 import os
 from .utils.graph import create_graph, determine_max_degree
+from aci.utils.memory import Memory
 from ..utils.io import ensure_dir
 from aci.envs.reward_metrics import calc_metrics, calc_reward, create_reward_vec, METRIC_NAMES
 
@@ -140,8 +140,12 @@ class NetworkGame():
         self.out_dir = out_dir
         if out_dir is not None:
             ensure_dir(out_dir)
+
+        self.episode_history = Memory(max_history, None, device)
+        self.step_history = Memory(max_history, episode_steps+1, device)
         self.save_interval = save_interval
-        self.init_history()
+        self.episode_state = {}
+        self.step_state = {}
 
         self.reward_vec = create_reward_vec(reward_args, self.device)
 
@@ -159,77 +163,48 @@ class NetworkGame():
             'metric_names': self.metric_names,
         }
 
-    # untested
-    def init_history(self):
-        self.history_queue = collections.deque([], maxlen=self.max_history)
-        self.step_history = {
-            'actions': th.empty((self.max_history, self.episode_steps + 1, self.n_nodes,
-                                 self.n_agent_types), dtype=th.int64, device=self.device),  # h s+ p t
-            'reward': th.empty((self.max_history, self.episode_steps + 1, self.n_nodes,
-                                self.n_agent_types, ), dtype=th.float32, device=self.device),  # h s p t
-            'metrics': th.empty((self.max_history, self.episode_steps + 1, self.n_nodes,
-                                 self.n_agent_types, len(self.metric_names)),
-                                dtype=th.float, device=self.device),  # h s+ p t m
-            'control_int': th.empty(
-                (self.max_history, self.episode_steps + 1, self.n_nodes, self.n_agent_types),
-                dtype=th.int64, device=self.device)  # h s+ p
-        }
-        self.episode_history = {
-            'episode': th.empty(
-                (self.max_history,), dtype=th.int64, device=self.device),  # h
-            'neighbors': th.empty(
-                (self.max_history, self.n_nodes, self.max_neighbors + 1), dtype=th.int64, device=self.device),  # h p n+
-            'neighbors_mask': th.empty(
-                (self.max_history, self.n_nodes, self.max_neighbors + 1), dtype=th.bool, device=self.device),  # h p n+
-            'agent_map': th.empty(
-                (self.max_history, self.n_nodes, self.n_agent_types), dtype=th.int64, device=self.device)  # h p
-        }
-
     def init_episode(self):
         self.episode += 1
         self.episode_step = -1
-        if self.episode != 0:
-            prev_hist_idx = self.current_hist_idx
-        self.current_hist_idx = self.episode % self.max_history
-        episode_state = {}
+        self.episode_state['episode'] = th.tensor(
+            self.episode, dtype=th.int64, device=self.device).unsqueeze(0)
 
         # create new graph (either only on first episode, or every network_period episode)
         if (self.episode == 0) or (
                 (self.network_period > 0) and (self.episode % self.network_period == 0)):
             neighbors = create_graph(n_nodes=self.n_nodes, **self.graph_args)
             neighbors, neighbors_mask = pad_neighbors(neighbors, self.max_neighbors, self.device)
-        else:
-            neighbors = self.episode_history['neighbors'][prev_hist_idx]
-            neighbors_mask = self.episode_history['neighbors_mask'][prev_hist_idx]
+            self.episode_state['neighbors'] = neighbors.unsqueeze(0)
+            self.episode_state['neighbors_mask'] = neighbors_mask.unsqueeze(0)
 
             # mapping between network and agents
         if (self.episode == 0) or (
                 (self.mapping_period > 0) and (self.episode % self.mapping_period == 0)):
-            agent_map = create_maps(self.agent_type_args, self.n_nodes)
-        else:
-            agent_map = self.episode_history['agent_map'][prev_hist_idx]
+            self.episode_state['agent_map'] = create_maps(
+                self.agent_type_args, self.n_nodes).unsqueeze(0)
 
-        episode_state = {
-            'neighbors': neighbors,
-            'neighbors_mask': neighbors_mask,
-            'agent_map': agent_map,
-            'episode': self.episode
-        }
-
-        self.history_queue.appendleft(self.current_hist_idx)
-        # add episode attributes to history
-        for k, v in episode_state.items():
-            self.episode_history[k][self.current_hist_idx] = v
+        self.episode_history.start_episode(self.episode)
+        self.step_history.start_episode(self.episode)
+        # squeezed_episode_state = {
+        #     k: v.squeeze(0) for k, v in self.step_state.items()
+        # }
+        self.episode_history.add(self.step_state)
 
         # random init action
-        init_actions = th.tensor(
-            np.random.randint(0, self.n_actions, (1, 1, self.n_nodes, self.n_agent_types)),
-            dtype=th.int64, device=self.device)
+        init_actions = {
+            at: th.tensor(
+                np.random.randint(0, self.n_actions, (1, 1, self.n_nodes)),
+                dtype=th.int64, device=self.device
+            )
+            for at in self.agent_types
+        }
 
         # init step
-        return self.step(init_actions)
+        return (init_actions, *self.step(init_actions)[:2])
 
     def step(self, actions):
+        actions = th.stack([actions[at] for at in self.agent_types], dim=-1)
+
         self.episode_step += 1
 
         assert actions.max() <= self.n_actions - 1
@@ -242,13 +217,9 @@ class NetworkGame():
         else:
             done = False
 
-        episode_state = {
-            k: v[[self.current_hist_idx]]
-            for k, v in self.episode_history.items()
-            if v is not None
-        }
-        neighbors = episode_state['neighbors']
-        neighbors_mask = episode_state['neighbors_mask']
+        neighbors = self.episode_state['neighbors']
+        neighbors_mask = self.episode_state['neighbors_mask']
+
         metrics = calc_metrics(actions, neighbors, neighbors_mask)  # h s+ p m t
         reward = calc_reward(metrics, self.reward_vec)
         control_int = create_control(
@@ -261,77 +232,37 @@ class NetworkGame():
             'actions': actions,
             'control_int': control_int
         }
+        # squeezed_step_state = {
+        #     k: v.squeeze(0).squeeze(0) for k, v in step_state.items()
+        # }
 
-        # add step attributes to history
-        for k, v in step_state.items():
-            self.step_history[k][self.current_hist_idx, self.episode_step] = v[0, 0]
+        self.step_history.add(step_state, self.episode_step)
 
-        state = {**step_state, **episode_state}
+        state = {**step_state, **self.episode_state}
+        reward = {at: reward[:, :, :, at_idx] for at_idx, at in enumerate(self.agent_types)}
         return state, reward,  done
-
-    def from_history(self, hist_idx):
-        return {
-            **{k: v[hist_idx] for k, v in self.episode_history},
-            **{k: v[hist_idx] for k, v in self.step_history},
-        }
-
-    def get_current(self):
-        return {
-            **{k: v[[self.current_hist_idx]] for k, v in self.episode_history},
-            **{k: v[[self.current_hist_idx], [self.episode_step]] for k, v in self.step_history},
-        }
 
     def write_history(self):
         if self.out_dir is not None:
             filename = os.path.join(self.out_dir, f"{self.episode + 1}.pt")
-            chi = self.current_hist_idx + 1
             th.save(
                 {
                     'agent_types': self.agent_types,
                     'actions': [string.ascii_uppercase[i] for i in range(self.n_actions)],
                     'agents': [string.ascii_uppercase[i] for i in range(self.n_nodes)],
                     'metric_names': self.metric_names,
-                    **{k: v[:chi:self.save_interval] for k, v in self.episode_history.items()},
-                    **{k: v[:chi:self.save_interval] for k, v in self.step_history.items()},
+                    **self.episode_history.stride(self.save_interval),
+                    **self.step_history.stride(self.save_interval),
                 },
                 filename
             )
 
     def finish_episode(self):
-        if self.current_hist_idx == self.max_history - 1:
+        if self.episode_history.finished():
+            assert self.step_history.finished()
             self.write_history()
 
-    def sample(self, batch_size, agent_type, horizon=None, last=False,  **kwarg):
-        if batch_size > len(self.history_queue):
-            return
-
-        agent_type_idx = self.agent_types_idx[agent_type]
-
-        if not last:
-            assert horizon is not None
-            assert horizon <= self.max_history
-            eff_horizon = min(len(self.history_queue), horizon)
-            pos_idx = np.random.choice(eff_horizon, batch_size)
-        else:
-            assert batch_size <= self.max_history
-            # get the last n episodes (n=batch_size)
-            pos_idx = np.arange(batch_size)
-
-        hist_idx = th.tensor([self.history_queue[pidx] for pidx in pos_idx], dtype=th.int64)
-
-        keys = ['actions', 'metrics', 'control_int', 'neighbors', 'neighbors_mask', 'agent_map']
-
-        state = {
-            **{k: v[hist_idx] for k, v in self.episode_history.items() if k in keys},
-            **{k: v[hist_idx] for k, v in self.step_history.items() if k in keys},
-        }
-        actions = self.step_history['actions'][hist_idx].select(-1, agent_type_idx)[:, 1:]
-        reward = self.step_history['reward'][hist_idx].select(-1, agent_type_idx)[:, 1:]
-
-        return state, actions, reward
-
-    # TODO: Unit test.
-
     def __del__(self):
-        if self.current_hist_idx != self.max_history - 1:
+        if not self.episode_history.finished():
+            assert not self.step_history.finished()
             self.write_history()
