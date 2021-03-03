@@ -1,0 +1,5 @@
+labels:
+  project: ai_vs_ci
+  batch: random
+include:
+  - baseconfigs/post/single_v1.yml

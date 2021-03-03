@@ -1,0 +1,56 @@
+labels:
+  project: ai_vs_ci
+  batch: learning_latency_symmetric
+grid:
+  - - params.controller_args.ci.target_update_freq: 1
+      params.controller_args.ci.sample_args.batch_size: 1
+      params.controller_args.ci.sample_args.horizon: 1
+      params.controller_args.ai.target_update_freq: 1
+      params.controller_args.ai.sample_args.batch_size: 1
+      params.controller_args.ai.sample_args.horizon: 1
+      labels.stabilizing: quick
+    - params.controller_args.ci.target_update_freq: 10
+      params.controller_args.ci.sample_args.batch_size: 1
+      params.controller_args.ci.sample_args.horizon: 1
+      params.controller_args.ai.target_update_freq: 10
+      params.controller_args.ai.sample_args.batch_size: 1
+      params.controller_args.ai.sample_args.horizon: 1
+      labels.stabilizing: small
+    - params.controller_args.ci.target_update_freq: 10
+      params.controller_args.ci.sample_args.batch_size: 10
+      params.controller_args.ci.sample_args.horizon: 50
+      params.controller_args.ai.target_update_freq: 10
+      params.controller_args.ai.sample_args.batch_size: 10
+      params.controller_args.ai.sample_args.horizon: 50
+      labels.stabilizing: medium
+    - params.controller_args.ci.target_update_freq: 100
+      params.controller_args.ci.sample_args.batch_size: 10
+      params.controller_args.ci.sample_args.horizon: 50
+      params.controller_args.ai.target_update_freq: 100
+      params.controller_args.ai.sample_args.batch_size: 10
+      params.controller_args.ai.sample_args.horizon: 50
+      labels.stabilizing: slow_update
+    - params.controller_args.ci.target_update_freq: 10
+      params.controller_args.ci.sample_args.batch_size: 40
+      params.controller_args.ci.sample_args.horizon: 100
+      params.controller_args.ai.target_update_freq: 10
+      params.controller_args.ai.sample_args.batch_size: 40
+      params.controller_args.ai.sample_args.horizon: 100
+      labels.stabilizing: big_batch
+    - params.controller_args.ci.target_update_freq: 10
+      params.controller_args.ci.sample_args.batch_size: 10
+      params.controller_args.ci.sample_args.horizon: 500
+      params.controller_args.ai.target_update_freq: 10
+      params.controller_args.ai.sample_args.batch_size: 10
+      params.controller_args.ai.sample_args.horizon: 500
+      labels.stabilizing: far_horizon
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.0003, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.0003, 0.0001]
+    labels.lr: [0.001, 0.0003, 0.0001]
+include:
+  - baseconfigs/train/cuda_v1.yml
+  - baseconfigs/train/envs/erdos_renyi_20_v1.yml
+  - baseconfigs/train/envs/reward_original_v1.yml
+  - baseconfigs/train/controller/madql_medium_v1.yml
+  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/scheduler/on_off_15000_v1.yml

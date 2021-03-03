@@ -1,0 +1,18 @@
+exec:
+  command: video
+  cores: 6
+  hours: 2
+  in_dir: runs/technical/latency_sym/train/project_ai_vs_ci__batch_learning_latency_symmetric__stabilizing_far_horizon__lr_0.001
+  memory: 32
+  script_name: cpu_torque
+exp_id: 642ea456-ce08-4a73-acfd-093b59c338a6
+job_id: batch_learning_latency_symmetric__lr_0.001__project_ai_vs_ci__stabilizing_far_horizon
+labels:
+  batch: learning_latency_symmetric
+  lr: 0.001
+  project: ai_vs_ci
+  stabilizing: far_horizon
+params:
+  video_args:
+    train:
+      mod_episode: 500
