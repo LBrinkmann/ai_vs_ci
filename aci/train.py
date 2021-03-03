@@ -41,6 +41,8 @@ def run_episode(*, episode, env, controller, observer, eps, training, device, **
     observations = {}
     for agent_type, a_controller in controller.items():
         observations[agent_type] = observer[agent_type](**state)
+        for k, v in observations[agent_type].items():
+            print(k, v.device)
         a_controller.init_episode(
             observation=observations[agent_type], action=actions[agent_type],
             reward=rewards[agent_type], episode=episode)

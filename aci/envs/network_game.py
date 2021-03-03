@@ -12,16 +12,16 @@ from ..utils.io import ensure_dir
 from aci.envs.reward_metrics import calc_metrics, calc_reward, create_reward_vec, METRIC_NAMES
 
 
-def create_map(n_nodes, mapping_type=None,  **_):
+def create_map(n_nodes, device, mapping_type=None,  **_):
     if mapping_type == 'random':
-        return th.randperm(n_nodes)
+        return th.randperm(n_nodes, device=device)
     elif mapping_type == 'fixed':
-        return th.arange(n_nodes)
+        return th.arange(n_nodes, device=device)
     else:
         raise ValueError('Unkown mapping type.')
 
 
-def create_maps(agent_type_args, n_nodes):
+def create_maps(agent_type_args, n_nodes, device):
     """
     Mapping between agent_idx and network position.
 
@@ -29,7 +29,7 @@ def create_maps(agent_type_args, n_nodes):
         mapping: A tensor of shape ``
     """
     return th.stack([
-        create_map(**ata, n_nodes=n_nodes)
+        create_map(**ata, n_nodes=n_nodes, device=device)
         for ata in agent_type_args.values()
     ], dim=-1)
 
@@ -181,7 +181,7 @@ class NetworkGame():
         if (self.episode == 0) or (
                 (self.mapping_period > 0) and (self.episode % self.mapping_period == 0)):
             self.episode_state['agent_map'] = create_maps(
-                self.agent_type_args, self.n_nodes).unsqueeze(0)
+                self.agent_type_args, self.n_nodes, self.device).unsqueeze(0)
 
         self.episode_history.start_episode(self.episode)
         self.step_history.start_episode(self.episode)
