@@ -34,11 +34,11 @@ def make_frame(
 
     is_coordination = metrics[:, 0, ind_coor_idx]
     coordination_color = ['green' if is_coordination[i] == 1 else 'red' for i in graph.nodes()]
-    catch_color = ['black' if action_0[i] == action_1[i] else 'white' for i in graph.nodes()]
+    catch_color = ['red' if action_0[i] == action_1[i] else 'white' for i in graph.nodes()]
 
-    nx.draw(graph, graph_pos, node_color=catch_color, node_size=600)
+    nx.draw(graph, graph_pos, node_color=catch_color, node_size=700)
 
-    nx.draw(graph, graph_pos, node_color=node_color_1, node_size=500)
+    nx.draw(graph, graph_pos, node_color=node_color_1, node_size=550)
 
     nx.draw(graph, graph_pos, node_color=node_color_0, node_size=300, edgelist=[])
 
@@ -78,13 +78,7 @@ def make_video(episode, neighbors, actions, reward, metrics, outdir, mode, **oth
             episode=episode, **others)
         for i, (a, r, m) in enumerate(zip(actions, reward, metrics))
     ]
-    # import ipdb
-    # ipdb.set_trace()
-    # array = np.stack(frames, axis=0)
-    # import ipdb
-    # ipdb.set_trace()
     clip = ImageSequenceClip(array, fps=1)
-    print(filename)
     clip.write_videofile(filename, codec='mpeg4')
 
 

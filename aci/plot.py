@@ -9,6 +9,7 @@ Outputs:
 
 from docopt import docopt
 import pandas as pd
+import traceback
 import os
 from multiprocessing import Manager, Pool
 import matplotlib.pyplot as plt
@@ -23,11 +24,11 @@ from aci.utils.io import load_yaml, ensure_dir
 def _plot(args):
     try:
         plot(args[1].dfs, **args[0])
-    except Exception as e:
+    except Exception as ex:
         title = ' | '.join(f"{k}:{v}" for k, v in args[0]
                            ['selectors'].items() if not isinstance(v, list))
         print(f'Error plotting {title}.')
-        print(e)
+        print(''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__)))
 
 
 def plot(
