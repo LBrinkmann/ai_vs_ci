@@ -1,0 +1,14 @@
+exec:
+  command: video
+  script_name: cpu
+  cores: 6
+  hours: 2
+  memory: 32
+parent:
+  parent_name: train
+  folder_name: train
+  strategy: each
+params:
+  video_args:
+    train:
+      mod_episode: 500

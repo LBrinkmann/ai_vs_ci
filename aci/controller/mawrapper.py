@@ -4,11 +4,11 @@ from aci.utils.tensor_op import map_tensors, map_tensors_back
 from aci.neural_modules import NETS
 
 
-def apply_permutations(tensor, control_int, permutations):
-    assert control_int.max() < len(permutations), \
+def apply_permutations(tensor, control_int, _permutations):
+    assert control_int.max() < len(_permutations), \
         'Max seed needs to be smaller then the factorial of actions.'
-    permutations = permutations[control_int]
-    tensor = th.gather(tensor, -1, permutations)
+    _permutations = _permutations[control_int]
+    tensor = th.gather(tensor, -1, _permutations)
     return tensor
 
 
@@ -115,7 +115,7 @@ class MultiAgentWrapper(th.nn.Module):
             assert (h, s, p) == q.shape[:-1]
 
         if self.permutations is not None:
-            q = apply_permutations(q, control_int, permutations)
+            q = apply_permutations(q, control_int,  self.permutations)
 
         return q
 

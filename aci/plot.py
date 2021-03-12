@@ -32,10 +32,14 @@ def _plot(args):
 
 
 def plot(
-        dfs, filename, output_path, name, selectors, x, y, grid=[], baseline=None,
+        dfs, filename, output_path, name, selectors, x, y, grid=[], dfs_baseline=None,
         hue=None, style=None, idx=None):
 
     df = dfs[filename]
+    if dfs_baseline:
+        df_baseline = dfs_baseline[filename]
+    else:
+        df_baseline = None
     w = selector(df, selectors)
 
     title = ' | '.join(f"{k}:{v}" for k, v in selectors.items() if not isinstance(v, list))
@@ -55,19 +59,12 @@ def plot(
     groupby = [c for c in (grid + [hue, style, x]) if c is not None]
 
     dfs = dfs.dropna(subset=groupby)
-    if baseline is not None:
-        w_baseline = dfs[baseline['column']] == baseline['value']
-        df_wo_baseline = dfs[~w_baseline]
-    else:
-        df_wo_baseline = dfs
-    df_dup = df_wo_baseline.duplicated(subset=groupby, keep=False)
+    df_dup = dfs.duplicated(subset=groupby, keep=False)
     if df_dup.any():
-        dup = df_wo_baseline[df_dup].sort_values(groupby)
+        dup = dfs[df_dup].sort_values(groupby)
         print(dup.head())
         diff = dup.iloc[0] != dup.iloc[1]
         print(dup.loc[:, diff])
-        # import ipdb
-        # ipdb.set_trace()
         raise ValueError('There are doublicates.')
 
     grid.sort(key=lambda l: dfs[l].nunique())
@@ -99,7 +96,7 @@ def plot(
         single_plot,
         x=x,
         y=y,
-        baseline=baseline,
+        df_baseline=df_baseline,
         **other,
         **other_order
     )
@@ -118,26 +115,21 @@ def plot(
     plt.close()
 
 
-def single_plot(data, baseline, x, y, color, *args, **kwargs):
-    if baseline is not None:
-        w_baseline = data[baseline['column']] == baseline['value']
-        baseline_data = data[w_baseline]
-        other_data = data[~w_baseline]
-
+def single_plot(data, df_baseline, x, y, color, *args, **kwargs):
+    if df_baseline is not None:
+        baseline_kwargs = {k: v for k, v in kwargs.items() if v in df_baseline.columns}
         sns.lineplot(
-            data=baseline_data,
+            data=df_baseline,
             x=x,
             y=y,
-            *args,
-            **kwargs,
+            # *args,
+            **baseline_kwargs,
             color='gray',
-            lw=0.5,
+            lw=2,
             ci=None
         )
-    else:
-        other_data = data
     sns.lineplot(
-        data=other_data,
+        data=data,
         x=x,
         y=y,
         color=color,
@@ -159,11 +151,7 @@ def create_plots_args(dfs, plots, **kwargs):
             yield plot_args
 
 
-def _main(*, input_files, clean, preprocess_args=None, cores=1, plots, output_path):
-    if clean:
-        shutil.rmtree(output_path, ignore_errors=True)
-    ensure_dir(output_path)
-
+def load_files(input_files, preprocess_args):
     input_files = {
         os.path.split(f)[-1].split('.')[-2]: f
         for f in input_files
@@ -177,8 +165,25 @@ def _main(*, input_files, clean, preprocess_args=None, cores=1, plots, output_pa
     # Summarize dataframe
     for name, df in dfs.items():
         summarize_df(df, name)
+    return dfs
 
-    plot_args = list(create_plots_args(dfs, plots=plots, output_path=output_path))
+
+def _main(*, input_files, baseline_files, clean, preprocess_args=None, cores=1, plots, output_path):
+    if clean:
+        shutil.rmtree(output_path, ignore_errors=True)
+    ensure_dir(output_path)
+
+    print("Preprocess files.")
+    dfs = load_files(input_files, preprocess_args)
+
+    if baseline_files:
+        print("Preprocess baseline.")
+        dfs_baseline = load_files(baseline_files, preprocess_args)
+    else:
+        dfs_baseline = None
+
+    plot_args = list(
+        create_plots_args(dfs, dfs_baseline=dfs_baseline, plots=plots, output_path=output_path))
 
     print(f"Make {len(plot_args)} plots.")
 
@@ -186,8 +191,6 @@ def _main(*, input_files, clean, preprocess_args=None, cores=1, plots, output_pa
     ns = mgr.Namespace()
     ns.dfs = dfs
 
-    # print(plot_args[0])
-    # print(plot_args[1])
     data_args = list(zip(plot_args, [ns]*len(plot_args)))
     if cores > 1:
         pool = Pool(cores)
@@ -195,8 +198,6 @@ def _main(*, input_files, clean, preprocess_args=None, cores=1, plots, output_pa
     else:
         for da in data_args:
             _plot(da)
-    # _plot(data_args[0])
-    # _plot(data_args[1])
 
 
 def main():
@@ -211,7 +212,16 @@ def main():
     input_files = os.listdir(os.path.join(run_folder, 'merge'))
     input_files = [os.path.join(run_folder, 'merge', f) for f in input_files]
 
-    _main(output_path=out_folder, input_files=input_files, **parameter)
+    baseline = parameter.pop('baseline')
+
+    if baseline:
+        baseline_files = os.listdir(os.path.join(baseline, 'merge'))
+        baseline_files = [os.path.join(baseline, 'merge', f) for f in baseline_files]
+    else:
+        baseline_files = None
+
+    _main(output_path=out_folder, input_files=input_files,
+          baseline_files=baseline_files, **parameter)
 
 
 if __name__ == "__main__":

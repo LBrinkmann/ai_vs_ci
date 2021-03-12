@@ -1,0 +1,29 @@
+grid:
+  - - params.controller_args.ci.mix_freq: null
+      params.controller_args.ci.wrapper_args.weight_sharing: false
+      labels.mix_freq: no_mixing
+    - params.controller_args.ci.mix_freq: 1
+      params.controller_args.ci.wrapper_args.weight_sharing: false
+      labels.mix_freq: one
+    - params.controller_args.ci.mix_freq: 5
+      params.controller_args.ci.wrapper_args.weight_sharing: false
+      labels.mix_freq: five
+    - params.controller_args.ci.mix_freq: 50
+      params.controller_args.ci.wrapper_args.weight_sharing: false
+      labels.mix_freq: fifty
+    - params.controller_args.ci.mix_freq: 1000
+      params.controller_args.ci.wrapper_args.weight_sharing: false
+      labels.mix_freq: thousand
+    - params.controller_args.ci.mix_freq: null
+      params.controller_args.ci.wrapper_args.weight_sharing: true
+      labels.mix_freq: shared
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.003, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.003, 0.0001]
+    labels.lr: [0.001, 0.003, 0.0001]
+include:
+  - baseconfigs/train/cuda_v1.yml
+  - baseconfigs/train/envs/erdos_renyi_20_v1.yml
+  - baseconfigs/train/envs/reward_original_v1.yml
+  - baseconfigs/train/controller/madql_medium_sum_v1.yml
+  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/scheduler/10000_v1.yml

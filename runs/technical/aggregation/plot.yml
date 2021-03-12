@@ -26,7 +26,7 @@ plots:
       episode_part: full
     x: episode_bin
     y: value
-    grid: [lr, mix_freq]
+    grid: [lr, pooling_types]
     hue: delta
     # style: node
     name: correlations
@@ -36,7 +36,7 @@ plots:
       episode_part: full
     x: episode_bin
     y: count
-    grid: [lr, mix_freq]
+    grid: [lr, pooling_types]
     hue: name
     style: agent_type
     name: top_pattern
@@ -48,7 +48,7 @@ plots:
         [ind_anticoordination, ind_coordination, ind_crosscoordination]
     x: episode_bin
     y: value
-    grid: [lr, mix_freq]
+    grid: [lr, pooling_types]
     hue: metric_name
     style: episode_part
     name: metrics
@@ -58,7 +58,7 @@ plots:
       episode_part: full
     x: episode_bin
     y: value
-    grid: [lr, mix_freq]
+    grid: [lr, pooling_types]
     hue: pattern_length
     style: agent_type
     name: entropy
