@@ -20,21 +20,20 @@ from multiprocessing import Manager, Pool
 
 
 def make_frame(
-        actions, reward, metrics, agent_types, metric_names, agents, step, graph, graph_pos, mode,
+        actions, reward, metrics, fullmetrics, agent_types, metric_names, agents, step, graph, graph_pos, mode,
         episode, **_):
     fig = plt.figure()
 
     action_0 = actions[:, 0]
     action_1 = actions[:, 1]
 
-    ind_coor_idx = metric_names.index('ind_anticoordination')
-
     node_color_0 = [action_0[i].item() for i in graph.nodes()]
     node_color_1 = [action_1[i].item() for i in graph.nodes()]
 
-    is_coordination = metrics[:, 0, ind_coor_idx]
-    coordination_color = ['green' if is_coordination[i] == 1 else 'red' for i in graph.nodes()]
-    catch_color = ['red' if action_0[i] == action_1[i] else 'white' for i in graph.nodes()]
+    anticoor = metrics[:, 0, metric_names.index('ind_anticoordination')]
+    crosscoor = metrics[:, 0, metric_names.index('ind_crosscoordination')]
+    coordination_color = ['green' if anticoor[i] == 1 else 'red' for i in graph.nodes()]
+    catch_color = ['red' if crosscoor[i] == 1 else 'white' for i in graph.nodes()]
 
     nx.draw(graph, graph_pos, node_color=catch_color, node_size=700)
 
@@ -44,14 +43,27 @@ def make_frame(
 
     nx.draw(graph, graph_pos, node_color=coordination_color, node_size=30, edgelist=[])
 
-    reward_0 = reward[:, 0].mean()
-    reward_1 = reward[:, 1].mean()
+    reward_0 = reward[:, 0].sum()
+    reward_1 = reward[:, 1].sum()
 
-    text = f"{step} {agent_types[0]}:{agent_types[1]} {reward_0}:{reward_1}"
-    print(text)
-    plt.text(100, 100, text, fontsize=20, color='black')
+    print(fullmetrics.shape)
+
+    anticoor_cum = fullmetrics[:, :, 0, metric_names.index('ind_anticoordination')].sum(1).mean()
+    crosscoor_cum = fullmetrics[:, :, 0, metric_names.index('ind_crosscoordination')].sum(1).mean()
+
+    crosscoor_m = crosscoor.sum()
+    anticoor_m = anticoor.sum()
+
+    text = f"{step} agents {agent_types[0]}:{agent_types[1]}" \
+        f" reward {reward_0:.1f}:{reward_1:.1f}" \
+        f" anticoor {anticoor_m} ({anticoor_cum:.1f}) catch {crosscoor_m} ({crosscoor_cum:.1f})"
+
+    min_xpos = min(p[0] for p in graph_pos.values())
+    min_ypos = min(p[1] for p in graph_pos.values())
+    plt.text(min_xpos, min_ypos, text, fontsize=10, color='black',
+             horizontalalignment='left', verticalalignment='top')
     fig.canvas.draw()
-    plt.savefig(f'tmp/{mode}.{episode}.{step}.png')
+    # plt.savefig(f'tmp/{mode}.{episode}.{step}.png')
     data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
@@ -74,7 +86,8 @@ def make_video(episode, neighbors, actions, reward, metrics, outdir, mode, **oth
     graph, graph_pos = get_graph(neighbors)
     array = [
         make_frame(
-            actions=a, reward=r, metrics=m, graph=graph, step=i, graph_pos=graph_pos, mode=mode,
+            actions=a, reward=r, metrics=m, fullmetrics=metrics[:i+1],
+            graph=graph, step=i, graph_pos=graph_pos, mode=mode,
             episode=episode, **others)
         for i, (a, r, m) in enumerate(zip(actions, reward, metrics))
     ]
@@ -140,10 +153,10 @@ def main():
 
     if in_folder:
         _main(job_folder=in_folder, out_folder=out_folder, cores=parameter['exec']['cores'],
-              labels=parameter['labels'], **parameter['params'])
+              labels=parameter.get('labels', {}), **parameter['params'])
     else:
         _main(job_folder=run_folder, out_folder=out_folder, cores=1,
-              labels=parameter['labels'], **parameter['params'])
+              labels=parameter.get('labels', {}), **parameter['params'])
 
 
 if __name__ == "__main__":

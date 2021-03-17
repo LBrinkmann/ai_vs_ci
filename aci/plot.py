@@ -101,6 +101,7 @@ def plot(
         **other_order
     )
 
+    plt.tight_layout()
     plt.subplots_adjust(top=0.9)
     grid.fig.suptitle(title)
     grid.fig.patch.set_facecolor('white')
@@ -110,14 +111,19 @@ def plot(
         filename = os.path.join(output_path, name, f"{idx}.png")
     else:
         filename = os.path.join(output_path, f"{name}.png")
-    plt.savefig(filename)
+    plt.savefig(filename, dpi=300)
     print(f'Saved {filename}')
     plt.close()
 
 
 def single_plot(data, df_baseline, x, y, color, *args, **kwargs):
     if df_baseline is not None:
-        baseline_kwargs = {k: v for k, v in kwargs.items() if v in df_baseline.columns}
+        # import ipdb
+        # ipdb.set_trace()
+        # baseline_hue = kwargs['hue'] if kwargs['hue'] in df_baseline.columns else None
+        # baseline_style = kwargs['hue'] if kwargs['hue'] in df_baseline.columns else None
+
+        baseline_kwargs = {k: v for k, v in kwargs.items() if (v in df_baseline.columns)}
         sns.lineplot(
             data=df_baseline,
             x=x,
@@ -125,7 +131,7 @@ def single_plot(data, df_baseline, x, y, color, *args, **kwargs):
             # *args,
             **baseline_kwargs,
             color='gray',
-            lw=2,
+            lw=1,
             ci=None
         )
     sns.lineplot(
@@ -135,7 +141,7 @@ def single_plot(data, df_baseline, x, y, color, *args, **kwargs):
         color=color,
         *args,
         **kwargs,
-        lw=2,
+        lw=1,
         ci=None
     )
 
@@ -212,7 +218,7 @@ def main():
     input_files = os.listdir(os.path.join(run_folder, 'merge'))
     input_files = [os.path.join(run_folder, 'merge', f) for f in input_files]
 
-    baseline = parameter.pop('baseline')
+    baseline = parameter.pop('baseline') if 'baseline' in parameter else None
 
     if baseline:
         baseline_files = os.listdir(os.path.join(baseline, 'merge'))

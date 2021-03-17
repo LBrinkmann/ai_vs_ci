@@ -1,6 +1,6 @@
 clean: true
-cores: 32
-baseline: runs/baselines/1000_v1
+cores: 1
+# baseline: runs/baselines/1000_v1
 preprocess_args:
   metrics:
     selectors:
@@ -21,45 +21,28 @@ preprocess_args:
       mode: train
       agent: all
 plots:
-  - expand: [agent_type, lr, rewards]
-    filename: correlations
-    selectors:
-      episode_part: full
-    x: episode_bin
-    y: value
-    grid: [ai_weights, ci_weights]
-    hue: delta
-    # style: node
-    name: correlations
-  - expand: [type, pattern_length, lr, rewards]
-    filename: top_pattern
-    selectors:
-      episode_part: full
-    x: episode_bin
-    y: count
-    grid: [ai_weights, ci_weights]
-    hue: name
-    style: agent_type
-    name: top_pattern
-  - expand: [lr, rewards]
+  - expand: [metric_name]
     filename: metrics
     selectors:
       agent_type: ci
+      episode_part: full
       metric_name:
         [ind_anticoordination, ind_coordination, ind_crosscoordination]
     x: episode_bin
     y: value
     grid: [ai_weights, ci_weights]
-    hue: metric_name
-    style: episode_part
+    hue: horizon
+    style: target_update_freq
     name: metrics
-  - expand: [type, metric_name, lr, rewards]
+  - expand: [metric_name, agent_type]
     filename: pattern_metrics
     selectors:
       episode_part: full
+      pattern_length: 4
+      type: pattern
     x: episode_bin
     y: value
     grid: [ai_weights, ci_weights]
-    hue: pattern_length
-    style: agent_type
+    hue: horizon
+    style: target_update_freq
     name: entropy

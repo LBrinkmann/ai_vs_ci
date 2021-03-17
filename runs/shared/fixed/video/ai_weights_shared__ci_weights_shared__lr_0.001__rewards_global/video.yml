@@ -1,0 +1,18 @@
+exec:
+  command: video
+  cores: 6
+  hours: 2
+  in_dir: runs/shared/fixed/train/rewards_global__ai_weights_shared__ci_weights_shared__lr_0.001
+  memory: 32
+  script_name: cpu
+exp_id: 884a0213-f64b-4ce4-980c-22673300bdbf
+job_id: ai_weights_shared__ci_weights_shared__lr_0.001__rewards_global
+labels:
+  ai_weights: shared
+  ci_weights: shared
+  lr: 0.001
+  rewards: global
+params:
+  video_args:
+    train:
+      mod_episode: 500

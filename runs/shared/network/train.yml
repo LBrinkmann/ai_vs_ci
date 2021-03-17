@@ -1,0 +1,30 @@
+grid:
+  - - params.environment_args.graph_args:
+        constrains:
+          max_max_degree: 8
+          connected: True
+        graph_args:
+          p: 0.2
+        graph_type: erdos_renyi
+      labels.network: erdos_renyi
+    - params.environment_args.graph_args:
+        constrains:
+          min_chromatic_number: 4
+          max_chromatic_number: 4
+          connected: True
+        graph_args:
+          d: 4
+        graph_type: random_regular
+      labels.network: random_regular
+  - params.controller_args.ai.wrapper_args.weight_sharing: [true, false]
+    labels.ai_weights: [shared, individual]
+  - params.controller_args.ci.wrapper_args.weight_sharing: [true, false]
+    labels.ci_weights: [shared, individual]
+include:
+  - baseconfigs/train/cuda_repro_v1.yml
+  - baseconfigs/train/envs/random_repro_v1.yml
+  - baseconfigs/train/envs/reward_global_v1.yml
+  - baseconfigs/train/controller/madql_slow_v1.yml
+  - baseconfigs/train/controller/pooling_v1.yml
+  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/scheduler/10000_v1.yml
