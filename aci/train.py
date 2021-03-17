@@ -12,7 +12,7 @@ from docopt import docopt
 from aci.scheduler.scheduler import Scheduler
 from aci.envs import ENVIRONMENTS
 from aci.controller import CONTROLLERS
-from aci.observer import OBSERVER
+from aci.view import VIEW
 from aci.controller.selector import eps_greedy
 
 from aci.utils.io import load_yaml
@@ -22,27 +22,25 @@ import numpy as np
 import os
 
 
-def run(envs, controller, observer, scheduler, device):
+def run(envs, controller, view, scheduler, device):
     for episode in scheduler:
         print(f'Start episode {episode["episode"]} in mode {episode["mode"]}.')
         env = envs[episode['mode']]
         run_episode(
             env=env,
             controller=controller,
-            observer=observer,
+            view=view,
             device=device,
             **episode)
 
 
-def run_episode(*, episode, env, controller, observer, eps, training, device, **__):
+def run_episode(*, episode, env, controller, view, eps, training, device, **__):
     actions, state, rewards = env.init_episode()
 
     # initialize episode for all controller
     observations = {}
     for agent_type, a_controller in controller.items():
-        observations[agent_type] = observer[agent_type](**state)
-        for k, v in observations[agent_type].items():
-            print(k, v.device)
+        observations[agent_type] = view[agent_type](**state)
         a_controller.init_episode(
             observation=observations[agent_type], action=actions[agent_type],
             reward=rewards[agent_type], episode=episode)
@@ -62,7 +60,7 @@ def run_episode(*, episode, env, controller, observer, eps, training, device, **
         state, rewards, done = env.step(actions)
 
         for agent_type, a_controller in controller.items():
-            observations[agent_type] = observer[agent_type](**state)
+            observations[agent_type] = view[agent_type](**state)
 
             # allow controller to update
             if training[agent_type]:
@@ -79,15 +77,15 @@ def get_environment(class_name, **kwargs):
     return ENVIRONMENTS[class_name](**kwargs)
 
 
-def get_observer(class_name, **kwargs):
-    return OBSERVER[class_name](**kwargs)
+def get_view(class_name, **kwargs):
+    return VIEW[class_name](**kwargs)
 
 
 def get_controller(class_name, **kwargs):
     return CONTROLLERS[class_name](**kwargs)
 
 
-def _main(*, output_path, environment_args, observer_args, controller_args, meta,
+def _main(*, output_path, environment_args, view_args, controller_args, meta,
           run_args={}, scheduler_args, save_interval, device_name, seed=None):
 
     set_seeds(seed)
@@ -111,18 +109,18 @@ def _main(*, output_path, environment_args, observer_args, controller_args, meta
     }
 
     scheduler = Scheduler(**scheduler_args)
-    observer = {
-        name: get_observer(
+    view = {
+        name: get_view(
             env_info=envs['train'].info,
             agent_type=name,
             **args,
             device=device)
-        for name, args in observer_args.items()
+        for name, args in view_args.items()
     }
 
     controller = {
         name: get_controller(
-            observation_shape=observer[name].shape,
+            observation_shape=view[name].shape,
             env_info=envs['train'].info,
             agent_type=name,
             **args,
@@ -130,7 +128,7 @@ def _main(*, output_path, environment_args, observer_args, controller_args, meta
         for name, args in controller_args.items()
     }
 
-    run(envs, controller, observer, scheduler, device)
+    run(envs, controller, view, scheduler, device)
 
 
 def main():

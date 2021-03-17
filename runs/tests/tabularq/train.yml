@@ -1,0 +1,37 @@
+exec:
+  command: train
+  script_name: local
+labels:
+  tabularq: test
+include:
+  - baseconfigs/train/envs/erdos_renyi_20_v1.yml
+  - baseconfigs/train/envs/reward_original_v1.yml
+  - baseconfigs/train/scheduler/on_off_15000_v1.yml
+params:
+  seed: null
+  device_name: cpu
+  save_interval:
+    train: 1
+    eval: 1
+  view_args:
+    ci:
+      class_name: neighbor_id
+      self_agent_type: ci
+      neighbor_agent_type: ci
+    ai:
+      class_name: neighbor_id
+      self_agent_type: ci
+      neighbor_agent_type: ci
+  controller_args:
+    ai:
+      class_name: tabularq
+      gamma: 0.8
+      alpha: 0.05
+      q_start: 0
+      avg_table: true
+    ci:
+      class_name: tabularq
+      gamma: 0.8
+      alpha: 0.05
+      q_start: 0
+      avg_table: false
