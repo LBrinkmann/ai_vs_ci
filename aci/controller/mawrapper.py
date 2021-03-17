@@ -16,11 +16,37 @@ def create_permutations(n_actions, device):
     return th.tensor(list(permutations(range(n_actions))), device=device)
 
 
-def save_select(tensor, idx):
+def safe_select(tensor, idx):
     if tensor is not None:
         return tensor[:, :, idx]
     else:
         return None
+
+
+def safe_stack(tensor):
+    """
+    Args:
+        tensor: [b s p ...]
+    Returns:
+        tensor: [b*p s ...]
+    """
+    if tensor is not None:
+        _tensor = tensor.transpose(2, 1)  # b p e ...
+        return _tensor.reshape(-1, *_tensor.shape[2:])  # b*p e ...
+    else:
+        return None
+
+
+def unstack(tensor, batch_size, n_nodes):
+    """
+    Args:
+        tensor: [b*p e ...]
+    Returns:
+        tensor: [b e p ...]
+    """
+    assert tensor.shape[0] == batch_size * n_nodes
+    _tensor = tensor.view(batch_size, n_nodes, *tensor.shape[1:])  # b p e ...
+    return _tensor.transpose(2, 1)  # b e p ..
 
 
 class MultiAgentWrapper(th.nn.Module):
@@ -88,31 +114,27 @@ class MultiAgentWrapper(th.nn.Module):
 
     def forward(self, view, mask, agent_map, control=None, control_int=None):
         """
-            view: h s p n i
-            control: h s p c
-            mask: h s p n
-            agent_map: h s p
-            control_int: h s p
+            view: b s p n i
+            control: b s p c
+            mask: b s p n
+            agent_map: b s p
+            control_int: b s p
         """
-        h, s, p, n, i = view.shape
+        b, s, p, n, i = view.shape
 
         if not self.weight_sharing:
             _view, _mask, _control = map_tensors(agent_map, view, mask, control)
             q = [
-                model(save_select(_view, i), save_select(_mask, i), save_select(_control, i))
+                model(safe_select(_view, i), safe_select(_mask, i), safe_select(_control, i))
                 for i, model in enumerate(self.models)
             ]
             q = th.stack(q, dim=2)
-            assert (h, s, p) == q.shape[:-1]
+            assert (b, s, p) == q.shape[:-1]
             q, = map_tensors_back(agent_map, q)
         else:
-            q = [
-                self.models[0](save_select(view, i), save_select(
-                    mask, i), save_select(control, i))
-                for i in range(p)
-            ]
-            q = th.stack(q, dim=2)
-            assert (h, s, p) == q.shape[:-1]
+            q = self.models[0](safe_stack(view), safe_stack(mask), safe_stack(control))
+            q = unstack(q, b, p)
+            assert (b, s, p) == q.shape[:-1]
 
         if self.permutations is not None:
             q = apply_permutations(q, control_int,  self.permutations)

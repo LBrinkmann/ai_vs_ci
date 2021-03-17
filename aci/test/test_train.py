@@ -6,9 +6,9 @@ from aci.utils.io import load_yaml
 from aci.utils.compare import compare_folder
 
 
-def test_train(run_folder='runs/dev/full'):
-    parameter_file = os.path.join(run_folder, 'train.yml')
-    test_dir = os.path.join(run_folder, 'train')
+def test_train(run_folder='runs/tests/redesign'):
+    parameter_file = os.path.join(run_folder, 'test_train.yml')
+    test_dir = os.path.join(run_folder, 'test_train')
 
     if os.path.exists(test_dir):
         shutil.rmtree(test_dir)
