@@ -1,0 +1,28 @@
+params:
+  scheduler_args:
+    episodes: 25000
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training:
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training:
+            ci: true
+            ai: true
+      - episode: 5000
+        setting:
+          eps:
+            ci: 0.01
+            ai: 0.01
+          training:
+            ci: true
+            ai: true

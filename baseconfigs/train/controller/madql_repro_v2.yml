@@ -1,0 +1,40 @@
+params:
+  controller_args:
+    ai:
+      class_name: madqn
+      gamma: 0.80
+      target_update_freq: 500
+      sample_args:
+        batch_size: 10
+        horizon: 500
+      opt_args:
+        lr: 0.001
+      wrapper_args:
+        weight_sharing: true
+        net_type: gru
+      model_args:
+        # linear1: true
+        # rnn1: true
+        # linear2: true
+        # rnn2: true
+        hidden_size: 100
+        # pooling_types: ["sum"]
+    ci:
+      class_name: madqn
+      gamma: 0.80
+      target_update_freq: 500
+      sample_args:
+        batch_size: 20
+        horizon: 500
+      opt_args:
+        lr: 0.001
+      wrapper_args:
+        weight_sharing: false
+        net_type: gru
+      model_args:
+        # linear1: true
+        # rnn1: true
+        # linear2: true
+        # rnn2: true
+        hidden_size: 100
+        # pooling_types: ["sum"]

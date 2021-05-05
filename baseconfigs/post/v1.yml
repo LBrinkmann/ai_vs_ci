@@ -1,0 +1,33 @@
+exec:
+  command: post
+  script_name: cpu
+  cores: 6
+  hours: 2
+  memory: 32
+parent:
+  parent_name: train
+  folder_name: train
+  strategy: each
+params:
+  seed: null
+  parse_args:
+    pattern_args:
+      min_length: 1
+      max_length: 4
+      actions: ABCD
+    eval:
+      correlations_args:
+        max_delta: 10
+        bin_size: 100
+      tuple_args:
+        bin_size: 100
+      metric_args:
+        bin_size: 100
+    train:
+      correlations_args:
+        max_delta: 10
+        bin_size: 100
+      tuple_args:
+        bin_size: 100
+      metric_args:
+        bin_size: 100
