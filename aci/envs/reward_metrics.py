@@ -4,8 +4,6 @@ from aci.utils.tensor_op import map_tensor
 METRIC_NAMES = [f'{agg}_{m}' for agg in ['ind', 'local', 'global']
                 for m in ['crosscoordination', 'coordination', 'anticoordination']]
 
-print(METRIC_NAMES)
-
 
 def create_reward_vec(reward_args, device):
     """
@@ -67,6 +65,21 @@ def project_on_neighbors(tensor, neighbors, neighbors_mask, fill_value=0):
 
 def calc_metrics(actions, neighbors, neighbors_mask):
     """
+    Calculates three different metrics (cross-coordination, coordination and
+    anti-coordination). Each metric is calculated for each agent type individual
+    and aggregated in three different ways (no-aggregation, local aggregation
+    and global aggregation). Metrics are broadcasted in the case of global aggregation.
+
+    Metrics:
+        cross-coordination: 1 if color of both agents on the same node matches
+        coordination: 1 if color of agent matches all neighbors of same type
+        anti-coordination: 1 if color of agent mismatches all neighbors of same type
+
+    Aggregations:
+        individual: no aggregation, each node has its own unique value
+        local: aggregation for each node accross itself and its neighbors
+        global: aggregation over all nodes (of one agent type)
+
     Args:
         actions: h s+ p t
         neighbors: h p n+
@@ -91,20 +104,20 @@ def calc_metrics(actions, neighbors, neighbors_mask):
     neighbor_anticoordination = (actions.unsqueeze(-2) !=
                                  only_neigbhors).all(-2).type(th.float)  # h s+ p t
 
-    import ipdb
-    ipdb.set_trace()
-
     ind_metrics = th.stack([cross_coordination, neighbor_coordination,
                             neighbor_anticoordination], dim=-1)  # h s+ p t m
 
     loc_metrics = local_aggregation(ind_metrics, neighbors, neighbors_mask)
     glob_metrics = global_aggregation(ind_metrics)
+
     metrics = th.cat([ind_metrics, loc_metrics, glob_metrics], dim=-1)
     return metrics
 
 
 def global_aggregation(metrics):
     """
+    Calculates a global aggregation of all nodes.
+
     Args:
         metrics: h s+ p t m
     Returns:
@@ -116,6 +129,8 @@ def global_aggregation(metrics):
 
 def local_aggregation(metrics, neighbors, neighbors_mask):
     """
+    Calculates a local aggregation of a node and its neighbors.
+
     Args:
         metrics: h s+ p t m
         neighbors: h p n+
@@ -124,6 +139,7 @@ def local_aggregation(metrics, neighbors, neighbors_mask):
         local_metrics: h s+ p t m
     """
     nb_metrics = project_on_neighbors(metrics, neighbors, neighbors_mask)  # h s+ p n t m
-    local_metrics = nb_metrics.sum(
-        3) / (~neighbors_mask.unsqueeze(1).unsqueeze(3).unsqueeze(4)).sum(-1)  # h s+ p t m
+    nb_metrics_sum = nb_metrics.sum(3)
+    denominator = (~neighbors_mask).sum(-1).unsqueeze(1).unsqueeze(3).unsqueeze(4)
+    local_metrics = nb_metrics_sum / denominator  # h s+ p t m
     return local_metrics  # h s+ p t m
