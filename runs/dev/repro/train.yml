@@ -1,8 +1,8 @@
 labels:
   baseline: repro_v1
 include:
-  - baseconfigs/train/cuda_repro_v1.yml
-  # - baseconfigs/train/local.yml
+  # - baseconfigs/train/cuda_repro_v1.yml
+  - baseconfigs/train/local.yml
   - baseconfigs/train/envs/random_repro_v1.yml
   - baseconfigs/train/envs/reward_original_v1.yml
   - baseconfigs/train/controller/madql_repro_v1.yml

@@ -4,7 +4,7 @@ from aci.utils.tensor_op import map_tensor
 METRIC_NAMES = [f'{agg}_{m}' for agg in ['ind', 'local', 'global']
                 for m in ['crosscoordination', 'coordination', 'anticoordination']]
 
-# print(METRIC_NAME)
+print(METRIC_NAMES)
 
 
 def create_reward_vec(reward_args, device):
@@ -90,6 +90,10 @@ def calc_metrics(actions, neighbors, neighbors_mask):
     only_neigbhors = neighbors_actions[:, :, :, 1:]
     neighbor_anticoordination = (actions.unsqueeze(-2) !=
                                  only_neigbhors).all(-2).type(th.float)  # h s+ p t
+
+    import ipdb
+    ipdb.set_trace()
+
     ind_metrics = th.stack([cross_coordination, neighbor_coordination,
                             neighbor_anticoordination], dim=-1)  # h s+ p t m
 
