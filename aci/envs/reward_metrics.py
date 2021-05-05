@@ -138,8 +138,8 @@ def local_aggregation(metrics, neighbors, neighbors_mask):
     Returns:
         local_metrics: h s+ p t m
     """
-    nb_metrics = project_on_neighbors(metrics, neighbors, neighbors_mask)  # h s+ p n t m
-    nb_metrics_sum = nb_metrics.sum(3)
-    denominator = (~neighbors_mask).sum(-1).unsqueeze(1).unsqueeze(3).unsqueeze(4)
-    local_metrics = nb_metrics_sum / denominator  # h s+ p t m
+    metrics_norm = metrics / \
+        (~neighbors_mask).sum(-1).unsqueeze(1).unsqueeze(3).unsqueeze(4)  # h s + p t m
+    nb_metrics = project_on_neighbors(metrics_norm, neighbors, neighbors_mask)  # h s+ p n t m
+    local_metrics = nb_metrics.sum(3)  # h s+ p t m
     return local_metrics  # h s+ p t m
