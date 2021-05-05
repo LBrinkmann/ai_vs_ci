@@ -4,6 +4,8 @@ from aci.utils.tensor_op import map_tensor
 METRIC_NAMES = [f'{agg}_{m}' for agg in ['ind', 'local', 'global']
                 for m in ['crosscoordination', 'coordination', 'anticoordination']]
 
+# print(METRIC_NAME)
+
 
 def create_reward_vec(reward_args, device):
     """

@@ -1,0 +1,4 @@
+labels:
+  baseline: 10000_v1
+include:
+  - baseconfigs/post/v1.yml

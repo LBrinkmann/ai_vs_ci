@@ -1,5 +1,5 @@
 clean: true
-cores: 32
+cores: 1
 # baseline: runs/baselines/1000_v1
 preprocess_args:
   metrics:
@@ -23,10 +23,21 @@ preprocess_args:
           ai_weights: individual
         shared:
           ai_weights: shared
-  # pattern_metrics:
-  #   selectors:
-  #     mode: train
-  #     agent: all
+  pattern_metrics:
+    selectors:
+      mode: train
+      agent: all
+    combine:
+      human:
+        ind:
+          ci_weights: individual
+        shared:
+          ci_weights: shared
+      ai:
+        ind:
+          ai_weights: individual
+        shared:
+          ai_weights: shared
   # correlations:
   #   selectors:
   #     mode: train
@@ -62,19 +73,29 @@ plots:
       agent_type: ci
       episode_part: full
       rewards: global
+      # human: ind
     x: episode_bin
     y: value
-    grid: [human, ai]
+    x_label: episode
+    y_label: fraction of agents
+    grid: [ai, human]
     hue: metric
     style: lr
     name: metrics
-  # - expand: [type, metric_name, lr, rewards]
-  #   filename: pattern_metrics
-  #   selectors:
-  #     episode_part: full
-  #   x: episode_bin
-  #   y: value
-  #   grid: [ai_weights, ci_weights]
-  #   hue: pattern_length
-  #   style: agent_type
-  #   name: entropy
+  - expand: []
+    filename: pattern_metrics
+    selectors:
+      episode_part: full
+      metric_name: entropy
+      type: pattern
+      pattern_length: 4
+      # human: ind
+      rewards: global
+    x: episode_bin
+    y: value
+    x_label: episode
+    y_label: entropy
+    grid: [ai, human]
+    hue: agent_type
+    style: lr
+    name: entropy

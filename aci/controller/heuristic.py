@@ -7,8 +7,6 @@ class HeuristicController:
             observation_shape, **env_info, **agent_args, device=device)
 
     def get_q(self, **view):
-        import ipdb
-        ipdb.set_trace()
         return self.heuristic.get_q(**view)
 
     def init_episode(self, *_, **__):

@@ -20,45 +20,60 @@ preprocess_args:
       mode: train
       agent: all
 plots:
-  - expand: [agent_type]
-    filename: correlations
-    selectors:
-      episode_part: full
-    x: episode_bin
-    y: value
-    grid: [lr, rewards]
-    hue: delta
-    # style: node
-    name: correlations
-  - expand: [type, pattern_length]
-    filename: top_pattern
-    selectors:
-      episode_part: full
-    x: episode_bin
-    y: count
-    grid: [lr, rewards]
-    hue: name
-    style: agent_type
-    name: top_pattern
+  # - expand: [agent_type]
+  #   filename: correlations
+  #   selectors:
+  #     episode_part: full
+  #   x: episode_bin
+  #   y: value
+  #   grid: [lr, rewards]
+  #   hue: delta
+  #   # style: node
+  #   name: correlations
+  # - expand: [type, pattern_length]
+  #   filename: top_pattern
+  #   selectors:
+  #     episode_part: full
+  #   x: episode_bin
+  #   y: count
+  #   grid: [lr, rewards]
+  #   hue: name
+  #   style: agent_type
+  #   name: top_pattern
+  # - expand: []
+  #   filename: metrics
+  #   selectors:
+  #     agent_type: ci
+  #     metric_name:
+  #       [ind_anticoordination, ind_coordination, ind_crosscoordination]
+  #   x: episode_bin
+  #   y: value
+  #   grid: [lr, rewards]
+  #   hue: metric_name
+  #   style: episode_part
+  #   name: metrics
+  # - expand: [type, metric_name]
+  #   filename: pattern_metrics
+  #   selectors:
+  #     episode_part: full
+  #   x: episode_bin
+  #   y: value
+  #   grid: [lr, rewards]
+  #   hue: pattern_length
+  #   style: agent_type
+  #   name: entropy
   - expand: []
-    filename: metrics
-    selectors:
-      agent_type: ci
-      metric_name:
-        [ind_anticoordination, ind_coordination, ind_crosscoordination]
-    x: episode_bin
-    y: value
-    grid: [lr, rewards]
-    hue: metric_name
-    style: episode_part
-    name: metrics
-  - expand: [type, metric_name]
     filename: pattern_metrics
     selectors:
       episode_part: full
+      metric_name: entropy
+      type: pattern
+      lr: 0.001
+      rewards: ind_anticoordination
+      pattern_length: [2, 3, 4]
     x: episode_bin
     y: value
-    grid: [lr, rewards]
+    # grid: [lr, rewards]
     hue: pattern_length
     style: agent_type
-    name: entropy
+    name: entropy_selection

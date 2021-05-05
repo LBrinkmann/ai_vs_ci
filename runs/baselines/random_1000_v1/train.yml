@@ -1,0 +1,43 @@
+labels:
+  baseline: random_10000_v1
+include:
+  - baseconfigs/train/envs/erdos_renyi_20_v1.yml
+  - baseconfigs/train/envs/reward_original_v1.yml
+  - baseconfigs/train/local.yml
+params:
+  # seed: null
+  # device_name: cpu
+  save_interval:
+    train: 1
+    eval: 1
+  observer_args:
+    ci:
+      class_name: identity
+    ai:
+      class_name: identity
+  controller_args:
+    ai:
+      class_name: heuristic
+      heuristic_name: random
+    ci:
+      class_name: heuristic
+      heuristic_name: random
+  scheduler_args:
+    episodes: 10000
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training:
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training:
+            ci: false
+            ai: false
