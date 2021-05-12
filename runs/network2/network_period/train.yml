@@ -1,0 +1,53 @@
+description: >-
+  In this experiment we control the number of episodes before the network is
+  resampled (1,100,3000). Additionally we are testing three different types of
+  rewards (individual, shared with neighbors, globally shared).
+grid:
+  - - params.environment_args.reward_args:
+        ci:
+          ind_anticoordination:
+            ci: 1
+          ind_crosscoordination:
+            ci: -1
+        ai:
+          ind_anticoordination:
+            ci: -1
+          ind_crosscoordination:
+            ci: 1
+      labels.rewards: individual
+    - params.environment_args.reward_args:
+        ci:
+          global_anticoordination:
+            ci: 1
+          global_crosscoordination:
+            ci: -1
+        ai:
+          global_anticoordination:
+            ci: -1
+          global_crosscoordination:
+            ci: 1
+      labels.rewards: global
+    - params.environment_args.reward_args:
+        ci:
+          local_anticoordination:
+            ci: 1
+          local_crosscoordination:
+            ci: -1
+        ai:
+          local_anticoordination:
+            ci: -1
+          local_crosscoordination:
+            ci: 1
+      labels.rewards: local
+  - params.environment_args.network_period: [1, 100, 3000]
+    labels.network_period: [1, 100, 3000]
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+include:
+  - baseconfigs/train/cuda_repro_v1.yml
+  - baseconfigs/train/envs/erdos_renyi_20_v1.yml
+  - baseconfigs/train/envs/reward_original_v1.yml
+  - baseconfigs/train/controller/madql_repro_v1.yml
+  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/scheduler/10000_v1.yml

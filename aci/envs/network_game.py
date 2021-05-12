@@ -5,10 +5,10 @@ Graph Coloring Environment
 import torch as th
 import numpy as np
 import collections
-import string
 import os
 from .utils.graph import create_graph, determine_max_degree
 from ..utils.io import ensure_dir
+from ..utils.utils import int_to_string
 from aci.envs.reward_metrics import calc_metrics, calc_reward, create_reward_vec, METRIC_NAMES
 
 
@@ -153,8 +153,8 @@ class NetworkGame():
             'max_neighbors': self.max_neighbors,
             'episode_steps': self.episode_steps,
             'metric_names': self.metric_names,
-            'actions': [string.ascii_uppercase[i] for i in range(self.n_actions)],
-            'agents': [string.ascii_uppercase[i] for i in range(self.n_nodes)],
+            'actions': [int_to_string(i) for i in range(self.n_actions)],
+            'agents': [int_to_string(i) for i in range(self.n_nodes)],
             'agent_types': self.agent_types,
             'metric_names': self.metric_names,
         }
@@ -288,8 +288,8 @@ class NetworkGame():
             th.save(
                 {
                     'agent_types': self.agent_types,
-                    'actions': [string.ascii_uppercase[i] for i in range(self.n_actions)],
-                    'agents': [string.ascii_uppercase[i] for i in range(self.n_nodes)],
+                    'actions': [int_to_string(i) for i in range(self.n_actions)],
+                    'agents': [int_to_string(i) for i in range(self.n_nodes)],
                     'metric_names': self.metric_names,
                     **{k: v[:chi:self.save_interval] for k, v in self.episode_history.items()},
                     **{k: v[:chi:self.save_interval] for k, v in self.step_history.items()},

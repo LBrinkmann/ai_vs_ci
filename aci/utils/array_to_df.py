@@ -1,4 +1,5 @@
 import pandas as pd
+from .utils import int_to_string
 
 
 def using_multiindex(A, columns, value_name='value'):
@@ -20,8 +21,7 @@ def map_columns(df, **map_columns):
 
 
 def to_alphabete(df, columns):
-    import string
-    string_mapper = {x: y for x, y in enumerate(string.ascii_uppercase, 0)}
+    # string_mapper = {x: y for x, y in enumerate(string.ascii_uppercase, 0)}
     for col in columns:
-        df[col] = df[col].map(string_mapper)
+        df[col] = df[col].map(int_to_string)
     return df

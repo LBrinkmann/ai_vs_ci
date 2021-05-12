@@ -1,0 +1,46 @@
+clean: true
+cores: 32
+preprocess_args:
+  metrics:
+    selectors:
+      mode: train
+      metric_name:
+        [ind_anticoordination, ind_coordination, ind_crosscoordination]
+      agent: all
+  pattern_metrics:
+    selectors:
+      mode: train
+      agent: all
+  correlations:
+    selectors:
+      mode: train
+      agent: all
+  top_pattern:
+    selectors:
+      mode: train
+      agent: all
+plots:
+  - expand: [width]
+    filename: metrics
+    selectors:
+      agent_type: ci
+      episode_part: full
+      metric_name: [ind_anticoordination, ind_crosscoordination]
+    x: episode_bin
+    y: value
+    grid: [architecture, network_period]
+    hue: metric_name
+    style: lr
+    name: metrics
+  - expand: [lr, width]
+    filename: pattern_metrics
+    selectors:
+      type: pattern
+      episode_part: full
+      pattern_length: 4
+    x: episode_bin
+    y: value
+    grid: [architecture, network_period]
+    hue: metric_name
+    style: agent_type
+    name: entropy
