@@ -2,8 +2,9 @@ exec:
   command: post
   script_name: cpu
   cores: 6
-  hours: 2
+  hours: 1
   memory: 32
+  partition: quick
 parent:
   parent_name: train
   folder_name: train

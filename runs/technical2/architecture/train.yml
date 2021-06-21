@@ -1,0 +1,89 @@
+description: >-
+  The architecture could be particiular important, when the network is
+  stable. For this reason we revisit this question here in order to decide on
+  the best architecture. We also compare two different hidden sizes, to outrule
+  interactions later on.
+grid:
+  - - params.environment_args.reward_args:
+        ci:
+          local_anticoordination:
+            ci: 1
+          local_crosscoordination:
+            ci: -1
+        ai:
+          local_anticoordination:
+            ci: -1
+          local_crosscoordination:
+            ci: 1
+      labels.rewards: local
+  - - params.controller_args.ci.model_args:
+        pooling_types: ["avg", "max", "sum"]
+        hidden_size: 100
+      params.controller_args.ai.model_args:
+        pooling_types: ["avg", "max", "sum"]
+        hidden_size: 100
+      labels.width: large
+    - params.controller_args.ci.model_args:
+        pooling_types: ["sum"]
+        hidden_size: 10
+      params.controller_args.ai.model_args:
+        pooling_types: ["sum"]
+        hidden_size: 10
+      labels.width: small
+  - - params.controller_args.ci.model_args:
+        linear1: true
+        rnn1: true
+        linear2: true
+        rnn2: true
+      params.controller_args.ai.model_args:
+        linear1: true
+        rnn1: true
+        linear2: true
+        rnn2: true
+      labels.architecture: deep
+    - params.controller_args.ci.model_args:
+        linear1: true
+        rnn1: false
+        linear2: true
+        rnn2: false
+      params.controller_args.ai.model_args:
+        linear1: true
+        rnn1: false
+        linear2: true
+        rnn2: false
+      labels.architecture: lin_only
+    - params.controller_args.ci.model_args:
+        linear1: true
+        rnn1: true
+        linear2: true
+        rnn2: true
+      params.controller_args.ai.model_args:
+        linear1: true
+        rnn1: true
+        linear2: true
+        rnn2: false
+      labels.architecture: rnn1
+    - params.controller_args.ci.model_args:
+        linear1: true
+        rnn1: true
+        linear2: true
+        rnn2: true
+      params.controller_args.ai.model_args:
+        linear1: true
+        rnn1: false
+        linear2: true
+        rnn2: true
+      labels.architecture: rnn2
+  - params.environment_args.network_period: [1, 1000]
+    labels.network_period: [1, 1000]
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+include:
+  - baseconfigs/train/cuda_v1.yml
+  - baseconfigs/train/envs/erdos_renyi_40_v1.yml
+  # - baseconfigs/train/envs/reward_original_v1.yml
+  - baseconfigs/train/controller/madql_slow_v2.yml
+  - baseconfigs/train/controller/pooling_full_v1.yml
+  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/scheduler/10000_v1.yml
