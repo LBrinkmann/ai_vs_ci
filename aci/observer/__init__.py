@@ -1,7 +1,8 @@
-from .neighbor import NeighborView
+from .neighbor import NeighborView, ViewEncoder
 from .identity import IdentityView
 
 OBSERVER = {
     "neighbor": NeighborView,
-    "identity": IdentityView
+    "identity": IdentityView,
+    "central": ViewEncoder
 }

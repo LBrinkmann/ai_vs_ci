@@ -1,0 +1,9 @@
+params:
+  observer_args:
+    ci:
+      class_name: neighbor
+      neighbor_view_args:
+        actions_view: ["ci"]
+    ai:
+      class_name: central
+      actions_view: ["ci"]

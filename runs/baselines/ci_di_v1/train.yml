@@ -1,0 +1,10 @@
+labels:
+  baseline: ci_di_v1
+include:
+  # - baseconfigs/train/cuda_v1.yml
+  - baseconfigs/train/local.yml
+  - baseconfigs/train/envs/erdos_renyi_fixed_v1.yml
+  - baseconfigs/train/envs/reward_global_v1.yml
+  - baseconfigs/train/controller/ci_di_simple_v1.yml
+  - baseconfigs/train/observer/ci_di_simple_v1.yml
+  - baseconfigs/train/scheduler/10000_v1.yml

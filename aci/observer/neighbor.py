@@ -56,7 +56,8 @@ def view_encoder(
 
 
 class ViewEncoder():
-    def __init__(self, *, actions_view=None, metric_view=None, control_view=None, env_info, device):
+    def __init__(self, *, actions_view=None, metric_view=None,
+                 control_view=None, env_info, device, agent_type=None):
         self.n_actions = env_info['n_actions']
         self.device = device
         n_control = env_info['n_control']
@@ -116,7 +117,7 @@ class ViewEncoder():
             view = th.cat(views, dim=-1)  # h s+ p i
         else:
             view = None
-        return view
+        return {'view': view}
 
 
 class NeighborView():
@@ -143,10 +144,10 @@ class NeighborView():
         h, s, p, t = state['actions'].shape
         agent_type_idx = self.agent_type_idx
 
-        view = self.neighbor_encoder(**state)  # h s+ p i
+        view = self.neighbor_encoder(**state)['view']  # h s+ p i
         view = project_on_neighbors(
             view, state['neighbors'], state['neighbors_mask'])  # h s+ p n i
-        control = self.control_encoder(**state)  # h s+ p c
+        control = self.control_encoder(**state)['view']  # h s+ p c
 
         mask = state['neighbors_mask'].unsqueeze(1).expand(-1, s, -1, -1)  # h s+ p n
         agent_map = state['agent_map'][:, :, agent_type_idx].unsqueeze(

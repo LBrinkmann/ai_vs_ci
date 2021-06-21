@@ -4,6 +4,6 @@ include:
   - baseconfigs/train/local.yml
   - baseconfigs/train/envs/erdos_renyi_20_v1.yml
   - baseconfigs/train/envs/reward_original_v1.yml
-  - baseconfigs/train/controller/madql_repro_v1.yml
-  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/controller/dqn_central_v1.yml
+  - baseconfigs/train/observer/central_simple_v1.yml
   - baseconfigs/train/scheduler/10000_v1.yml
