@@ -1,0 +1,72 @@
+description: >-
+  Here we test the different ci architectures on relative short learning times.
+params:
+  observer_args:
+    ci:
+      class_name: neighbor
+      neighbor_view_args:
+        actions_view: ["ci"]
+  controller_args:
+    ai:
+      gamma: 0.80
+      target_update_freq: 10
+      sample_args:
+        batch_size: 10
+        horizon: 50
+      opt_args:
+        lr: 0.001
+      model_args:
+        hidden_size: 100
+    ci:
+      class_name: madqn
+      gamma: 0.80
+      target_update_freq: 10
+      sample_args:
+        batch_size: 10
+        horizon: 50
+      opt_args:
+        lr: 0.001
+      wrapper_args:
+        weight_sharing: false
+        net_type: gru
+      model_args:
+        hidden_size: 100
+grid:
+  - - params.controller_args.ai.class_name: madqn
+      params.controller_args.ai.wrapper_args:
+        weight_sharing: false
+        net_type: gru
+      params.observer_args.ai:
+        class_name: neighbor
+        neighbor_view_args:
+          actions_view: ["ci"]
+      labels.architecture: individual
+    - params.controller_args.ai.class_name: madqn
+      params.controller_args.ai.wrapper_args:
+        weight_sharing: true
+        net_type: gru
+      params.observer_args.ai:
+        class_name: neighbor
+        neighbor_view_args:
+          actions_view: ["ci"]
+      labels.architecture: shared
+    - params.controller_args.ai.class_name: dqn
+      params.controller_args.ai.wrapper_args:
+        net_type: central
+      params.controller_args.ai.model_args.rnn1: true
+      params.controller_args.ai.model_args.linear2: true
+      params.observer_args.ai:
+        class_name: central
+        actions_view: ["ci"]
+      labels.architecture: central
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+  - labels.seed: ["a", "b", "c"]
+include:
+  - baseconfigs/train/cuda_v2.yml
+  - baseconfigs/train/envs/erdos_renyi_fixed_v1.yml
+  - baseconfigs/train/envs/reward_global_v1.yml
+  - baseconfigs/train/scheduler/1000_v1.yml
+  # - baseconfigs/train/controller/ci_di_simple_v1.yml
+  # - baseconfigs/train/observer/ci_di_simple_v1.yml

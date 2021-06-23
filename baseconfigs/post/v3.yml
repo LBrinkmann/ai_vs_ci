@@ -19,16 +19,16 @@ params:
     eval:
       correlations_args:
         max_delta: 10
-        bin_size: 100
+        bin_size: 500
       tuple_args:
-        bin_size: 100
+        bin_size: 500
       metric_args:
-        bin_size: 100
+        bin_size: 500
     train:
       correlations_args:
         max_delta: 10
-        bin_size: 100
+        bin_size: 500
       tuple_args:
-        bin_size: 100
+        bin_size: 500
       metric_args:
-        bin_size: 100
+        bin_size: 500

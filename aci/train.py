@@ -62,7 +62,7 @@ def run_episode(*, episode, env, controller, observer, eps, training, device, **
         if done:
             # allow all controller to update themself
             for agent_type, a_controller in controller.items():
-                if training[agent_type]:
+                if training[agent_type] and (a_controller.sample_args is not None):
                     sample = env.sample(
                         agent_type=agent_type, **a_controller.sample_args)
                     if sample is not None:

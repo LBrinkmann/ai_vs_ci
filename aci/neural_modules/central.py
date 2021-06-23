@@ -7,6 +7,7 @@ import torch as th
 class CentralAgent(nn.Module):
     def __init__(self, view_size, n_actions, hidden_size, n_agents, rnn1, linear2, device, **kwargs):
         super(CentralAgent, self).__init__()
+        self.n_actions = n_actions
         #  view_size, control_size, n_actions
         self.linear1 = nn.Linear(in_features=view_size*n_agents, out_features=hidden_size)
         if rnn1:
@@ -31,5 +32,5 @@ class CentralAgent(nn.Module):
         if self.linear2:
             x = self.linear2(x)
         q = self.linear3(x)
-        q = q.reshape(b, s, p, i)
+        q = q.reshape(b, s, p, self.n_actions)
         return q

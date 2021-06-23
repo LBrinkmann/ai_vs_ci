@@ -4,7 +4,7 @@ exec:
   cores: 6
   hours: 1
   memory: 32
-  partition: short
+  partition: quick
 parent:
   parent_name: train
   folder_name: train
@@ -27,8 +27,8 @@ params:
     train:
       correlations_args:
         max_delta: 10
-        bin_size: 100
+        bin_size: 20
       tuple_args:
-        bin_size: 100
+        bin_size: 20
       metric_args:
-        bin_size: 100
+        bin_size: 20
