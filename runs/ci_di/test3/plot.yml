@@ -81,7 +81,9 @@ plots:
       agent_type: ci
     x: episode_bin
     y: value
-    grid: [lr, ai architecture]
-    hue: human model size
+    grid: [ai architecture]
+    # hue: human model size
     style: human model size
     name: entropy
+    x_label: episode
+    y_label: entropy
