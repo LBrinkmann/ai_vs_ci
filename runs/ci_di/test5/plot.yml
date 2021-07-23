@@ -59,7 +59,7 @@ preprocess_args:
       mode: train
       agent: all
 plots:
-  - expand: [lr]
+  - expand: [lr, rewards]
     filename: metrics
     selectors:
       agent_type: ci
@@ -72,7 +72,7 @@ plots:
     name: metrics
     x_label: episode
     y_label: fraction of nodes
-  - expand: [metric_name, lr]
+  - expand: [metric_name, lr, rewards]
     filename: pattern_metrics
     selectors:
       type: pattern
