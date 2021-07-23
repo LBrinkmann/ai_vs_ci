@@ -1,0 +1,30 @@
+params:
+  controller_args:
+    ai:
+      class_name: dqn
+      gamma: 0.80
+      target_update_freq: 500
+      sample_args:
+        batch_size: 10
+        horizon: 500
+      opt_args:
+        lr: 0.001
+      wrapper_args:
+        net_type: gcn
+      model_args:
+        hidden_size: 20
+        graph_layer_name: GCNConv
+    ci:
+      class_name: dqn
+      gamma: 0.80
+      target_update_freq: 500
+      sample_args:
+        batch_size: 20
+        horizon: 500
+      opt_args:
+        lr: 0.001
+      wrapper_args:
+        net_type: gcn
+      model_args:
+        hidden_size: 20
+        graph_layer_name: GCNConv

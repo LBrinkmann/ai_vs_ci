@@ -23,6 +23,7 @@ class MADQN():
         self.target_update_freq = target_update_freq
         self.mix_freq = mix_freq
         self.agent_type = agent_type
+        self.observation_shape = observation_shape
 
     def init_episode(self, episode, training):
         if (self.mix_freq is not None) and (episode % self.mix_freq == 0):
@@ -38,7 +39,7 @@ class MADQN():
             return self.policy_net(**observations)
 
     def update(self, observations, actions, rewards):
-        previous_obs, current_obs = shift_obs(observations)
+        previous_obs, current_obs = shift_obs(observations, self.observation_shape)
 
         self.policy_net.reset()
         self.target_net.reset()

@@ -1,7 +1,5 @@
 from torch_geometric.nn import GCNConv, GraphConv
 import torch.nn as nn
-import torch.nn.functional as F
-import torch as th
 
 
 def get_graph_layer(in_channels, out_channels, class_name, **kwargs):
@@ -13,17 +11,19 @@ def get_graph_layer(in_channels, out_channels, class_name, **kwargs):
 
 
 class GCNModel(nn.Module):
-    def __init__(self, n_actions, hidden_size, layer_args, device):
+    def __init__(self, view_size, n_actions, hidden_size, graph_layer_name, device, **kwargs):
         super(GCNModel, self).__init__()
 
-        self.conv1 = get_graph_layer(n_actions, hidden_size, **layer_args)
-        self.conv2 = get_graph_layer(hidden_size, n_actions, **layer_args)
+        input_size = view_size['view'][-1]
+
+        self.conv1 = get_graph_layer(input_size, hidden_size, class_name=graph_layer_name)
+        self.conv2 = get_graph_layer(hidden_size, n_actions, class_name=graph_layer_name)
 
     def reset(self):
         pass
 
-    def forward(self, x, edge_index):
-        x = self.conv1(x, edge_index)
+    def forward(self, view, edge_index):
+        x = self.conv1(view, edge_index)
         x = x.relu()
         # x = F.dropout(x, p=0.5, training=self.training)
         x = self.conv2(x, edge_index)
