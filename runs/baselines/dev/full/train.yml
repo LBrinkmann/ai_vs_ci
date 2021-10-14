@@ -28,7 +28,8 @@ params:
   environment_args:
     class_name: network_game
     n_nodes: 20
-    n_actions: 4
+    n_actions: 5
+    null_action: true
     episode_steps: 20
     max_history: 20
     network_period: 2

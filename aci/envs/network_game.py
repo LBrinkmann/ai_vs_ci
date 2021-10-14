@@ -98,7 +98,7 @@ class NetworkGame():
     """
 
     def __init__(
-            self, *, n_nodes, n_actions, episode_steps, max_history,
+            self, *, n_nodes, n_actions, null_action=False, episode_steps, max_history,
             network_period=0, mapping_period=0,
             reward_args, agent_type_args, graph_args, control_args,
             out_dir=None, save_interval, device):
@@ -130,6 +130,7 @@ class NetworkGame():
         self.episode_steps = episode_steps
         self.n_nodes = n_nodes
         self.n_actions = n_actions
+        self.null_action = null_action
         self.n_agent_types = len(self.agent_types)
         self.control_args = control_args
         self.n_control = self.control_args.get('n_control', 0)
@@ -222,9 +223,13 @@ class NetworkGame():
             self.episode_history[k][self.current_hist_idx] = v
 
         # random init action
-        init_actions = th.tensor(
-            np.random.randint(0, self.n_actions, (1, 1, self.n_nodes, self.n_agent_types)),
-            dtype=th.int64, device=self.device)
+        if self.null_action:
+            init_actions = th.zeros((1, 1, self.n_nodes, self.n_agent_types),
+                                    dtype=th.int64, device=self.device)
+        else:
+            init_actions = th.tensor(
+                np.random.randint(0, self.n_actions, (1, 1, self.n_nodes, self.n_agent_types)),
+                dtype=th.int64, device=self.device)
 
         # init step
         return self.step(init_actions)
@@ -249,7 +254,7 @@ class NetworkGame():
         }
         neighbors = episode_state['neighbors']
         neighbors_mask = episode_state['neighbors_mask']
-        metrics = calc_metrics(actions, neighbors, neighbors_mask)  # h s+ p m t
+        metrics = calc_metrics(actions, neighbors, neighbors_mask, self.null_action)  # h s+ p m t
         reward = calc_reward(metrics, self.reward_vec)
         control_int = create_control(
             n_nodes=self.n_nodes, n_agent_types=self.n_agent_types, **self.control_args,

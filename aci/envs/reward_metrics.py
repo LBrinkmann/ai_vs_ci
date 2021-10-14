@@ -2,7 +2,7 @@ import torch as th
 from aci.utils.tensor_op import map_tensor
 
 METRIC_NAMES = [f'{agg}_{m}' for agg in ['ind', 'local', 'global']
-                for m in ['crosscoordination', 'coordination', 'anticoordination']]
+                for m in ['active', 'crosscoordination', 'coordination', 'anticoordination']]
 
 
 def create_reward_vec(reward_args, device):
@@ -63,7 +63,7 @@ def project_on_neighbors(tensor, neighbors, neighbors_mask, fill_value=0):
     return nb_tensor  # h s+ p n+ t ?
 
 
-def calc_metrics(actions, neighbors, neighbors_mask):
+def calc_metrics(actions, neighbors, neighbors_mask, null_action):
     """
     Calculates three different metrics (cross-coordination, coordination and
     anti-coordination). Each metric is calculated for each agent type individual
@@ -91,20 +91,40 @@ def calc_metrics(actions, neighbors, neighbors_mask):
     neighbors_actions = project_on_neighbors(
         actions, neighbors, neighbors_mask, fill_value=-1)  # h s+ p n t
 
+    # import ipdb
+    # ipdb.set_trace()
     self_cross = actions.unsqueeze(-1).expand(-1, -1, -1, -1, t)  # h s+ p t t'
     other_cross = actions.unsqueeze(-2).expand(-1, -1, -1, t, -1)  # h s+ p t t'
-    cross_coordination = (self_cross == other_cross).all(-1).type(th.float)  # h s+ p t
+
+    if null_action:
+        cross_coordination = (self_cross == other_cross) & (
+            self_cross != 0) & (other_cross != 0)   # h s+ p t t'
+    else:
+        cross_coordination = (self_cross == other_cross)  # h s+ p t t'
+    cross_coordination = cross_coordination.all(-1).type(th.float)  # h s+ p t
 
     _mask = neighbors_mask.unsqueeze(1).unsqueeze(-1).expand(-1, s, -1, -1, t)  # h s+ p n t
-    neighbor_coordination = (actions.unsqueeze(-2) == neighbors_actions)  # h s+ p n t
+
+    if null_action:
+        neighbor_coordination = (actions.unsqueeze(-2) ==
+                                 neighbors_actions) & (actions != 0).unsqueeze(-2)  # h s+ p n t
+    else:
+        neighbor_coordination = (actions.unsqueeze(-2) == neighbors_actions)  # h s+ p n t
     neighbor_coordination[_mask] = True  # h s+ p n t
     neighbor_coordination = neighbor_coordination.all(-2).type(th.float)  # h s+ p t
 
     only_neigbhors = neighbors_actions[:, :, :, 1:]
-    neighbor_anticoordination = (actions.unsqueeze(-2) !=
-                                 only_neigbhors).all(-2).type(th.float)  # h s+ p t
+    if null_action:
+        neighbor_anticoordination = (actions.unsqueeze(-2) !=
+                                     only_neigbhors) & (actions != 0).unsqueeze(-2)  # h s+ p n t
+    else:
+        neighbor_anticoordination = (actions.unsqueeze(-2) !=
+                                     only_neigbhors)  # h s+ p n t
 
-    ind_metrics = th.stack([cross_coordination, neighbor_coordination,
+    neighbor_anticoordination = neighbor_anticoordination.all(-2).type(th.float)  # h s+ p t
+
+    is_not_null = (actions != 0).type(th.float)
+    ind_metrics = th.stack([is_not_null, cross_coordination, neighbor_coordination,
                             neighbor_anticoordination], dim=-1)  # h s+ p t m
 
     loc_metrics = local_aggregation(ind_metrics, neighbors, neighbors_mask)
