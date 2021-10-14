@@ -8,6 +8,7 @@ Outputs:
 """
 
 from docopt import docopt
+from numpy.lib.financial import ipmt
 import pandas as pd
 import traceback
 import os
@@ -28,11 +29,12 @@ def _plot(args):
         title = ' | '.join(f"{k}:{v}" for k, v in args[0]
                            ['selectors'].items() if not isinstance(v, list))
         print(f'Error plotting {title}.')
-        print(''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__)))
+        print(''.join(traceback.format_exception(
+            etype=type(ex), value=ex, tb=ex.__traceback__)))
 
 
 def plot(
-        dfs, filename, output_path, name, selectors, x, y, grid=[], dfs_baselines=None,
+        dfs, filename, output_path, name, selectors, x, y, grid=[], dfs_baselines=None, grid_order={},
         hue=None, style=None, idx=None, x_label=None, y_label=None):
 
     df = dfs[filename]
@@ -46,7 +48,8 @@ def plot(
 
     w = selector(df, selectors)
 
-    title = ' | '.join(f"{k}:{v}" for k, v in selectors.items() if not isinstance(v, list))
+    title = ' | '.join(
+        f"{k}:{v}" for k, v in selectors.items() if not isinstance(v, list))
 
     print(f'start plotting {name}.{idx}')
 
@@ -75,10 +78,14 @@ def plot(
 
     grid = {n: g for g, n in zip(grid[::-1], ['col', 'row'])}
 
+    print(grid_order, grid)
+
     grid_order = {
-        f'{k}_order': sorted([n for n in dfs[v].unique() if not pd.isnull(n)])
+        f'{k}_order': grid_order[v] if v in grid_order else sorted([n for n in dfs[v].unique() if not pd.isnull(n)])
         for k, v in grid.items()
     }
+
+    print(grid_order)
 
     other = {}
     if hue is not None:
@@ -250,10 +257,12 @@ def main():
     input_files = os.listdir(os.path.join(run_folder, 'merge'))
     input_files = [os.path.join(run_folder, 'merge', f) for f in input_files]
 
-    baselines = parameter.pop('baselines') if 'baselines' in parameter else None
+    baselines = parameter.pop(
+        'baselines') if 'baselines' in parameter else None
 
     if baselines:
-        baseline_files = {k: os.listdir(os.path.join(v, 'merge')) for k, v in baselines.items()}
+        baseline_files = {k: os.listdir(os.path.join(
+            v, 'merge')) for k, v in baselines.items()}
         baseline_files = {
             k: [os.path.join(baselines[k], 'merge', f) for f in v] for k, v in baseline_files.items()}
     else:

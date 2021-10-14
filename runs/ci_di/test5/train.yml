@@ -175,7 +175,8 @@ grid:
           hidden_size: 100
       params.observer_args.ai:
         class_name: network
-        actions_view: ["ci"]
+        view_args:
+          actions_view: ["ci"]
       labels.architecture: network
   - params.controller_args.ci.model_args.hidden_size: [20, 100]
     labels.ci_hidden_size: [20, 100]
