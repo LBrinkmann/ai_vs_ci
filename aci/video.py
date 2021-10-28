@@ -19,6 +19,13 @@ from aci.post import get_files
 from multiprocessing import Manager, Pool
 
 
+colormap = {
+    0: 'black',
+    1: 'green',
+    -1: 'red'
+}
+
+
 def make_frame(
         actions, reward, metrics, fullmetrics, agent_types, metric_names, agents, step, graph, graph_pos, mode,
         episode, **_):
@@ -31,25 +38,29 @@ def make_frame(
     node_color_1 = [action_1[i].item() for i in graph.nodes()]
 
     anticoor = metrics[:, 0, metric_names.index('ind_anticoordination')]
-    crosscoor = metrics[:, 0, metric_names.index('ind_crosscoordination')]
-    coordination_color = ['green' if anticoor[i] == 1 else 'red' for i in graph.nodes()]
-    catch_color = ['red' if crosscoor[i] == 1 else 'white' for i in graph.nodes()]
+    crosscoor = metrics[:, 1, metric_names.index('ind_crosscoordination')]
+    coordination_color = [colormap[int(anticoor[i])] for i in graph.nodes()]
+    catch_color = [colormap[int(crosscoor[i])] for i in graph.nodes()]
 
     nx.draw(graph, graph_pos, node_color=catch_color, node_size=700)
 
     nx.draw(graph, graph_pos, node_color=node_color_1, node_size=550)
 
-    nx.draw(graph, graph_pos, node_color=node_color_0, node_size=300, edgelist=[])
+    nx.draw(graph, graph_pos, node_color=node_color_0,
+            node_size=300, edgelist=[])
 
-    nx.draw(graph, graph_pos, node_color=coordination_color, node_size=30, edgelist=[])
+    nx.draw(graph, graph_pos, node_color=coordination_color,
+            node_size=30, edgelist=[])
 
     reward_0 = reward[:, 0].sum()
     reward_1 = reward[:, 1].sum()
 
     print(fullmetrics.shape)
 
-    anticoor_cum = fullmetrics[:, :, 0, metric_names.index('ind_anticoordination')].sum(1).mean()
-    crosscoor_cum = fullmetrics[:, :, 0, metric_names.index('ind_crosscoordination')].sum(1).mean()
+    anticoor_cum = fullmetrics[:, :, 0, metric_names.index(
+        'ind_anticoordination')].sum(1).mean()
+    crosscoor_cum = fullmetrics[:, :, 0, metric_names.index(
+        'ind_crosscoordination')].sum(1).mean()
 
     crosscoor_m = crosscoor.sum()
     anticoor_m = anticoor.sum()
@@ -75,7 +86,8 @@ def make_frame(
 
 
 def get_graph(neighbors):
-    edgelist = [[i, j.item()] for i, n in enumerate(neighbors[:, 1:]) for j in n if j != -1]
+    edgelist = [[i, j.item()] for i, n in enumerate(neighbors[:, 1:])
+                for j in n if j != -1]
     graph = nx.from_edgelist(edgelist)
     graph_pos = nx.spring_layout(graph)
     return graph, graph_pos
