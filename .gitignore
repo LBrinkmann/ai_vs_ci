@@ -21,3 +21,5 @@ tmp
 !baseconfigs/post
 !baseconfigs/train
 !baseconfigs/plot
+
+!runs/null_action/**/merge
