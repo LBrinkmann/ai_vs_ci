@@ -6,7 +6,7 @@ import torch as th
 import numpy as np
 import collections
 import os
-from .utils.graph import create_graph, determine_max_degree
+from .utils.graph import create_graph
 from ..utils.io import ensure_dir
 from ..utils.utils import int_to_string
 from aci.envs.reward_metrics import calc_metrics, calc_reward, create_reward_vec, METRIC_NAMES
@@ -56,11 +56,15 @@ def create_control(
         c = th.randint(low=0, high=n_control, size=(n_nodes, 1),
                        device=device).expand(-1, n_agent_types)
     if not correlated and not cross_correlated:
-        c = th.randint(low=0, high=n_control, size=(n_nodes, n_agent_types), device=device)
+        c = th.randint(low=0, high=n_control, size=(
+            n_nodes, n_agent_types), device=device)
     return c.unsqueeze(0).unsqueeze(0)
 
 
 def pad_neighbors(neighbors, max_degree, device):
+    assert max(len(
+        n) for n in neighbors) <= max_degree, 'Networks has more neighbors then max neighbors.'
+
     padded_neighbors = [
         [i] + n + [-1]*(max_degree - len(n))
         for i, n in enumerate(neighbors)
@@ -99,7 +103,7 @@ class NetworkGame():
 
     def __init__(
             self, *, n_nodes, n_actions, null_action=False, episode_steps, max_history,
-            network_period=0, mapping_period=0,
+            network_period=0, mapping_period=0, max_neighbors,
             reward_args, agent_type_args, graph_args, control_args,
             out_dir=None, save_interval, device):
         """
@@ -135,7 +139,9 @@ class NetworkGame():
         self.control_args = control_args
         self.n_control = self.control_args.get('n_control', 0)
         # maximum number of neighbors
-        self.max_neighbors = determine_max_degree(n_nodes=n_nodes, **graph_args)
+        self.max_neighbors = max_neighbors
+        # self.max_neighbors = determine_max_degree(
+        #     n_nodes=n_nodes, **graph_args)
 
         self.episode = -1
         self.out_dir = out_dir
@@ -172,7 +178,8 @@ class NetworkGame():
                                  self.n_agent_types, len(self.metric_names)),
                                 dtype=th.float, device=self.device),  # h s+ p t m
             'control_int': th.empty(
-                (self.max_history, self.episode_steps + 1, self.n_nodes, self.n_agent_types),
+                (self.max_history, self.episode_steps + \
+                 1, self.n_nodes, self.n_agent_types),
                 dtype=th.int64, device=self.device)  # h s+ p
         }
         self.episode_history = {
@@ -198,7 +205,8 @@ class NetworkGame():
         if (self.episode == 0) or (
                 (self.network_period > 0) and (self.episode % self.network_period == 0)):
             neighbors = create_graph(n_nodes=self.n_nodes, **self.graph_args)
-            neighbors, neighbors_mask = pad_neighbors(neighbors, self.max_neighbors, self.device)
+            neighbors, neighbors_mask = pad_neighbors(
+                neighbors, self.max_neighbors, self.device)
         else:
             neighbors = self.episode_history['neighbors'][prev_hist_idx]
             neighbors_mask = self.episode_history['neighbors_mask'][prev_hist_idx]
@@ -228,7 +236,8 @@ class NetworkGame():
                                     dtype=th.int64, device=self.device)
         else:
             init_actions = th.tensor(
-                np.random.randint(0, self.n_actions, (1, 1, self.n_nodes, self.n_agent_types)),
+                np.random.randint(0, self.n_actions,
+                                  (1, 1, self.n_nodes, self.n_agent_types)),
                 dtype=th.int64, device=self.device)
 
         # init step
@@ -254,7 +263,8 @@ class NetworkGame():
         }
         neighbors = episode_state['neighbors']
         neighbors_mask = episode_state['neighbors_mask']
-        metrics = calc_metrics(actions, neighbors, neighbors_mask, self.null_action)  # h s+ p m t
+        metrics = calc_metrics(
+            actions, neighbors, neighbors_mask, self.null_action)  # h s+ p m t
         reward = calc_reward(metrics, self.reward_vec)
         control_int = create_control(
             n_nodes=self.n_nodes, n_agent_types=self.n_agent_types, **self.control_args,
@@ -269,7 +279,8 @@ class NetworkGame():
 
         # add step attributes to history
         for k, v in step_state.items():
-            self.step_history[k][self.current_hist_idx, self.episode_step] = v[0, 0]
+            self.step_history[k][self.current_hist_idx,
+                                 self.episode_step] = v[0, 0]
 
         state = {**step_state, **episode_state}
         return state, reward,  done
@@ -322,21 +333,26 @@ class NetworkGame():
             # get the last n episodes (n=batch_size)
             pos_idx = np.arange(batch_size)
 
-        hist_idx = th.tensor([self.history_queue[pidx] for pidx in pos_idx], dtype=th.int64)
+        hist_idx = th.tensor([self.history_queue[pidx]
+                              for pidx in pos_idx], dtype=th.int64)
 
-        keys = ['actions', 'metrics', 'control_int', 'neighbors', 'neighbors_mask', 'agent_map']
+        keys = ['actions', 'metrics', 'control_int',
+                'neighbors', 'neighbors_mask', 'agent_map']
 
         state = {
             **{k: v[hist_idx] for k, v in self.episode_history.items() if k in keys},
             **{k: v[hist_idx] for k, v in self.step_history.items() if k in keys},
         }
-        actions = self.step_history['actions'][hist_idx].select(-1, agent_type_idx)[:, 1:]
-        reward = self.step_history['reward'][hist_idx].select(-1, agent_type_idx)[:, 1:]
+        actions = self.step_history['actions'][hist_idx].select(-1, agent_type_idx)[
+            :, 1:]
+        reward = self.step_history['reward'][hist_idx].select(-1, agent_type_idx)[
+            :, 1:]
 
         return state, actions, reward
 
     # TODO: Unit test.
 
     def __del__(self):
-        if self.current_hist_idx != self.max_history - 1:
-            self.write_history()
+        if hasattr(self, 'current_hist_idx'):
+            if (self.current_hist_idx != (self.max_history - 1)):
+                self.write_history()

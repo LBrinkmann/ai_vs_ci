@@ -27,20 +27,31 @@ params:
             ai: true
   environment_args:
     class_name: network_game
-    n_nodes: 20
+    n_nodes: 64
     n_actions: 5
+    max_neighbors: 4
     null_action: true
     episode_steps: 20
     max_history: 20
     network_period: 0
     mapping_period: 0
     graph_args:
+      seed: 123
+      components: 8
+      # quantiles:
+      # avg_betweenness:
+      #   gt: 99
+      # avg_betweenness:
+      #   lt: 1
       constrains:
-        max_max_degree: 8
-        connected: True
+        {}
+        # components:
+        #   eq: 4
+        # is_connected:
+        #   eq: True
       graph_args:
-        p: 0.2
-      graph_type: erdos_renyi
+        d: 4
+      graph_type: random_regular
     reward_args:
       ci:
         ind_anticoordination:

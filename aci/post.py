@@ -10,6 +10,7 @@ Outputs:
 # from aci.envs.network_game import NetworkGame
 from docopt import docopt
 import os
+from numpy.compat.py3k import is_pathlib_path
 import pandas as pd
 import numpy as np
 import torch as th
@@ -56,7 +57,8 @@ def _preprocess_file(
     metrics_df = agg_metrics(**tensors, **metric_args)
     save_df(metrics_df, _labels, name, 'metrics', outdir)
 
-    pattern_df = pd.concat(match_tuples(**tensors, pattern_df=pattern_df, **tuple_args))
+    pattern_df = pd.concat(match_tuples(
+        **tensors, pattern_df=pattern_df, **tuple_args))
     pattern_df = agg_pattern_group(pattern_df)
 
     top_pattern_df = filter_top_pattern(pattern_df)

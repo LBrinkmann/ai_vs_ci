@@ -3,10 +3,25 @@ import numpy as np
 from functools import reduce
 from itertools import product
 
+comp = {
+    "gt": lambda a, b: a > b,
+    "lt": lambda a, b: a < b,
+    "ge": lambda a, b: a >= b,
+    "le": lambda a, b: a <= b,
+}
+
+
+def sub_filter(s, k, v):
+    return comp[s](k, v)
+
 
 def single_filter(s, f):
     if isinstance(f, list):
         w = s.isin(f)
+    elif isinstance(f, dict):
+        w = pd.Series(True, index=s.index)
+        for k, v in f.items():
+            w &= comp[k](s, v)
     else:
         w = s == f
     assert w.sum() > 0, f'Selecting for {f} does not leaves any data.'
@@ -80,7 +95,8 @@ def combine_values(df, combine):
             w_keep |= w
             df.loc[w, k] = name
 
-    remove_columns = set(name for v in combine.values() for vv in v.values() for name in vv)
+    remove_columns = set(name for v in combine.values()
+                         for vv in v.values() for name in vv)
     columns = [c for c in df.columns if c not in remove_columns]
     return df.loc[w_keep, columns]
 

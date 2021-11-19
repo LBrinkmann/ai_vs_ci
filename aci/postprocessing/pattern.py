@@ -11,8 +11,24 @@ def de_duplicate(seq):
 
 
 def normalize_pattern(pattern, actions):
-    mapping = {name: actions[idx] for idx, name in enumerate(de_duplicate(pattern))}
+    """
+    normalize by mapping permutations of actions
+    """
+    mapping = {name: actions[idx]
+               for idx, name in enumerate(de_duplicate(pattern))}
     return ''.join(mapping[p] for p in pattern)
+
+
+def normalize_pattern_shifts(pattern):
+    """
+    normalize by mapping shifts of the pattern
+    """
+    shifted_pattern = [
+        pattern[i:] + pattern[:i]
+        for i in range(len(pattern))
+    ]
+
+    return sorted(shifted_pattern)[0]
 
 
 def create_single_pattern_df(length, actions):
@@ -30,7 +46,7 @@ def create_single_pattern_df(length, actions):
 def create_pattern_df(min_length, max_length, actions):
     """
     Create tuples from the outer product of avaible actions.
-    Tuples which are equivalent upon permutation of action names are
+    Tuples which are equivalent upon shifts are
     assign the same pattern group.
 
     Parameters
@@ -62,11 +78,13 @@ def create_pattern_df(min_length, max_length, actions):
     pattern_df = pd.concat(pattern_dfs)
     pattern_df['pattern_id'] = np.arange(len(pattern_df))
     pattern_df['pattern_group_name'] = pattern_df['pattern_name'].map(
-        lambda p: normalize_pattern(p, actions))
+        lambda p: normalize_pattern_shifts(p))
     category_columns = ['pattern_name', 'pattern_group_name']
-    pattern_df[category_columns] = pattern_df[category_columns].astype('category')
+    pattern_df[category_columns] = pattern_df[category_columns].astype(
+        'category')
     column_order = [
         'pattern_id', 'pattern_length', 'pattern_name',
         'pattern_group_name', 'action_ids'
     ]
+
     return pattern_df[column_order]

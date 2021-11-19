@@ -17,7 +17,8 @@ def create_tuples(m, length):
 def tuple_to_multiindex(A, columns):
     shape = A.shape[:-1]
     length = A.shape[-1]
-    index = pd.MultiIndex.from_product([range(s) for s in shape], names=columns)
+    index = pd.MultiIndex.from_product(
+        [range(s) for s in shape], names=columns)
     action_ids = [tuple(a) for a in A.reshape(-1, length).tolist()]
     df = pd.DataFrame({'action_ids': action_ids}, index=index).reset_index()
     return df
@@ -31,14 +32,16 @@ def match_tuples(actions, pattern_df, agent_types, agents, episode, bin_size, **
         tuples = create_tuples(actions, length)
 
         # turn tensor in to dataframe, make dims to columns
-        tuple_df = tuple_to_multiindex(tuples, ['episode', 'episode_step', 'agent', 'agent_type'])
+        tuple_df = tuple_to_multiindex(
+            tuples, ['episode', 'episode_step', 'agent', 'agent_type'])
 
         # have agent and agent_types as strings
         tuple_df = map_columns(tuple_df, agent_type=agent_types,
                                agent=agents, episode=episode.tolist())
 
         # to replace the tuple of action_ids with the pattern_id might speed up things
-        tuple_df = this_pattern_df[['pattern_id', 'action_ids']].merge(tuple_df)
+        tuple_df = this_pattern_df[[
+            'pattern_id', 'action_ids']].merge(tuple_df)
         tuple_df['pattern_id'] = tuple_df['pattern_id'].astype('category')
         tuple_df = tuple_df.drop(columns='action_ids')
 
@@ -50,6 +53,10 @@ def match_tuples(actions, pattern_df, agent_types, agents, episode, bin_size, **
         # adding total count of all agents
         tuple_df = add_all(
             tuple_df, value_name='count', merge_column='agent', sum_name='all', agg_func='sum')
+
+        # adding total count of episodes
+        tuple_df = add_all(
+            tuple_df, value_name='count', merge_column='episode_bin', sum_name=-1, agg_func='sum')
 
         norm = tuple_df.groupby(['agent_type', 'agent', 'episode_bin', 'episode_part'])[
             'count'].transform('sum')
@@ -74,7 +81,8 @@ def match_tuples(actions, pattern_df, agent_types, agents, episode, bin_size, **
 
 
 def agg_pattern_group(pattern_df):
-    groupby = ['agent', 'episode_bin', 'episode_part', 'agent_type', 'pattern_length']
+    groupby = ['agent', 'episode_bin', 'episode_part',
+               'agent_type', 'pattern_length']
     pattern_group_df = pattern_df.groupby(
         groupby + ['pattern_group_name'])['count'].sum().reset_index()
     norm = pattern_group_df.groupby(groupby)['count'].transform('sum')
@@ -87,13 +95,15 @@ def agg_pattern_group(pattern_df):
     column_order = [
         'agent', 'episode_bin', 'episode_part', 'agent_type', 'pattern_length', 'name', 'type', 'count', 'freq'
     ]
-    cat_column = ['agent', 'episode_bin', 'episode_part', 'agent_type', 'pattern_length', 'name']
+    cat_column = ['agent', 'episode_bin', 'episode_part',
+                  'agent_type', 'pattern_length', 'name', 'type']
     df[cat_column] = df[cat_column].astype('category')
     return df[column_order]
 
 
 def filter_top_pattern(pattern_df):
-    columns = ['agent', 'episode_bin', 'episode_part', 'agent_type', 'pattern_length', 'type']
+    columns = ['agent', 'episode_bin', 'episode_part',
+               'agent_type', 'pattern_length', 'type']
     median_count = pattern_df.groupby(columns)['count'].transform('median')
     pattern_df = pattern_df[pattern_df['count'] > median_count]
     pattern_df = pattern_df.sort_values(columns).reset_index(drop=True)

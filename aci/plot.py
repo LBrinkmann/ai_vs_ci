@@ -78,14 +78,14 @@ def plot(
 
     grid = {n: g for g, n in zip(grid[::-1], ['col', 'row'])}
 
-    print(grid_order, grid)
+    # print(grid_order, grid)
 
     grid_order = {
         f'{k}_order': grid_order[v] if v in grid_order else sorted([n for n in dfs[v].unique() if not pd.isnull(n)])
         for k, v in grid.items()
     }
 
-    print(grid_order)
+    # print(grid_order)
 
     other = {}
     if hue is not None:

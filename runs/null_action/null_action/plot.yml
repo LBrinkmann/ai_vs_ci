@@ -1,0 +1,69 @@
+clean: true
+cores: 32
+preprocess_args:
+  metrics:
+    selectors:
+      mode: train
+      episode_part: full
+      metric_name:
+        [ind_try, ind_anticoordination, ind_coordination, ind_crosscoordination]
+      agent: all
+  pattern_metrics:
+    selectors:
+      mode: train
+      agent: all
+      type: pattern
+      episode_part: full
+      pattern_length: [3, 4]
+      # agent_type: ci
+
+  # correlations:
+  #   selectors:
+  #     mode: train
+  #     agent: all
+  top_pattern:
+    selectors:
+      mode: train
+      agent: all
+      type: pattern
+      episode_part: full
+      # pattern_length: 4
+plots:
+  - expand: [lr, rewards]
+    filename: metrics
+    selectors:
+      metric_name: [ind_try, ind_anticoordination, ind_crosscoordination]
+    x: episode_bin
+    y: value
+    grid: [ai_weights, ci_weights]
+    hue: agent_type
+    style: metric_name
+    name: metrics
+  - expand: [lr, rewards, metric_name]
+    filename: pattern_metrics
+    selectors:
+      {}
+      # metric_name: [ind_try, ind_anticoordination, ind_crosscoordination]
+    x: episode_bin
+    y: value
+    grid: [ai_weights, ci_weights]
+    hue: agent_type
+    style: pattern_length
+    name: entropy
+    x_label: episode
+    y_label: entropy
+  - expand: [pattern_length, agent_type]
+    filename: top_pattern
+    selectors:
+      freq: { "gt": 0.05 }
+      rewards: individual
+      lr: 0.0001
+      ai_weights: individual
+    x: episode_bin
+    y: count
+    grid: [ai_weights, ci_weights]
+    hue: name
+    style: name
+    name: pattern_count
+    x_label: episode
+    y_label: pattern count
