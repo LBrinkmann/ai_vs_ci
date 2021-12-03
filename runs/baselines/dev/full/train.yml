@@ -1,0 +1,120 @@
+labels:
+  project: ai_vs_ci
+  batch: test_full
+params:
+  device_name: cpu
+  save_interval:
+    train: 1
+    eval: 1
+  scheduler_args:
+    episodes: 100
+    eval_period: 10
+    eval_setting:
+      eps:
+        ci: 0.0
+        ai: 0.0
+      training:
+        ci: false
+        ai: false
+    phases:
+      - episode: 0
+        setting:
+          eps:
+            ci: 0.1
+            ai: 0.1
+          training:
+            ci: true
+            ai: true
+  environment_args:
+    class_name: network_game
+    n_nodes: 20
+    n_actions: 4
+    episode_steps: 20
+    max_history: 20
+    network_period: 2
+    mapping_period: 5
+    graph_args:
+      constrains:
+        max_max_degree: 8
+        connected: True
+      graph_args:
+        p: 0.2
+      graph_type: erdos_renyi
+    reward_args:
+      ci:
+        local_coordination:
+          ci: 2
+      ai:
+        ind_crosscoordination:
+          ci: -3
+    agent_type_args:
+      ci:
+        mapping_type: fixed
+      ai:
+        mapping_type: random
+    control_args:
+      correlated: True
+      cross_correlated: True
+      n_control: 8
+  observer_args:
+    ci:
+      class_name: neighbor
+      neighbor_view_args:
+        actions_view: ["ci"]
+      control_view_args:
+        metric_view:
+          - agent_type: ci
+            metric_name: global_coordination
+          - agent_type: ci
+            metric_name: local_coordination
+        control_view: "ci"
+    ai:
+      class_name: neighbor
+      neighbor_view_args:
+        actions_view: ["ci"]
+  controller_args:
+    ai:
+      class_name: madqn
+      gamma: 0.80
+      target_update_freq: 2
+      mix_freq: 2
+      sample_args:
+        batch_size: 5
+        horizon: 20
+      opt_args:
+        lr: 0.001
+      wrapper_args:
+        weight_sharing: false
+        mix_weights_args:
+          noise_factor: 0.5
+          mixing_factor: 0.5
+        action_permutation: False
+        net_type: pooling_gru
+      model_args:
+        linear1: true
+        rnn1: true
+        linear2: true
+        rnn2: true
+        hidden_size: 20
+        pooling_types: ["avg", "max", "sum"]
+    ci:
+      class_name: madqn
+      gamma: 0.80
+      target_update_freq: 2
+      sample_args:
+        batch_size: 5
+        horizon: 20
+      opt_args:
+        lr: 0.001
+      wrapper_args:
+        weight_sharing: True
+        mix_weights_args: null
+        action_permutation: False
+        net_type: pooling_gru
+      model_args:
+        linear1: true
+        rnn1: true
+        linear2: true
+        rnn2: true
+        hidden_size: 20
+        pooling_types: ["avg", "max", "sum"]

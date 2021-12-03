@@ -1,15 +1,12 @@
-CONTROLLERS = {}
-
-# from .dqn import DQN
-from .madqn import MADQN
-from .maq import MAQ
-from .heuristic import HeuristicController
 from .tabularq import TabularQ
+from .heuristic import HeuristicController
+from .madqn import MADQN
+from .dqn import DQN
 
 
 CONTROLLERS = {
-    "maq": MAQ,
     "madqn": MADQN,
     "heuristic": HeuristicController,
-    "tabularq": TabularQ
+    "tabularq": TabularQ,
+    "dqn": DQN
 }

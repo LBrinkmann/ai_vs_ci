@@ -1,0 +1,36 @@
+grid:
+  - - params.controller_args.ci.model_args:
+        pooling_types: ["avg", "max", "sum"]
+      params.controller_args.ai.model_args:
+        pooling_types: ["avg", "max", "sum"]
+      labels.pooling_types: all
+    - params.controller_args.ci.model_args:
+        pooling_types: ["avg"]
+      params.controller_args.ai.model_args:
+        pooling_types: ["avg"]
+      labels.pooling_types: avg
+    - params.controller_args.ci.model_args:
+        pooling_types: ["max"]
+      params.controller_args.ai.model_args:
+        pooling_types: ["max"]
+      labels.pooling_types: max
+    - params.controller_args.ci.model_args:
+        pooling_types: ["sum"]
+      params.controller_args.ai.model_args:
+        pooling_types: ["sum"]
+      labels.pooling_types: sum
+    - params.controller_args.ci.model_args:
+        pooling_types: ["avg", "max", "sum"]
+      params.controller_args.ai.model_args:
+        pooling_types: ["avg"]
+      labels.pooling_types: asym
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+include:
+  - baseconfigs/train/cuda_v1.yml
+  - baseconfigs/train/envs/erdos_renyi_20_v1.yml
+  - baseconfigs/train/envs/reward_original_v1.yml
+  - baseconfigs/train/controller/madql_medium_v1.yml
+  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/scheduler/on_off_15000_v1.yml

@@ -1,0 +1,22 @@
+params:
+  controller_args:
+    ai:
+      wrapper_args:
+        net_type: pooling_gru
+      model_args:
+        linear1: true
+        rnn1: true
+        linear2: true
+        rnn2: true
+        hidden_size: 100
+        pooling_types: ["sum", "max", "avg"]
+    ci:
+      wrapper_args:
+        net_type: pooling_gru
+      model_args:
+        linear1: true
+        rnn1: true
+        linear2: true
+        rnn2: true
+        hidden_size: 100
+        pooling_types: ["sum", "max", "avg"]

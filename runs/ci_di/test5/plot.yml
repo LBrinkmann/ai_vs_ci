@@ -1,0 +1,129 @@
+clean: true
+cores: 32
+preprocess_args:
+  metrics:
+    selectors:
+      agent_type: ci
+      episode_part: full
+      mode: train
+      # rewards: [global, individual]
+      metric_name:
+        [ind_anticoordination, ind_coordination, ind_crosscoordination]
+      agent: all
+      architecture: [central, individual, random, shared, network]
+      # lr: [0.0001]
+    combine:
+      "oracle":
+        "random":
+          architecture: random
+        "ind.":
+          architecture: individual
+        "shared":
+          architecture: shared
+        "central":
+          architecture: central
+        "network":
+          architecture: network
+      reward:
+        global:
+          rewards: global
+        "ind.":
+          rewards: individual
+      metric:
+        "coordination (group objective)":
+          metric_name: ind_anticoordination
+        "prediction (ai objective)":
+          metric_name: ind_crosscoordination
+      "group model size":
+        small:
+          ci_hidden_size: 20
+        large:
+          ci_hidden_size: 100
+  pattern_metrics:
+    selectors:
+      mode: train
+      agent: all
+      type: pattern
+      episode_part: full
+      pattern_length: 4
+      # agent_type: ci
+      architecture: [central, individual, random, shared, network]
+      # lr: [0.0001]
+    combine:
+      "oracle":
+        "random":
+          architecture: random
+        "ind.":
+          architecture: individual
+        "shared":
+          architecture: shared
+        "central":
+          architecture: central
+        # "network":
+        #   architecture: network
+      reward:
+        global:
+          rewards: global
+        "ind.":
+          rewards: individual
+      "group model size":
+        small:
+          ci_hidden_size: 20
+        large:
+          ci_hidden_size: 100
+  correlations:
+    selectors:
+      mode: train
+      agent: all
+  top_pattern:
+    selectors:
+      mode: train
+      agent: all
+plots:
+  - expand: [metric]
+    filename: metrics
+    selectors:
+      reward: [global]
+      metric: ["coordination (group objective)"]
+      oracle: [random, "ind."]
+    x: episode_bin
+    y: value
+    grid: [oracle, reward]
+    grid_order:
+      oracle: [random, "ind."]
+      # reward: ["ind.", global]
+    hue: lr
+    style: group model size
+    name: diversity_of_results
+    x_label: episode
+    y_label: fraction of nodes
+  - expand: []
+    filename: metrics
+    selectors:
+      lr: [0.0001]
+    x: episode_bin
+    y: value
+    grid: [oracle, reward]
+    grid_order:
+      oracle: [random, "ind.", shared, central, network]
+      reward: ["ind.", global]
+    hue: metric
+    style: group model size
+    name: metrics
+    x_label: episode
+    y_label: fraction of nodes
+  - expand: [metric_name, agent_type]
+    filename: pattern_metrics
+    selectors:
+      lr: [0.0001]
+    x: episode_bin
+    y: value
+    grid: [group model size, reward]
+    grid_order:
+      "group model size": [small, large]
+      reward: ["ind.", global]
+    hue: oracle
+    style: oracle
+    name: entropy
+    x_label: episode
+    y_label: entropy

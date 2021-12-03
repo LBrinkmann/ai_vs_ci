@@ -1,0 +1,101 @@
+clean: true
+cores: 1
+# baseline: runs/baselines/1000_v1
+preprocess_args:
+  metrics:
+    selectors:
+      mode: train
+      metric_name: [ind_anticoordination, ind_crosscoordination]
+      agent: all
+    combine:
+      metric:
+        anti-coor:
+          metric_name: ind_anticoordination
+        catch:
+          metric_name: ind_crosscoordination
+      human:
+        ind:
+          ci_weights: individual
+        shared:
+          ci_weights: shared
+      ai:
+        ind:
+          ai_weights: individual
+        shared:
+          ai_weights: shared
+  pattern_metrics:
+    selectors:
+      mode: train
+      agent: all
+    combine:
+      human:
+        ind:
+          ci_weights: individual
+        shared:
+          ci_weights: shared
+      ai:
+        ind:
+          ai_weights: individual
+        shared:
+          ai_weights: shared
+  # correlations:
+  #   selectors:
+  #     mode: train
+  #     agent: all
+  # top_pattern:
+  #   selectors:
+  #     mode: train
+  #     agent: all
+plots:
+  # - expand: [agent_type, lr, rewards]
+  #   filename: correlations
+  #   selectors:
+  #     episode_part: full
+  #   x: episode_bin
+  #   y: value
+  #   grid: [ai_weights, ci_weights]
+  #   hue: delta
+  #   # style: node
+  #   name: correlations
+  # - expand: [type, pattern_length, lr, rewards]
+  #   filename: top_pattern
+  #   selectors:
+  #     episode_part: full
+  #   x: episode_bin
+  #   y: count
+  #   grid: [ai_weights, ci_weights]
+  #   hue: name
+  #   style: agent_type
+  #   name: top_pattern
+  - expand: []
+    filename: metrics
+    selectors:
+      agent_type: ci
+      episode_part: full
+      rewards: global
+      # human: ind
+    x: episode_bin
+    y: value
+    x_label: episode
+    y_label: fraction of agents
+    grid: [ai, human]
+    hue: metric
+    style: lr
+    name: metrics
+  - expand: []
+    filename: pattern_metrics
+    selectors:
+      episode_part: full
+      metric_name: entropy
+      type: pattern
+      pattern_length: 4
+      # human: ind
+      rewards: global
+    x: episode_bin
+    y: value
+    x_label: episode
+    y_label: entropy
+    grid: [ai, human]
+    hue: agent_type
+    style: lr
+    name: entropy

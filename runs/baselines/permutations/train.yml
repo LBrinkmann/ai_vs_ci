@@ -1,0 +1,48 @@
+grid:
+  - - params.environment_args.control_args:
+        correlated: False
+        cross_correlated: False
+        n_control: 8
+      params.controller_args.ci.wrapper_args.action_permutation: False
+      labels.permuations: not_active
+    - params.environment_args.control_args:
+        correlated: False
+        cross_correlated: False
+        n_control: 8
+      params.controller_args.ci.wrapper_args.action_permutation: true
+      labels.permuations: not_correlated_8
+    - params.environment_args.control_args:
+        correlated: True
+        cross_correlated: False
+        n_control: 2
+      params.controller_args.ci.wrapper_args.action_permutation: true
+      labels.permuations: correlated_2
+    - params.environment_args.control_args:
+        correlated: True
+        cross_correlated: False
+        n_control: 8
+      params.controller_args.ci.wrapper_args.action_permutation: true
+      labels.permuations: correlated_8
+    - params.environment_args.control_args:
+        correlated: True
+        cross_correlated: False
+        n_control: 24
+      params.controller_args.ci.wrapper_args.action_permutation: true
+      labels.permuations: correlated_24
+    - params.environment_args.control_args:
+        correlated: True
+        cross_correlated: True
+        n_control: 8
+      params.controller_args.ci.wrapper_args.action_permutation: true
+      params.controller_args.ai.wrapper_args.action_permutation: true
+      labels.permuations: crosscorrelated_8
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+include:
+  - baseconfigs/train/cuda_v1.yml
+  - baseconfigs/train/envs/erdos_renyi_20_v1.yml
+  - baseconfigs/train/envs/reward_original_v1.yml
+  - baseconfigs/train/controller/madql_medium_sum_v1.yml
+  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/scheduler/2p_25000_v1.yml

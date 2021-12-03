@@ -1,27 +1,20 @@
-from collections import namedtuple
-import math
-import random
-import torch as th
-import numpy as np
-import pandas as pd
-
 from aci.heuristics import HEURISTICS
 
 
 class HeuristicController:
-    def __init__(self, observation_shape, n_agents, n_actions, device, heuristic_name, agent_args):
-        self.n_actions = n_actions
-        self.device = device
-        self.heuristic = HEURISTICS[heuristic_name](observation_shape, n_actions, **agent_args)
-        
-    def get_q(self, observation, training=None):
-        return self.heuristic.get_q(observation)
+    def __init__(self, observation_shape, env_info, device, heuristic_name, agent_args={}, **_):
+        self.heuristic = HEURISTICS[heuristic_name](
+            observation_shape, **env_info, **agent_args, device=device)
+        self.sample_args = None
 
-    def init_episode(self, observations, *_, **__):
+    def get_q(self, **view):
+        return self.heuristic.get_q(**view)
+
+    def init_episode(self, *_, **__):
         pass
 
-    def update(self, actions, observations, *_, **__):
+    def update(self, *_, **__):
         pass
 
-    def log(self, writer, details):
+    def log(self, *_, **__):
         pass

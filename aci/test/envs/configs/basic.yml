@@ -1,0 +1,25 @@
+n_nodes: 6
+n_actions: 3
+episode_steps: 50
+network_period: 1
+mapping_period: 0 # other values currently not supported
+reward_period: 1
+max_history: 100
+graph_args:
+  constrains:
+    max_max_degree: 4
+    connected: True
+  graph_args:
+    p: 0.2
+  graph_type: erdos_renyi
+rewards_args:
+  ai:
+    avg_catch: 0.5
+    avg_coordination: 0
+    ind_catch: 0.5
+    ind_coordination: 0
+  ci:
+    avg_catch: 0
+    avg_coordination: 0
+    ind_catch: 0
+    ind_coordination: 1

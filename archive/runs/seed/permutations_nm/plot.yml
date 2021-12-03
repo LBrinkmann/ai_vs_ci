@@ -1,0 +1,93 @@
+clean: true
+preprocess_args:
+  metrics:
+    selectors:
+      mode: train
+      metric_name: [ind_catch, ind_coordination]
+      agent: all
+  pattern_metrics:
+    selectors:
+      mode: train
+      agent: all
+  correlations:
+    selectors:
+      mode: train
+      agent: all
+  top_pattern:
+    selectors:
+      mode: train
+      agent: all
+
+plots:
+  - expand: [lr, n_seeds, correlated]
+    filename: correlations
+    baseline:
+      column: other
+      value: random_ci
+    selectors:
+      episode_part: full
+      other: [ai, ci, random_ai]
+      node: [ai, ci]
+    x: delta_t
+    y: value
+    grid: [metric_name, episode_bin]
+    hue: other
+    style: node
+    name: correlations
+  - expand: [lr, n_seeds, correlated]
+    filename: top_pattern
+    baseline:
+      column: agent_types
+      value: random_ai
+    selectors:
+      episode_part: full
+      agent_types: [ai, ci, random_ai]
+    x: episode_bin
+    y: count
+    grid: [type, pattern_length]
+    hue: name
+    style: agent_types
+    name: top_pattern
+  - expand: [lr, n_seeds]
+    filename: metrics
+    baseline:
+      column: agent_source
+      value: random
+    selectors:
+      metric_name: [ind_catch, ind_coordination]
+    x: episode_bin
+    y: value
+    grid: [correlated]
+    hue: metric_name
+    style: episode_part
+    name: metrics
+  - expand: [lr, n_seeds]
+    filename: pattern_metrics
+    baseline:
+      column: agent_types
+      value: random_ai
+    selectors:
+      metric_name: entropy
+      episode_part: full
+      agent_types: [ai, ci, random_ai]
+    x: episode_bin
+    y: value
+    grid: [type, pattern_length]
+    hue: correlated
+    style: agent_types
+    name: entropy
+  - expand: [lr, n_seeds]
+    filename: pattern_metrics
+    baseline:
+      column: agent_types
+      value: random_ai
+    selectors:
+      metric_name: kl_div
+      episode_part: full
+      agent_types: [ai, ci, random_ai]
+    x: episode_bin
+    y: value
+    grid: [type, pattern_length]
+    hue: correlated
+    style: agent_types
+    name: kl_div

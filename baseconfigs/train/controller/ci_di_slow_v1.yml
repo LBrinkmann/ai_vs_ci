@@ -1,0 +1,31 @@
+params:
+  controller_args:
+    ai:
+      class_name: dqn
+      gamma: 0.80
+      target_update_freq: 200
+      sample_args:
+        batch_size: 20
+        horizon: 500
+      opt_args:
+        lr: 0.001
+      wrapper_args:
+        net_type: central
+      model_args:
+        hidden_size: 100
+        rnn1: true
+        linear2: true
+    ci:
+      class_name: madqn
+      gamma: 0.80
+      target_update_freq: 200
+      sample_args:
+        batch_size: 20
+        horizon: 500
+      opt_args:
+        lr: 0.001
+      wrapper_args:
+        weight_sharing: false
+        net_type: gru
+      model_args:
+        hidden_size: 100

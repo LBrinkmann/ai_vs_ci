@@ -1,0 +1,10 @@
+exec:
+  command: video
+  script_name: local
+  cores: 6
+  hours: 2
+  memory: 32
+params:
+  video_args:
+    train:
+      mod_episode: 500

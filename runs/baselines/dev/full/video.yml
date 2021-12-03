@@ -1,0 +1,7 @@
+labels:
+  project: ai_vs_ci
+  batch: test_full
+params:
+  video_args:
+    train:
+      mod_episode: 100

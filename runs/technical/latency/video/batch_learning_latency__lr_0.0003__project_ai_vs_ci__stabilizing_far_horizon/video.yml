@@ -1,0 +1,18 @@
+exec:
+  command: video
+  cores: 6
+  hours: 2
+  in_dir: runs/technical/latency/train/project_ai_vs_ci__batch_learning_latency__stabilizing_far_horizon__lr_0.0003
+  memory: 32
+  script_name: cpu_torque
+exp_id: ebaf3063-cbc5-4700-9bcf-f7c576517bda
+job_id: batch_learning_latency__lr_0.0003__project_ai_vs_ci__stabilizing_far_horizon
+labels:
+  batch: learning_latency
+  lr: 0.0003
+  project: ai_vs_ci
+  stabilizing: far_horizon
+params:
+  video_args:
+    train:
+      mod_episode: 500

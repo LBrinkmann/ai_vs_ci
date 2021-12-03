@@ -1,0 +1,2 @@
+include:
+  - baseconfigs/post/gpu_v1.yml

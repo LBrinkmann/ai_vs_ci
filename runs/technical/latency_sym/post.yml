@@ -1,0 +1,5 @@
+labels:
+  project: ai_vs_ci
+  batch: learning_latency
+include:
+  - baseconfigs/post/v1.yml

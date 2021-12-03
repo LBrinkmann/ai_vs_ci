@@ -1,0 +1,9 @@
+exec:
+  command: train
+  script_name: local
+params:
+  seed: null
+  device_name: cpu
+  save_interval:
+    train: 10
+    eval: 1

@@ -1,0 +1,8 @@
+parse_args:
+  ref_tuple:
+    max_length: 5
+    n_colors: 4
+  eval:
+    preprocess: {}
+  train:
+    preprocess: {}

@@ -1,0 +1,48 @@
+params:
+  environment_args:
+    n_nodes: 64
+    n_actions: 5
+    max_neighbors: 4
+    null_action: true
+    reward_args:
+      ci:
+        ind_anticoordination:
+          ci: 1
+        ind_crosscoordination:
+          ai: -1
+      ai:
+        ind_anticoordination:
+          ci: -1
+        ind_crosscoordination:
+          ai: 1
+  controller_args:
+    ai:
+      wrapper_args:
+        weight_sharing: false
+    ci:
+      wrapper_args:
+        weight_sharing: false
+grid:
+  - params.  environment_args:
+    class_name: network_game
+    n_nodes: 64
+    n_actions: 5
+    max_neighbors: 4
+    null_action: true
+    episode_steps: 20
+    max_history: 20
+    network_period: 0
+    mapping_period: 0
+    graph_args:
+      seed: 123
+      components: 8
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+include:
+  - baseconfigs/train/cuda_v2.yml
+  - baseconfigs/train/envs/erdos_renyi_40_v1.yml
+  - baseconfigs/train/controller/pooling_full_v1.yml
+  - baseconfigs/train/controller/madql_slow_v1.yml
+  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/scheduler/10000_v1.yml

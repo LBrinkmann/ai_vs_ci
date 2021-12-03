@@ -1,0 +1,18 @@
+grid:
+  - params.controller_args.ai.target_update_freq: [10, 500]
+    params.controller_args.ci.target_update_freq: [10, 500]
+    labels.target_update_freq: [10, 500]
+  - params.controller_args.ai.sample_args.horizon: [50, 500]
+    params.controller_args.ci.sample_args.horizon: [50, 500]
+    labels.horizon: [50, 500]
+  - params.controller_args.ai.wrapper_args.weight_sharing: [true, false]
+    labels.ai_weights: [shared, individual]
+  - params.controller_args.ci.wrapper_args.weight_sharing: [true, false]
+    labels.ci_weights: [shared, individual]
+include:
+  - baseconfigs/train/cuda_repro_v1.yml
+  - baseconfigs/train/envs/random_repro_v1.yml
+  - baseconfigs/train/envs/reward_global_v1.yml
+  - baseconfigs/train/controller/madql_repro_v1.yml
+  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/scheduler/10000_v1.yml

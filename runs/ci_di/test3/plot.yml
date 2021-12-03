@@ -1,0 +1,89 @@
+clean: true
+cores: 32
+preprocess_args:
+  metrics:
+    selectors:
+      mode: train
+      metric_name:
+        [ind_anticoordination, ind_coordination, ind_crosscoordination]
+      agent: all
+      architecture: [central, individual, random, shared]
+      # lr: [0.0001]
+    combine:
+      "ai architecture":
+        "#1 random":
+          architecture: random
+        "#2 individual":
+          architecture: individual
+        "#3 shared":
+          architecture: shared
+        "#4 central":
+          architecture: central
+      metric:
+        "coordination (human objective)":
+          metric_name: ind_anticoordination
+        "prediction (ai objective)":
+          metric_name: ind_crosscoordination
+      "human model size":
+        small:
+          ci_hidden_size: 20
+        large:
+          ci_hidden_size: 100
+  pattern_metrics:
+    selectors:
+      mode: train
+      agent: all
+      architecture: [central, individual, random, shared]
+      # lr: [0.0001]
+    combine:
+      "ai architecture":
+        "#1 random":
+          architecture: random
+        "#2 individual":
+          architecture: individual
+        "#3 shared":
+          architecture: shared
+        "#4 central":
+          architecture: central
+      "human model size":
+        small:
+          ci_hidden_size: 20
+        large:
+          ci_hidden_size: 100
+  correlations:
+    selectors:
+      mode: train
+      agent: all
+  top_pattern:
+    selectors:
+      mode: train
+      agent: all
+plots:
+  - expand: [lr]
+    filename: metrics
+    selectors:
+      agent_type: ci
+      episode_part: full
+    x: episode_bin
+    y: value
+    grid: [ai architecture]
+    hue: metric
+    style: human model size
+    name: metrics
+    x_label: episode
+    y_label: fraction of nodes
+  - expand: [metric_name, lr]
+    filename: pattern_metrics
+    selectors:
+      type: pattern
+      episode_part: full
+      pattern_length: 4
+      agent_type: ci
+    x: episode_bin
+    y: value
+    grid: [ai architecture]
+    # hue: human model size
+    style: human model size
+    name: entropy
+    x_label: episode
+    y_label: entropy

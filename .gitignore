@@ -5,6 +5,21 @@
 *.log
 .env
 temp.png
+*.DS_Store
 
 logs
 tmp
+
+*.gzip
+*.pt
+
+*/**/post
+*/**/merge
+*/**/train
+# */**/video
+# */**/plot
+!baseconfigs/post
+!baseconfigs/train
+!baseconfigs/plot
+
+!runs/null_action/**/merge

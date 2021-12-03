@@ -1,0 +1,26 @@
+labels:
+  project: ai_vs_ci
+  batch: test_full
+params:
+  seed: 42
+  parse_args:
+    pattern_args:
+      min_length: 4
+      max_length: 4
+      actions: ABCDEFG
+    eval:
+      correlations_args:
+        max_delta: 3
+        bin_size: 2
+      tuple_args:
+        bin_size: 2
+      metric_args:
+        bin_size: 2
+    train:
+      correlations_args:
+        max_delta: 2
+        bin_size: 2
+      tuple_args:
+        bin_size: 2
+      metric_args:
+        bin_size: 2

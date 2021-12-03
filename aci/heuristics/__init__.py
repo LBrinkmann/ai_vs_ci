@@ -1,9 +1,9 @@
-from .agent import HeuristicAgent1
-from .ai import HeuristicAI1
-from .titfortat import TitForTat
+# from .agent import HeuristicAgent1
+# from .ai import HeuristicAI1
+# from .titfortat import TitForTat
+from .random import RandomAgent
+
 
 HEURISTICS = {
-    "ha1": HeuristicAgent1,
-    "hai1": HeuristicAI1,
-    "titfortat": TitForTat
+    "random": RandomAgent,
 }

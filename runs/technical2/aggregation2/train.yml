@@ -1,0 +1,56 @@
+description: >-
+  Here we test the aggregation. Hopefully we are fine with just using max_sum.
+grid:
+  - - params.environment_args.reward_args:
+        ci:
+          local_anticoordination:
+            ci: 1
+          local_crosscoordination:
+            ci: -1
+        ai:
+          local_anticoordination:
+            ci: -1
+          local_crosscoordination:
+            ci: 1
+      labels.rewards: local
+  - - params.controller_args.ci.model_args:
+        pooling_types: ["avg", "max", "sum"]
+      params.controller_args.ai.model_args:
+        pooling_types: ["avg", "max", "sum"]
+      labels.pooling_types: all
+    - params.controller_args.ci.model_args:
+        pooling_types: ["max", "sum"]
+      params.controller_args.ai.model_args:
+        pooling_types: ["max", "sum"]
+      labels.pooling_types: max_sum
+    - params.controller_args.ci.model_args:
+        pooling_types: ["avg"]
+      params.controller_args.ai.model_args:
+        pooling_types: ["avg"]
+      labels.pooling_types: avg
+    - params.controller_args.ci.model_args:
+        pooling_types: ["max"]
+      params.controller_args.ai.model_args:
+        pooling_types: ["max"]
+      labels.pooling_types: max
+    - params.controller_args.ci.model_args:
+        pooling_types: ["sum"]
+      params.controller_args.ai.model_args:
+        pooling_types: ["sum"]
+      labels.pooling_types: sum
+  - params.controller_args.ci.model_args.hidden_size: [20, 100]
+    params.controller_args.ai.model_args.hidden_size: [20, 100]
+    labels.hidden_size: [20, 100]
+  - params.environment_args.network_period: [1000]
+    labels.network_period: [1000]
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+include:
+  - baseconfigs/train/cuda_v1.yml
+  - baseconfigs/train/envs/erdos_renyi_40_v1.yml
+  # - baseconfigs/train/envs/reward_original_v1.yml
+  - baseconfigs/train/controller/madql_slow_v2.yml
+  - baseconfigs/train/controller/pooling_full_v1.yml
+  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/scheduler/10000_v1.yml

@@ -1,0 +1,18 @@
+exec:
+  command: video
+  cores: 6
+  hours: 2
+  in_dir: runs/alternatives/coordination/train/project_ai_vs_ci__batch_coordination__rewards_ind_coordination__lr_0.001
+  memory: 32
+  script_name: cpu_torque
+exp_id: 8dd6f7a9-8a7c-4187-a668-123299d6d086
+job_id: batch_coordination__lr_0.001__project_ai_vs_ci__rewards_ind_coordination
+labels:
+  batch: coordination
+  lr: 0.001
+  project: ai_vs_ci
+  rewards: ind_coordination
+params:
+  video_args:
+    train:
+      mod_episode: 500

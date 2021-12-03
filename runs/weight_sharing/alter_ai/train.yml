@@ -1,0 +1,72 @@
+description: >-
+  Here we investigate the impact of the AI to deploy central learning. We also
+  investigate if we can interpolate between central and decentral learning using a regular
+  weight mixing scheme.
+grid:
+  - - params.environment_args.reward_args:
+        ci:
+          ind_anticoordination:
+            ci: 1
+          ind_crosscoordination:
+            ci: -1
+        ai:
+          ind_anticoordination:
+            ci: -1
+          ind_crosscoordination:
+            ci: 1
+      labels.rewards: ind
+    - params.environment_args.reward_args:
+        ci:
+          local_anticoordination:
+            ci: 1
+          local_crosscoordination:
+            ci: -1
+        ai:
+          local_anticoordination:
+            ci: -1
+          local_crosscoordination:
+            ci: 1
+      labels.rewards: local
+    - params.environment_args.reward_args:
+        ci:
+          global_anticoordination:
+            ci: 1
+          global_crosscoordination:
+            ci: -1
+        ai:
+          global_anticoordination:
+            ci: -1
+          global_crosscoordination:
+            ci: 1
+      labels.rewards: global
+  - - params.controller_args.ai.mix_freq: null
+      params.controller_args.ai.wrapper_args.weight_sharing: false
+      labels.mix_freq: no_mixing
+    - params.controller_args.ai.mix_freq: 1
+      params.controller_args.ai.wrapper_args.weight_sharing: false
+      labels.mix_freq: one
+    - params.controller_args.ai.mix_freq: 5
+      params.controller_args.ai.wrapper_args.weight_sharing: false
+      labels.mix_freq: five
+    - params.controller_args.ai.mix_freq: 50
+      params.controller_args.ai.wrapper_args.weight_sharing: false
+      labels.mix_freq: fifty
+    - params.controller_args.ai.mix_freq: 1000
+      params.controller_args.ai.wrapper_args.weight_sharing: false
+      labels.mix_freq: thousand
+    - params.controller_args.ai.mix_freq: null
+      params.controller_args.ai.wrapper_args.weight_sharing: true
+      labels.mix_freq: shared
+  - params.environment_args.network_period: [8000]
+    labels.network_period: [8000]
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+include:
+  - baseconfigs/train/cuda_v1.yml
+  - baseconfigs/train/envs/erdos_renyi_40_v1.yml
+  # - baseconfigs/train/envs/reward_original_v1.yml
+  - baseconfigs/train/controller/madql_slow_v2.yml
+  - baseconfigs/train/controller/pooling_full_v1.yml
+  - baseconfigs/train/observer/neighbors_simple_v1.yml
+  - baseconfigs/train/scheduler/10000_v1.yml

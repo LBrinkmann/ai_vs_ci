@@ -1,0 +1,30 @@
+description: >-
+  Here we test if it helps to also expose the action of the ai.
+grid:
+  - # - params.observer_args:
+    #     ci:
+    #       class_name: neighbor
+    #       neighbor_view_args:
+    #         actions_view: ["ci"]
+    #     ai:
+    #       class_name: central
+    #       actions_view: ["ci"]
+    #   labels.view: ci
+    - params.observer_args:
+        ci:
+          class_name: neighbor
+          neighbor_view_args:
+            actions_view: ["ci", "ai"]
+        ai:
+          class_name: central
+          actions_view: ["ci", "ai"]
+      labels.view: both
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+include:
+  - baseconfigs/train/cuda_repro_v1.yml
+  - baseconfigs/train/envs/erdos_renyi_fixed_v1.yml
+  - baseconfigs/train/envs/reward_global_v1.yml
+  - baseconfigs/train/scheduler/10000_v1.yml
+  - baseconfigs/train/controller/ci_di_slow_v1.yml

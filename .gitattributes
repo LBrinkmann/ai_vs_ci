@@ -1,0 +1,4 @@
+*.png filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*/**/merge filter=lfs diff=lfs merge=lfs -text
+*.pgzip filter=lfs diff=lfs merge=lfs -text

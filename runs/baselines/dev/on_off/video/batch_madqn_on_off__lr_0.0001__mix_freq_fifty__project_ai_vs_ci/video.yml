@@ -1,0 +1,18 @@
+exec:
+  command: video
+  cores: 6
+  hours: 2
+  in_dir: runs/tests/on_off/train/project_ai_vs_ci__batch_madqn_on_off__mix_freq_fifty__lr_0.0001
+  memory: 32
+  script_name: cpu
+exp_id: 738d78ad-5b20-4ad9-a5f6-81d5221ffe35
+job_id: batch_madqn_on_off__lr_0.0001__mix_freq_fifty__project_ai_vs_ci
+labels:
+  batch: madqn_on_off
+  lr: 0.0001
+  mix_freq: fifty
+  project: ai_vs_ci
+params:
+  video_args:
+    train:
+      mod_episode: 500

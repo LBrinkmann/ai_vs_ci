@@ -1,0 +1,190 @@
+description: >-
+  Here we test the different ci architectures.
+params:
+  observer_args:
+    ci:
+      class_name: neighbor
+      neighbor_view_args:
+        actions_view: ["ci"]
+  controller_args:
+    ci:
+      class_name: madqn
+      gamma: 0.80
+      target_update_freq: 200
+      sample_args:
+        batch_size: 20
+        horizon: 500
+      opt_args:
+        lr: 0.001
+      wrapper_args:
+        weight_sharing: false
+        net_type: gru
+      model_args:
+        hidden_size: 100
+grid:
+  - - params.environment_args.reward_args:
+        ci:
+          ind_anticoordination:
+            ci: 1
+          ind_crosscoordination:
+            ci: -1
+        ai:
+          ind_anticoordination:
+            ci: -1
+          ind_crosscoordination:
+            ci: 1
+      labels.rewards: individual
+    - params.environment_args.reward_args:
+        ci:
+          global_anticoordination:
+            ci: 1
+          ind_crosscoordination:
+            ci: -1
+        ai:
+          global_anticoordination:
+            ci: -1
+          ind_crosscoordination:
+            ci: 1
+      labels.rewards: mixed
+    - params.environment_args.reward_args:
+        ci:
+          global_anticoordination:
+            ci: 1
+          global_crosscoordination:
+            ci: -1
+        ai:
+          global_anticoordination:
+            ci: -1
+          global_crosscoordination:
+            ci: 1
+      labels.rewards: global
+  - # - params.controller_args.ai:
+    #     class_name: madqn
+    #     wrapper_args:
+    #       weight_sharing: false
+    #       net_type: gru
+    #     gamma: 0.80
+    #     target_update_freq: 200
+    #     sample_args:
+    #       batch_size: 20
+    #       horizon: 500
+    #     opt_args:
+    #       lr: 0.001
+    #     model_args:
+    #       hidden_size: 100
+    #   params.observer_args.ai:
+    #     class_name: neighbor
+    #     neighbor_view_args:
+    #       actions_view: ["ci"]
+    #   labels.architecture: individual
+    # - params.controller_args.ai:
+    #     class_name: madqn
+    #     wrapper_args:
+    #       weight_sharing: true
+    #       net_type: gru
+    #     gamma: 0.80
+    #     target_update_freq: 200
+    #     sample_args:
+    #       batch_size: 20
+    #       horizon: 500
+    #     opt_args:
+    #       lr: 0.001
+    #     model_args:
+    #       hidden_size: 20
+    #   params.observer_args.ai:
+    #     class_name: neighbor
+    #     neighbor_view_args:
+    #       actions_view: ["ci"]
+    #   labels.architecture: shared_small
+    # - params.controller_args.ai:
+    #     class_name: madqn
+    #     wrapper_args:
+    #       weight_sharing: true
+    #       net_type: gru
+    #     gamma: 0.80
+    #     target_update_freq: 200
+    #     sample_args:
+    #       batch_size: 20
+    #       horizon: 500
+    #     opt_args:
+    #       lr: 0.001
+    #     model_args:
+    #       hidden_size: 100
+    #   params.observer_args.ai:
+    #     class_name: neighbor
+    #     neighbor_view_args:
+    #       actions_view: ["ci"]
+    #   labels.architecture: shared
+    # - params.controller_args.ai:
+    #     class_name: dqn
+    #     wrapper_args:
+    #       net_type: central
+    #     gamma: 0.80
+    #     target_update_freq: 200
+    #     sample_args:
+    #       batch_size: 20
+    #       horizon: 500
+    #     opt_args:
+    #       lr: 0.001
+    #     model_args:
+    #       hidden_size: 100
+    #       rnn1: true
+    #       linear2: true
+    #   params.observer_args.ai:
+    #     class_name: central
+    #     actions_view: ["ci"]
+    #   labels.architecture: central
+    # - params.controller_args.ai:
+    #     class_name: dqn
+    #     wrapper_args:
+    #       net_type: central
+    #     gamma: 0.80
+    #     target_update_freq: 200
+    #     sample_args:
+    #       batch_size: 20
+    #       horizon: 500
+    #     opt_args:
+    #       lr: 0.001
+    #     model_args:
+    #       hidden_size: 20
+    #       rnn1: true
+    #       linear2: true
+    #   params.observer_args.ai:
+    #     class_name: central
+    #     actions_view: ["ci"]
+    #   labels.architecture: central_small
+    # - params.observer_args.ai:
+    #     class_name: identity
+    #   params.controller_args.ai:
+    #     class_name: heuristic
+    #     heuristic_name: random
+    #   labels.architecture: random
+    - params.controller_args.ai:
+        class_name: dqn
+        wrapper_args:
+          net_type: gcn
+        gamma: 0.80
+        target_update_freq: 200
+        sample_args:
+          batch_size: 20
+          horizon: 500
+        opt_args:
+          lr: 0.001
+        model_args:
+          graph_layer_name: GCNConv
+          hidden_size: 100
+      params.observer_args.ai:
+        class_name: network
+        view_args:
+          actions_view: ["ci"]
+      labels.architecture: network
+  - params.controller_args.ci.model_args.hidden_size: [20, 100]
+    labels.ci_hidden_size: [20, 100]
+  - params.controller_args.ci.opt_args.lr: [0.001, 0.0001]
+    params.controller_args.ai.opt_args.lr: [0.001, 0.0001]
+    labels.lr: [0.001, 0.0001]
+include:
+  - baseconfigs/train/cuda_repro_v1.yml
+  - baseconfigs/train/envs/erdos_renyi_fixed_v1.yml
+  - baseconfigs/train/envs/reward_global_v1.yml
+  - baseconfigs/train/scheduler/10000_v1.yml

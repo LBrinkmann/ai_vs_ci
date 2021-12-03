@@ -1,0 +1,9 @@
+exec:
+  command: train
+  script_name: gpu
+params:
+  seed: null
+  device_name: cuda
+  save_interval:
+    train: 10
+    eval: 1

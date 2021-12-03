@@ -1,0 +1,31 @@
+exec:
+  command: train
+  script_name: cpu_torque
+  cores: 1
+  hours: 6
+  memory: 32
+labels:
+  project: ai_vs_ci
+  batch: random_erdos_renyi_20
+include:
+  - baseconfigs/train/envs/erdos_renyi_20_v1.yml
+  - baseconfigs/train/envs/reward_original_v1.yml
+  - baseconfigs/train/scheduler/on_off_15000_v1.yml
+params:
+  seed: null
+  device_name: cpu
+  save_interval:
+    train: 1
+    eval: 1
+  observer_args:
+    ci:
+      class_name: identity
+    ai:
+      class_name: identity
+  controller_args:
+    ai:
+      class_name: heuristic
+      heuristic_name: random
+    ci:
+      class_name: heuristic
+      heuristic_name: random

@@ -1,0 +1,2 @@
+include:
+  - baseconfigs/post/v3.yml
